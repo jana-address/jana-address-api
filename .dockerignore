@@ -1,0 +1,20 @@
+# The web submodule has its own image; never send it (or node_modules) as API build context.
+web
+.git
+.gitmodules
+.github
+.env
+.env.*
+organizer_data
+data/raw
+**/train*.json
+**/sample_input*.json
+**/sample_output*.json
+*.md
+docker-compose*.yml
+compose*.yml
+Dockerfile
+.dockerignore
+bin
+dist
+db

@@ -1,0 +1,24 @@
+# hackathon organizer data: never commit (must not leave the hackathon)
+train.json
+sample_input.json
+sample_output.json
+**/train*.json
+**/sample_input*.json
+**/sample_output*.json
+organizer_data/
+data/raw/
+*.osm.pbf
+
+# env / local overrides (an override file would be auto-loaded by `docker compose up`)
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+compose.override.yml
+
+# build
+/bin/
+/dist/
+coverage.out
+*.tar
+.DS_Store
