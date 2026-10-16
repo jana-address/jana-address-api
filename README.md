@@ -57,6 +57,28 @@ docker compose build
 | GET | `/readyz` | 200, если база отвечает, иначе 503 |
 | GET | `/api/v1/health` | `{"status":"ok","version":"0.1.0","db":"ok"}` |
 
+## Тесты и CI
+
+GitHub Actions (`.github/workflows/ci.yml`) запускается на каждый push в `main` и на
+pull request:
+
+- **test:**
+  - `go mod verify`, `gofmt`, `go vet`;
+  - `go test -race` с покрытием против PostgreSQL 18.6 (service container);
+  - `govulncheck`.
+- **build:**
+  - `docker compose config`;
+  - сборка образов `api` и `db`;
+  - smoke-тест: `docker compose up --wait db api`, затем `/api/v1/health` должен вернуть `"db":"ok"`.
+
+Интеграционный тест базы запускается, только если задан `TEST_DATABASE_URL`:
+
+```bash
+TEST_DATABASE_URL=postgres://jana:jana_local_only@localhost:5432/jana?sslmode=disable go test ./...
+```
+
+Actions закреплены по SHA коммита, а не по тегу.
+
 ## Разработка
 
 ```bash
