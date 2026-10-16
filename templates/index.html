@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="container header__row">
+    <a class="logo" href="/ru/home" aria-label="Jańa Post">
+      <span class="logo__mark">Jańa</span><span class="logo__sub">POST</span>
+    </a>
+
+    <nav class="nav" aria-label="Основная навигация">
+      {{range $i, $l := .Nav}}<a href="{{$l.URL}}"{{if eq $i 0}} class="is-active"{{end}}>{{$l.Title}}</a>{{end}}
+    </nav>
+
+    <div class="header__tools">
+      <div class="lang">
+        <button class="lang__btn" type="button" aria-haspopup="listbox">{{.Lang}} ▾</button>
+        <ul class="lang__list" role="listbox">
+          {{range .Langs}}<li role="option">{{.}}</li>{{end}}
+        </ul>
+      </div>
+      <a class="link-pill" href="#">Отделения</a>
+      <a class="link-pill" href="#">Помощь</a>
+      <a class="btn btn--primary" href="{{.LoginURL}}">Войти</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="container hero__grid">
+      <div>
+        <h1>{{.HeroTitle}}</h1>
+        <p class="hero__lead">{{.HeroText}}</p>
+        <form class="search" id="track-form">
+          <input type="search" name="q" placeholder="Поиск" aria-label="Поиск по трек-номеру" required>
+          <button class="btn btn--primary" type="submit">Найти</button>
+        </form>
+        <p class="search__result" id="track-result" role="status"></p>
+      </div>
+      <div class="hero__art" aria-hidden="true">
+        <div class="parcel parcel--a"></div>
+        <div class="parcel parcel--b"></div>
+        <div class="parcel parcel--c"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="container stats">
+    {{range .Stats}}
+    <div class="stat">
+      <strong>{{.Value}}</strong>
+      <span>{{.Label}}</span>
+    </div>
+    {{end}}
+  </section>
+
+  <section class="container partners">
+    <h2>Мы партнёры ведущих маркетплейсов</h2>
+    <div class="partners__row">
+      {{range .Partners}}<div class="partners__logo">{{.}}</div>{{end}}
+    </div>
+  </section>
+
+  <section class="container steps">
+    <h2>{{.StepsTitle}}</h2>
+    <ol class="steps__list">
+      {{range $i, $s := .Steps}}
+      <li class="step">
+        <span class="step__num">{{inc $i}}</span>
+        <h3>{{$s.Title}}</h3>
+        <p>{{$s.Text}}</p>
+      </li>
+      {{end}}
+    </ol>
+  </section>
+
+  <section class="app">
+    <div class="container app__grid">
+      <div>
+        <h2>{{.AppTitle}}</h2>
+        <p>{{.AppText}}</p>
+        <div class="stores">
+          <a class="store" href="#"><small>Скачать</small>App Store</a>
+          <a class="store" href="#"><small>Доступно</small>Google Play</a>
+        </div>
+      </div>
+      <div class="phone" aria-hidden="true"><div class="phone__screen"></div></div>
+    </div>
+  </section>
+
+  <section class="container help">
+    <h2>{{.HelpTitle}}</h2>
+    <div class="tabs" role="tablist">
+      {{range $i, $t := .Tabs}}
+      <button class="tabs__btn{{if eq $i 0}} is-active{{end}}" role="tab" data-tab="{{$t.ID}}">{{$t.Title}}</button>
+      {{end}}
+    </div>
+    {{range $i, $t := .Tabs}}
+    <article class="panel{{if eq $i 0}} is-active{{end}}" id="tab-{{$t.ID}}" role="tabpanel">
+      <div>
+        <h3>{{$t.Heading}}</h3>
+        <p>{{$t.Subtitle}}</p>
+        <ul>
+          {{range $t.Points}}<li>{{.}}</li>{{end}}
+        </ul>
+        <a class="btn btn--ghost" href="{{$t.LinkURL}}">Подробнее</a>
+      </div>
+      <div class="panel__art" aria-hidden="true"></div>
+    </article>
+    {{end}}
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="container footer__grid">
+    <div>
+      <a class="logo logo--light" href="/ru"><span class="logo__mark">Jańa</span><span class="logo__sub">POST</span></a>
+      <p class="footer__tag">IT-логистическая компания</p>
+      <div class="stores stores--small">
+        <a class="store" href="#"><small>Скачать</small>App Store</a>
+        <a class="store" href="#"><small>Доступно</small>Google Play</a>
+      </div>
+    </div>
+
+    <div>
+      <h4>Навигация</h4>
+      <ul>{{range .Nav}}<li><a href="{{.URL}}">{{.Title}}</a></li>{{end}}</ul>
+    </div>
+
+    <div>
+      <h4>Свяжитесь с нами</h4>
+      {{range .Contacts}}
+      <p class="contact"><small>{{.Label}}</small><a href="mailto:{{.Email}}">{{.Email}}</a></p>
+      {{end}}
+      <p class="contact"><small>Адрес</small>{{.Address}}</p>
+      <p class="socials">{{range .Socials}}<a href="{{.URL}}" rel="noopener" target="_blank">{{.Title}}</a>{{end}}</p>
+    </div>
+  </div>
+
+  <div class="container footer__bottom">
+    <span>{{.Copyright}}</span>
+    <span class="footer__legal">{{range .Legal}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</span>
+  </div>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
