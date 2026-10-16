@@ -52,3 +52,36 @@ func TestHealth(t *testing.T) {
 		})
 	}
 }
+
+func TestLivezAndRouting(t *testing.T) {
+	h := New(fakeDB{err: errors.New("down")}, "test", slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	cases := []struct {
+		method, path string
+		want         int
+	}{
+		{http.MethodGet, "/livez", http.StatusOK}, // alive even when the DB is down
+		{http.MethodPost, "/api/v1/health", http.StatusMethodNotAllowed},
+		{http.MethodGet, "/nope", http.StatusNotFound},
+	}
+	for _, tc := range cases {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(tc.method, tc.path, nil))
+		if rec.Code != tc.want {
+			t.Errorf("%s %s = %d, want %d", tc.method, tc.path, rec.Code, tc.want)
+		}
+	}
+}
+
+type panicDB struct{}
+
+func (panicDB) Ping(context.Context) error { panic("boom") }
+
+func TestRecoverer(t *testing.T) {
+	h := New(panicDB{}, "test", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/health", nil))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("code = %d, want 500", rec.Code)
+	}
+}
