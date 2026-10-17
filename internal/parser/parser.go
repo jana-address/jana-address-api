@@ -170,7 +170,7 @@ func (st *state) classify() {
 			continue
 		}
 		// "шағын аудан(ы)" = микрорайон (two words)
-		if t.fold == "шагын" && i+1 < len(st.toks) && (st.toks[i+1].fold == "аудан" || st.toks[i+1].fold == "ауданы") {
+		if (t.fold == "шагын" || t.fold == "ыкшам") && i+1 < len(st.toks) && (st.toks[i+1].fold == "аудан" || st.toks[i+1].fold == "ауданы") {
 			t.mk = markers["мкр"]
 			st.toks[i+1].mk = t.mk
 			st.toks[i+1].used = true // second word is part of the marker
@@ -256,8 +256,13 @@ func (st *state) segRange(seg int) (int, int) {
 }
 
 // postfixAdmin markers usually follow the name: "Алматы қаласы", "Тұран ауданы", "Турксибский район".
-var postfixAdmin = map[string]bool{"каласы": true, "ауданы": true, "аудан": true, "облысы": true, "район": true, "р-н": true, "рн": true,
-	"область": true, "обл": true, "обл-ть": true}
+var postfixAdmin = map[string]bool{}
+
+func init() {
+	for _, w := range []string{"қаласы", "ауданы", "аудан", "облысы", "район", "р-н", "рн", "область", "обл", "обл-ть", "ауылы", "ауыл"} {
+		postfixAdmin[fold(w)] = true
+	}
+}
 
 func (st *state) keyOf(a, b int) string {
 	var parts []string
@@ -328,6 +333,9 @@ func (st *state) adminName(m int) (int, int) {
 		}
 	}
 	if backward {
+		if ba == 0 || st.toks[ba-1].kind == tPunct {
+			return ba, bb
+		}
 		return bb, bb
 	}
 	if fa < 0 {
@@ -376,10 +384,10 @@ func (st *state) admin() {
 			continue
 		}
 		// skip leading postcodes: "050000 Алматы ул Абая 10"
-		for a <= b && st.toks[a].kind == tNum && st.toks[a].ignore {
+		for a <= b && (st.toks[a].used || (st.toks[a].kind == tNum && st.toks[a].ignore) || st.isPunct(a, ".")) {
 			a++
 		}
-		if a > b || st.toks[a].kind != tWord || st.toks[a].used {
+		if a > b || st.toks[a].kind != tWord {
 			continue
 		}
 		clean := true // only unmarked words, no numbers
@@ -441,7 +449,7 @@ func (st *state) setCity(k, name string, a, b int) {
 		st.setDir(District, p.district)
 		return
 	}
-	st.set(City, name, SourceString, a, b)
+	st.set(City, ruSpelling(name), SourceString, a, b)
 }
 
 func (st *state) setDistrict(k, name string, a, b int) {
@@ -463,6 +471,15 @@ func (st *state) units() {
 		}
 	}
 	bound := map[int]bool{}
+	for _, m := range ms {
+		j := m + 1
+		for st.isPunct(j, ".") {
+			j++
+		}
+		if st.toks[m].mk.class == mBlock && j < len(st.toks) && st.toks[j].kind == tWord && len([]rune(st.toks[j].text)) == 1 {
+			st.toks[m].used, st.toks[j].used, bound[m] = true, true, true
+		}
+	}
 	after, before := 0, 0
 	bind := func(m, n int) {
 		bound[m] = true
@@ -504,7 +521,7 @@ func (st *state) units() {
 		for i >= 0 && st.isPunct(i, ".:№#") {
 			i--
 		}
-		if st.availNum(i) {
+		if st.availNum(i) && st.toks[m].mk.class != mBlock {
 			l = i
 		}
 		i = m + 1
@@ -564,6 +581,18 @@ func (st *state) landmarks() {
 	var parts []string
 	for i := 0; i < len(st.toks); i++ {
 		t := st.toks[i]
+		if t.kind == tWord && !t.used && postfixLandmark[t.fold] {
+			a := i
+			for a > 0 && st.toks[a-1].kind == tWord && !st.toks[a-1].used && st.toks[a-1].mk == nil && i-a < 3 {
+				a--
+			}
+			if a < i {
+				parts = append(parts, st.text(a, i))
+				st.addSpan(Landmark, a, i)
+				st.markUsed(a, i)
+				continue
+			}
+		}
 		if t.kind != tWord || t.used || t.mk == nil || t.mk.class != mLandmark {
 			continue
 		}
@@ -586,6 +615,14 @@ func (st *state) landmarks() {
 	}
 	if len(parts) > 0 {
 		st.vals[Landmark], st.src[Landmark] = strings.Join(parts, ", "), SourceString
+	}
+}
+
+var postfixLandmark = map[string]bool{}
+
+func init() {
+	for _, w := range []string{"жанында", "қасында", "маңында", "қарсы", "қарсысында", "артында"} {
+		postfixLandmark[fold(w)] = true
 	}
 }
 
@@ -633,6 +670,10 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 		}
 		switch t.kind {
 		case tWord:
+			if t.mk != nil && typ == "жилой комплекс" && a >= 0 && t.mk.class == mStreet &&
+				!(k+1 < len(st.toks) && st.toks[k+1].kind == tWord && st.toks[k+1].mk == nil && !st.toks[k+1].used) {
+				break
+			}
 			if t.mk != nil {
 				return a, b
 			}
@@ -723,8 +764,9 @@ func hasLetter(s string) bool {
 
 func (st *state) street() {
 	var cands []cand
+	covered := -1 // a type word inside a collected name is not a new street: "жк Экспо Бульвар"
 	for i, t := range st.toks {
-		if t.kind != tWord || t.used || t.mk == nil || (t.mk.class != mStreet && t.mk.class != mLiving) {
+		if i <= covered || t.kind != tWord || t.used || t.mk == nil || (t.mk.class != mStreet && t.mk.class != mLiving) {
 			continue
 		}
 		typ := t.mk.canon
@@ -736,6 +778,7 @@ func (st *state) street() {
 		if c.a < 0 {
 			continue
 		}
+		covered = max(covered, c.b)
 		cands = append(cands, c)
 	}
 

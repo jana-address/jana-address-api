@@ -93,6 +93,19 @@ func TestParseExamples(t *testing.T) {
 		{"Алматы мкр Орбита-1 дом 21 кв 30 напротив школы 12", map[Field]string{Landmark: "напротив школы 12", House: "21"}},
 		{"Алматы улца Сейфуллина 498 кв 61", map[Field]string{StreetType: "улица", StreetName: "Сейфуллина"}},
 		{"Астана р-н Нура ул Мухамедханова 8 кв 3", map[Field]string{City: "Астана", District: "Нура", StreetName: "Мухамедханова"}},
+		// generic fixes: folded postfix markers, blocks, letters, Latin types, Kazakh landmarks and villages
+		{"Акмолинская область Шортандинский район п Шортанды ул Целинная 8", map[Field]string{
+			Province: "Акмолинская область", District: "Шортандинский", City: "Шортанды", StreetName: "Целинная", House: "8"}},
+		{"Абая 89а блок Б, кв 211", map[Field]string{StreetName: "Абая", House: "89а", Apartment: "211"}},
+		{"ул. Шевченко 162 ж кв 15", map[Field]string{House: "162ж", Apartment: "15"}},
+		{"кв 5 и кв 6", map[Field]string{Apartment: "5"}},
+		{"astana prospekt Tauelsizdik 41 kv 8", map[Field]string{City: "Астана", StreetType: "проспект", StreetName: "Tauelsizdik", House: "41"}},
+		{"Казахстан Караганда пр Абдирова 17 кв 3", map[Field]string{City: "Караганда", StreetName: "Абдирова", House: "17"}},
+		{"Ақтөбе, 12 ықшам аудан, 25 үй, 40 пәтер", map[Field]string{StreetType: "микрорайон", StreetName: "12", House: "25", Apartment: "40"}},
+		{"Ауэзов көшесі 31, мешіттің жанында", map[Field]string{StreetName: "Ауэзов", House: "31", Landmark: "мешіттің жанында"}},
+		{"Іле ауданы, Өтеген батыр ауылы, Нұрлы көшесі 17", map[Field]string{City: "Отеген батыр", StreetName: "Нұрлы", House: "17"}},
+		{"Астана жк Экспо Бульвар д 3 кв 117", map[Field]string{StreetType: "жилой комплекс", StreetName: "Экспо Бульвар", House: "3"}},
+		{"жк Хайвил ул Абая 5", map[Field]string{LivingArea: "Хайвил", StreetType: "улица", StreetName: "Абая", House: "5"}},
 		{"Алматы мкр Самал-2 ул Жолдасбекова 97 кв 14", map[Field]string{LivingArea: "Самал-2", StreetType: "улица", StreetName: "Жолдасбекова", House: "97"}},
 	}
 	for _, tc := range cases {

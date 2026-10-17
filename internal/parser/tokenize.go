@@ -54,9 +54,9 @@ func tokenize(r []rune) []token {
 			}
 			if singleLetterAt(r, j) {
 				j++
-			} else if j+1 < n && r[j] == ' ' && singleLetterAt(r, j+1) && strings.ContainsRune("аАбБвВ", r[j+1]) &&
-				(j+2 == n || r[j+2] == ',' || (r[j+2] == ' ' && !strings.ContainsRune("вВ", r[j+1]))) {
-				j += 2 // "10 а" -> house "10а" ("10 в подъезде" keeps the preposition)
+			} else if j+1 < n && r[j] == ' ' && singleLetterAt(r, j+1) && unicode.Is(unicode.Cyrillic, r[j+1]) &&
+				(j+2 == n || r[j+2] == ',' || (r[j+2] == ' ' && (strings.ContainsRune("аАбБ", r[j+1]) || (!strings.ContainsRune("иИ", r[j+1]) && markerAt(r, j+3))))) {
+				j += 2 // "10 а", "162 ж кв 15" -> "10а", "162ж" ("10 в подъезде" keeps the preposition)
 			}
 			// fraction: "55/6", "208 / 2"
 			q := j
@@ -103,6 +103,19 @@ func tokenize(r []rune) []token {
 		i = j
 	}
 	return toks
+}
+
+// markerAt reports whether a marker word starts at r[i]: "кв", "подъезд", "эт".
+func markerAt(r []rune, i int) bool {
+	j := i
+	for j < len(r) && isLetter(r[j]) {
+		j++
+	}
+	if j == i {
+		return false
+	}
+	m, ok := markers[fold(string(r[i:j]))]
+	return ok && m.class != mNoise && m.class != mLandmark
 }
 
 // compactNum drops spaces inside a number token ("10 а" -> "10а").

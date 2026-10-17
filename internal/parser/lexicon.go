@@ -49,15 +49,15 @@ func init() {
 	addMarkers(mEntrance, "", "подъезд", "подьезд", "подезд", "падезд", "под", "пд", "кіреберіс", "entrance", "ent", "pod", "podezd", "podyezd")
 	addMarkers(mFloor, "", "этаж", "етаж", "этж", "етж", "эт", "қабат", "floor", "fl", "etazh", "etaj")
 
-	addMarkers(mStreet, "улица", "ул", "улица", "улца", "улиц", "көшесі", "көш", "street", "st", "ul", "ulica")
-	addMarkers(mStreet, "проспект", "пр", "пр-т", "просп", "проспект", "даңғылы", "даңғ", "avenue", "ave", "pr")
-	addMarkers(mStreet, "микрорайон", "мкр", "мкрн", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "microdistrict")
+	addMarkers(mStreet, "улица", "ул", "улица", "улца", "улиц", "уица", "ulitsa", "ulica", "көшесі", "көш", "street", "st", "ul", "ulica")
+	addMarkers(mStreet, "проспект", "пр", "пр-т", "просп", "проспект", "даңғылы", "даңғ", "avenue", "ave", "pr", "prospekt", "prosp", "dangyly")
+	addMarkers(mStreet, "микрорайон", "мкр", "мкрн", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "mkrn", "mikrorayon", "mikroraion", "microdistrict")
 	addMarkers(mStreet, "квартал", "квартал", "кв-л", "квл", "kvartal")
-	addMarkers(mStreet, "переулок", "пер", "переулок", "пер-к", "тұйық")
+	addMarkers(mStreet, "переулок", "пер", "переулок", "пер-к", "тұйық", "pereulok", "per")
 	addMarkers(mStreet, "бульвар", "б-р", "бульвар", "бул")
 	addMarkers(mStreet, "шоссе", "шоссе")
 	addMarkers(mStreet, "трасса", "трасса")
-	addMarkers(mLiving, "жилой комплекс", "жк")
+	addMarkers(mLiving, "жилой комплекс", "жк", "zhk", "jk")
 
 	addMarkers(mCity, "", "г", "город", "гор", "қаласы", "kalasy")
 	addMarkers(mSettlement, "", "пос", "поселок", "пгт", "село", "ауыл", "аул", "ауылы")
@@ -99,6 +99,12 @@ func fuzzyMarker(f string) *marker {
 	}
 	return best
 }
+
+var kkToRu = strings.NewReplacer("Ә", "А", "ә", "а", "Ғ", "Г", "ғ", "г", "Қ", "К", "қ", "к", "Ң", "Н", "ң", "н",
+	"Ө", "О", "ө", "о", "Ұ", "У", "ұ", "у", "Ү", "У", "ү", "у", "Һ", "Х", "һ", "х", "І", "И", "і", "и")
+
+// ruSpelling replaces Kazakh letters with Russian ones, keeping the case.
+func ruSpelling(s string) string { return kkToRu.Replace(s) }
 
 // fuzzyLimit is the allowed number of typos for a word of n letters.
 func fuzzyLimit(n int) int {
