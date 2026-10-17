@@ -166,7 +166,7 @@ func (st *state) admin() {
 		k := st.keyOf(a, b)
 		switch {
 		// 2. a segment that is just a known name: "Алматы", "Турксибский"
-		case clean && (st.d.cities[k] != place{} || (seg == 0 && st.d.adminKnown(mCity, k))): // close spelling only in the first segment
+		case clean && (st.d.cities[k] != place{} || (seg == 0 && st.d.adminKnown(mCity, k) && st.typoCityBefore(b))): // close spelling only in the first segment
 			st.setCity(k, st.text(a, b), a, b, false)
 			st.markUsed(a, b)
 		case clean && st.d.regions[k] != "" && (len([]rune(k)) == 3 || strings.HasSuffix(k, "ская")):
@@ -186,10 +186,8 @@ func (st *state) admin() {
 				if t.kind != tWord || t.used || t.mk != nil || !st.d.adminKnown(mCity, t.fold) {
 					continue
 				}
-				// a close spelling counts only before another word: "алматыы абая 10" is a city,
-				// "Сатпаева 22" is a street (one letter from the town Сатпаев)
 				areaNext := i+2 <= b && st.toks[i+1].kind == tNum && st.toks[i+2].mk != nil && numberedAreaTypes[st.toks[i+2].mk.canon]
-				if _, exact := st.d.cities[t.fold]; !exact && i+1 <= b && st.toks[i+1].kind != tWord && !areaNext {
+				if _, exact := st.d.cities[t.fold]; !exact && !areaNext && !st.typoCityBefore(i) {
 					continue
 				}
 				p := i - 1
@@ -211,6 +209,17 @@ func (st *state) admin() {
 			}
 		}
 	}
+}
+
+// typoCityBefore reports whether a close spelling of a city may end at token i: only before another word
+// or at the end ("алматыы абая 10", "алматыы, абая 10", "шымкнет квартира 120" are the city), never before
+// a number ("Сатпаева 22" and "Сатпаева, 22" are a street one letter from the town Сатпаев).
+func (st *state) typoCityBefore(i int) bool {
+	j := i + 1
+	for j < len(st.toks) && st.toks[j].seg < 0 {
+		j++ // a comma between two parts
+	}
+	return j == len(st.toks) || st.toks[j].kind == tWord
 }
 
 // setCity stores a city or village. The hand table of large places goes first unless the line names
