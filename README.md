@@ -57,7 +57,7 @@ curl -s -XPOST http://localhost:8080/api/v1/parse/batch \
   для загрузки в интерфейсе:
 
   ```bash
-  docker compose run --rm --no-deps -T api synth > synth_10000_input.json
+  docker compose run --rm --no-deps -T api synth > testdata/synth/synth_10000_input.json
   ```
 
 ## Как устроен разбор
