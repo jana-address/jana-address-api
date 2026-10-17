@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,27 +12,21 @@ import (
 	"github.com/jana-address/jana-address-api/internal/synth"
 )
 
-// BenchmarkBatch10k runs the whole batch handler on the generated 10k set (seed 1) in the jury format;
-// BENCH_INPUT=file.json benchmarks another file.
+// BenchmarkBatch10k runs the whole batch handler on the generated 10k set (seed 1), byte for byte the file
+// `server synth` writes for the UI; BENCH_INPUT=file.json benchmarks another file.
 func BenchmarkBatch10k(b *testing.B) {
 	var body []byte
-	var err error
 	if path := os.Getenv("BENCH_INPUT"); path != "" {
-		body, err = os.ReadFile(path)
+		var err error
+		if body, err = os.ReadFile(path); err != nil {
+			b.Fatal(err)
+		}
 	} else {
-		type item struct {
-			ID  string `json:"id"`
-			Raw string `json:"raw_address"`
+		var buf bytes.Buffer
+		if err := synth.WriteJury(&buf, synth.Generate(10000, 1)); err != nil {
+			b.Fatal(err)
 		}
-		gold := synth.Generate(10000, 1)
-		items := make([]item, len(gold))
-		for i, g := range gold {
-			items[i] = item{g.ID, g.Raw}
-		}
-		body, err = json.Marshal(items)
-	}
-	if err != nil {
-		b.Fatal(err)
+		body = buf.Bytes()
 	}
 	h := New(nil, "bench", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	b.ReportAllocs()

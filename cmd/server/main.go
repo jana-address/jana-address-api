@@ -5,6 +5,7 @@
 //	serve        start the HTTP server (default); migrates the database and loads KATO in the background
 //	migrate      apply the database migrations and seed the KATO snapshot, then exit
 //	healthcheck  probe /readyz of a running server; used by the Docker HEALTHCHECK (distroless has no shell)
+//	synth        write the generated test set to stdout: synth -n 10000 -seed 1 [-format jury|gold]
 //	version      print the build version
 //
 // Environment: HTTP_ADDR, DATABASE_URL, OFFLINE (default true: never call stat.gov.kz),
@@ -14,6 +15,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net"
@@ -27,6 +29,7 @@ import (
 	"github.com/jana-address/jana-address-api/internal/db"
 	"github.com/jana-address/jana-address-api/internal/httpapi"
 	"github.com/jana-address/jana-address-api/internal/katosync"
+	"github.com/jana-address/jana-address-api/internal/synth"
 )
 
 // version is set at build time: -ldflags "-X main.version=..."
@@ -46,10 +49,12 @@ func main() {
 		err = migrate()
 	case "healthcheck":
 		err = healthcheck()
+	case "synth":
+		err = synthSet(os.Args[2:])
 	case "version":
 		fmt.Println(version)
 	default:
-		err = fmt.Errorf("unknown command %q (want serve, migrate, healthcheck or version)", cmd)
+		err = fmt.Errorf("unknown command %q (want serve, migrate, healthcheck, synth or version)", cmd)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -154,6 +159,26 @@ func healthcheck() error {
 		return fmt.Errorf("readyz returned %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// synthSet writes the generated set (the one the tests score) to stdout, so the 10k file for the UI
+// can be made from the image, which has no Go toolchain to run cmd/synth.
+func synthSet(args []string) error {
+	fs := flag.NewFlagSet("synth", flag.ContinueOnError)
+	n := fs.Int("n", 10000, "number of records")
+	seed := fs.Uint64("seed", 1, "random seed")
+	format := fs.String("format", "jury", "jury: JSON array of id and raw_address; gold: JSONL with labels")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	recs := synth.Generate(*n, *seed)
+	switch *format {
+	case "jury":
+		return synth.WriteJury(os.Stdout, recs)
+	case "gold":
+		return synth.WriteGold(os.Stdout, recs)
+	}
+	return fmt.Errorf("unknown format %q (want jury or gold)", *format)
 }
 
 func env(key, def string) string {

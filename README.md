@@ -53,6 +53,12 @@ curl -s -XPOST http://localhost:8080/api/v1/parse/batch \
 - **Скорость:** 1000 записей ≈ 5 мс, 100 000 ≈ 0,6 с на ноутбуке. Сеть не нужна.
 - **Без кеша:** ответ не ищется по `id` или по всей строке, каждая запись разбирается
   заново.
+- **Свой набор на 10 000 строк** собирается из того же образа, Go не нужен. Файл подходит и
+  для загрузки в интерфейсе:
+
+  ```bash
+  docker compose run --rm --no-deps -T api synth > synth_10000_input.json
+  ```
 
 ## Как устроен разбор
 
@@ -97,7 +103,7 @@ curl -s -XPOST http://localhost:8080/api/v1/parse/batch \
 
 ```bash
 go test ./internal/eval -run TestFastTypeSet -v                  # 100 + 100 + 10 000
-go run ./cmd/synth -n 10000 -seed 1 -format jury -o testdata/synth/synth_10000_input.json  # файл для интерфейса
+go run ./cmd/synth -n 10000 -seed 1 -format jury -o testdata/synth/synth_10000_input.json  # файл для интерфейса (без Go: server synth, см. выше)
 go run ./cmd/synth -n 100000 -seed 2 -o testdata/synth/synth_100000.jsonl
 EVAL_EXTRA=synth/synth_100000 go test ./internal/eval -run TestFastTypeSet -v
 ```
