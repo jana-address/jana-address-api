@@ -27,7 +27,20 @@ var (
 	baseDistricts = map[string]DistrictInfo{}
 	// AlmatyAreas maps a microdistrict (first word, folded) to its district of Almaty.
 	AlmatyAreas = map[string]string{}
+	baseAreas   = map[string][]Area{}
 )
+
+// Area is a living area (жилой массив, микрорайон) of a city: "Пришахтинск" is a part of Караганда, not a town.
+type Area struct {
+	City     string
+	District string // empty when not known
+}
+
+func addArea(city, district string, names ...string) {
+	for _, n := range names {
+		baseAreas[text.Key(n)] = append(baseAreas[text.Key(n)], Area{City: city, District: district})
+	}
+}
 
 func addCity(name, province string, aliases ...string) {
 	p := Place{Name: name, Province: province, Town: true}
@@ -191,6 +204,9 @@ func initPlaces() {
 	addDistrict("Талгарский", "", alm)
 	addDistrict("Енбекшиказахский", "", alm, "еңбекшіқазақ")
 	addDistrict("Целиноградский", "", akm)
+
+	// living areas that are not settlements of the classifier and are not called like villages elsewhere
+	addArea("Караганда", "", "Пришахтинск", "Майкудук", "Майқұдық", "Новый Майкудук", "Сортировка")
 
 	for name, d := range map[string]string{
 		"аксай": "Ауэзовский", "мамыр": "Ауэзовский", "таугуль": "Ауэзовский", "жетысу": "Ауэзовский", "сайран": "Ауэзовский",

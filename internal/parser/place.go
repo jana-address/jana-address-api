@@ -166,6 +166,9 @@ func (st *state) admin() {
 		case clean && st.vals[City] == "" && st.townBefore(k, b):
 			st.setCity(k, st.text(a, b), a, b, false)
 			st.markUsed(a, b)
+		// 2c. a living area of one city: "Пришахтинск, ул. Ленина 5" is in Караганда
+		case clean && st.vals[LivingArea] == "" && st.livingArea(k, a, b):
+			st.markUsed(a, b)
 		case clean && st.d.Regions[k] != "" && (len([]rune(k)) == 3 || strings.HasSuffix(k, "ская")):
 			st.set(Province, st.d.Regions[k], SourceString, a, b)
 			st.markUsed(a, b)
@@ -209,6 +212,47 @@ func (st *state) admin() {
 			}
 		}
 	}
+}
+
+// livingArea stores a part of the line that is a known living area of one city consistent with the
+// written city and region; the city and the region come from the directory. A street must follow:
+// in "Караганда, Майкудук, д.30" the area is the street name, as the case defines living_area.
+func (st *state) livingArea(k string, a, b int) bool {
+	j := b + 1
+	for st.isPunct(j, ",;()/") {
+		j++
+	}
+	if j >= len(st.toks) {
+		return false
+	}
+	switch t := st.toks[j]; {
+	case t.kind == tWord && !t.mk.IsUnit():
+	case t.kind == tNum && j+1 < len(st.toks) && st.toks[j+1].mk != nil && st.toks[j+1].mk.Class == dict.Street: // "21 мкр"
+	default:
+		return false
+	}
+	var found dict.Area
+	n := 0
+	for _, ar := range st.d.Areas[k] {
+		if city := st.vals[City]; city != "" && city != ar.City {
+			continue
+		}
+		if prov := st.writtenValue(Province); prov != "" && prov != st.d.Cities[text.Key(ar.City)].Province {
+			continue
+		}
+		found = ar
+		n++
+	}
+	if n != 1 {
+		return false
+	}
+	st.set(LivingArea, st.text(a, b), SourceString, a, b)
+	if p, ok := st.d.Cities[text.Key(found.City)]; ok {
+		st.setDir(City, p.Name)
+		st.setDir(Province, p.Province)
+	}
+	st.setDir(District, found.District)
+	return true
 }
 
 // townBefore reports whether k, ending at token i, is a town of the classifier followed by a word, not by

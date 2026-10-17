@@ -162,7 +162,15 @@ func TestParseExamples(t *testing.T) {
 		{"Астана, Томирис, Сыганак 10", map[Field]string{City: "Астана", LivingArea: "Томирис", StreetName: "Сыганак", House: "10"}},
 		{"Астана, ЖК Томирис, Сыганак 10, кв 5", map[Field]string{LivingArea: "Томирис", StreetName: "Сыганак", House: "10", Apartment: "5"}},
 		{"Алматы, Самал-2, ул. Жолдасбекова 97", map[Field]string{LivingArea: "Самал-2", StreetName: "Жолдасбекова", District: "Медеуский"}},
-		{"Пришахтинск, ул. Ленина 5", map[Field]string{StreetName: "Ленина", House: "5", LivingArea: "-"}},
+		// a known living area gives its city, the case lists "Пришахтинск" as a living area
+		{"Пришахтинск, ул. Ленина 5", map[Field]string{City: "Караганда", Province: "Карагандинская область", LivingArea: "Пришахтинск", StreetName: "Ленина", House: "5"}},
+		{"Карагандинская область, Пришахтинск, 21 мкр, д 5, кв 7", map[Field]string{
+			Province: "Карагандинская область", City: "Караганда", LivingArea: "Пришахтинск", StreetType: "микрорайон", StreetName: "21", House: "5", Apartment: "7"}},
+		{"Карагандинская обл, Майкудук, 15 мкр 3дом", map[Field]string{City: "Караганда", LivingArea: "Майкудук", StreetName: "15", House: "3"}},
+		// without a street the area is the street name
+		{"Караганда, Майкудук, д.30", map[Field]string{City: "Караганда", StreetName: "Майкудук", House: "30", LivingArea: "-"}},
+		// an area of another city stays a plain living area, the written city wins
+		{"Темиртау, Пришахтинск, ул. Ленина 5", map[Field]string{City: "Темиртау"}},
 		{"Алматы, Сатпаева, 22", map[Field]string{City: "Алматы", StreetName: "Сатпаева", House: "22", LivingArea: "-"}},
 		// words that only look glued must stay whole
 		{"ул. Алматинская 3", map[Field]string{StreetName: "Алматинская", House: "3"}},

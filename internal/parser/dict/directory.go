@@ -15,7 +15,9 @@ type Directory struct {
 	Districts map[string]DistrictInfo
 	// Settlements from the classifier by name; several entries are namesakes in different regions
 	Settlements map[string][]Place
-	cityByLen   [text.MaxFuzzyLen][]cityEntry // city keys bucketed by length in runes, for typo search
+	// Areas: living areas by name; one name may be an area of several cities
+	Areas     map[string][]Area
+	cityByLen [text.MaxFuzzyLen][]cityEntry // city keys bucketed by length in runes, for typo search
 }
 
 // current is set by init right after initPlaces fills the base tables.
@@ -60,6 +62,10 @@ func newDirectory(extend func(d *Directory)) *Directory {
 		Cities:    make(map[string]Place, len(baseCities)),
 		Regions:   make(map[string]string, len(baseRegions)),
 		Districts: make(map[string]DistrictInfo, len(baseDistricts)),
+		Areas:     make(map[string][]Area, len(baseAreas)),
+	}
+	for k, v := range baseAreas {
+		d.Areas[k] = v
 	}
 	for k, v := range baseCities {
 		d.Cities[k] = v
