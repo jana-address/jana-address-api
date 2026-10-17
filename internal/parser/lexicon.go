@@ -359,7 +359,7 @@ func initPlaces() {
 	baseCities[key("Бурундай")] = baseCities[key("Боралдай")]
 	addCity("Атырау", atr, "гурьев")
 	addCity("Усть-Каменогорск", vko, "өскемен")
-	addCity("Риддер", vko)
+	addCity("Риддер", vko, "лениногорск")
 	addCity("Тараз", zhm, "джамбул", "аулие-ата")
 	addCity("Уральск", zko, "орал")
 	addCity("Караганда", krg, "қарағанды")
@@ -371,7 +371,7 @@ func initPlaces() {
 	addCity("Рудный", kst)
 	addCity("Кызылорда", kzo, "қызылорда")
 	addCity("Актау", mng, "ақтау") // not the old name "Шевченко": one of the most common street names
-	addCity("Жанаозен", mng, "жаңаөзен")
+	addCity("Жанаозен", mng, "жаңаөзен", "новый узень")
 	addCity("Павлодар", pvl)
 	addCity("Экибастуз", pvl, "екібастұз")
 	addCity("Петропавловск", sko, "петропавл")
