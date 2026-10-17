@@ -28,9 +28,16 @@ type inItem struct {
 // parseBatch is the jury endpoint: JSON array in, JSON array out, same order, one result per record.
 // It is stateless: every record is parsed from its text, nothing is looked up by id or by the whole string.
 func (a *api) parseBatch(w http.ResponseWriter, r *http.Request) {
+	// a few batches at a time: each can hold a 64 MiB body and its results in memory
+	select {
+	case a.batches <- struct{}{}:
+		defer func() { <-a.batches }()
+	case <-r.Context().Done():
+		return
+	}
 	rc := http.NewResponseController(w)
-	_ = rc.SetReadDeadline(time.Now().Add(10 * time.Minute))
 	_ = rc.SetWriteDeadline(time.Now().Add(10 * time.Minute))
+	r.Body = &minRateBody{ReadCloser: r.Body, rc: rc, start: time.Now()}
 
 	body, err := readBody(w, r)
 	if err != nil {
@@ -106,6 +113,34 @@ func (a *api) parseBatch(w http.ResponseWriter, r *http.Request) {
 
 // batchChunk is how many records a worker parses and encodes at a time.
 const batchChunk = 256
+
+// maxBatches is how many batch requests run at once; the others wait for a slot.
+const maxBatches = 4
+
+// A batch body must keep coming: the read deadline is bodyGrace plus one second for every
+// bodyMinRate bytes received, at most bodyMaxTime from the start. A client that drips a byte now
+// and then is cut off after about 30 s, while 64 MiB on a 1 Mbit/s line still gets through.
+var (
+	bodyGrace   = 30 * time.Second // variables, so the test can shorten them
+	bodyMaxTime = 10 * time.Minute
+)
+
+const bodyMinRate = 64 << 10
+
+type minRateBody struct {
+	io.ReadCloser
+	rc    *http.ResponseController
+	start time.Time
+	n     int64
+}
+
+func (b *minRateBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	b.n += int64(n)
+	d := bodyGrace + time.Duration(b.n)*time.Second/bodyMinRate
+	_ = b.rc.SetReadDeadline(b.start.Add(min(d, bodyMaxTime)))
+	return n, err
+}
 
 // encodeChunk parses records and returns them as comma-separated JSON objects (no brackets).
 func (a *api) encodeChunk(items []inItem, enc *json.Encoder, tmp *bytes.Buffer) []byte {

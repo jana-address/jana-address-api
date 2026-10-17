@@ -1,14 +1,18 @@
 package httpapi
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 var wantKeys = []string{"id", "raw_address", "province", "city", "district", "living_area", "street_type",
@@ -116,6 +120,29 @@ func TestParseBatchInputErrors(t *testing.T) {
 	// "[{},{},…]" must not expand into millions of results
 	if rec := post("[" + strings.Repeat("{},", maxRecords) + "{}]"); rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("too many records: code = %d", rec.Code)
+	}
+}
+
+// A client that sends the body a byte now and then is cut off instead of holding the connection for minutes.
+func TestParseBatchSlowBody(t *testing.T) {
+	defer func(g time.Duration) { bodyGrace = g }(bodyGrace)
+	bodyGrace = 200 * time.Millisecond
+	srv := httptest.NewServer(New(fakeDB{}, "test", slog.New(slog.NewTextHandler(io.Discard, nil))))
+	defer srv.Close()
+	conn, err := net.Dial("tcp", srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	start := time.Now()
+	fmt.Fprint(conn, "POST /api/v1/parse/batch HTTP/1.1\r\nHost: x\r\nContent-Length: 100000\r\n\r\n[")
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	res, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	if err != nil {
+		t.Fatalf("no response after %v: %v", time.Since(start), err)
+	}
+	if res.StatusCode != http.StatusBadRequest || time.Since(start) > 2*time.Second {
+		t.Fatalf("status %d after %v", res.StatusCode, time.Since(start))
 	}
 }
 

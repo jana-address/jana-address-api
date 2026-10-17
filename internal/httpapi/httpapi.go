@@ -20,6 +20,7 @@ type api struct {
 	version   string
 	log       *slog.Logger
 	directory func() any
+	batches   chan struct{} // slots for batch requests running at once
 }
 
 // Option configures the handler.
@@ -32,7 +33,7 @@ func WithDirectory(status func() any) Option {
 
 // New returns the root handler.
 func New(db Pinger, version string, log *slog.Logger, opts ...Option) http.Handler {
-	a := &api{db: db, version: version, log: log}
+	a := &api{db: db, version: version, log: log, batches: make(chan struct{}, maxBatches)}
 	for _, o := range opts {
 		o(a)
 	}
