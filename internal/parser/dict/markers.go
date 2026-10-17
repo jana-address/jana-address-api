@@ -54,8 +54,8 @@ func addMarkers(class Class, canon string, forms ...string) {
 }
 
 func init() {
-	addMarkers(House, "", "д", "дом", "домм", "дм", "үй", "уй", "house", "dom", "d")
-	addMarkers(Apartment, "", "кв", "квартира", "кварт", "квартра", "кв-ра", "пәтер", "flat", "kv", "квю", "apt", "apartment", "оф", "офис", "office", "ofis")
+	addMarkers(House, "", "д", "дом", "домм", "дм", "дои", "үй", "уй", "house", "dom", "d")
+	addMarkers(Apartment, "", "кв", "квартира", "кварт", "квартра", "кв-ра", "пәтер", "flat", "kv", "квю", "apt", "apartment", "оф", "офис", "кеңсе", "office", "ofis")
 	addMarkers(Entrance, "", "подъезд", "подьезд", "подезд", "падезд", "под", "пд", "кіреберіс", "entrance", "ent", "pod", "podezd", "podyezd")
 	addMarkers(Floor, "", "этаж", "етаж", "этж", "етж", "эт", "қабат", "floor", "fl", "etazh", "etaj", "et")
 
@@ -63,10 +63,10 @@ func init() {
 	addMarkers(Street, "проспект", "пр", "пр-т", "просп", "проспект", "даңғылы", "даңғ", "avenue", "ave", "pr", "prospekt", "prosp", "pr-t", "пр-кт", "dangyly", "даң")
 	addMarkers(Street, "микрорайон", "мкр", "мкп", "мкрн", "шағынаудан", "ықшамаудан", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "mkrn", "mikrorayon", "mikroraion", "microdistrict")
 	addMarkers(Street, "квартал", "квартал", "кв-л", "квл", "kvartal")
-	addMarkers(Street, "переулок", "пер", "переулок", "пер-к", "тұйық", "pereulok", "per")
-	addMarkers(Street, "бульвар", "б-р", "бульвар", "бул", "bulvar", "bul")
-	addMarkers(Street, "шоссе", "шоссе", "ш", "shosse", "трасса") // "трасса" is not an output type
-	addMarkers(Living, "жилой комплекс", "жк", "zhk", "jk")
+	addMarkers(Street, "переулок", "пер", "переулок", "пер-к", "тұйық", "тұйығы", "pereulok", "per")
+	addMarkers(Street, "бульвар", "б-р", "бульвар", "бул", "бульв", "бульвары", "желекжолы", "bulvar", "bul")
+	addMarkers(Street, "шоссе", "шоссе", "ш", "shosse", "трасса")  // "трасса" is not an output type
+	addMarkers(Living, "жилой комплекс", "жк", "түк", "zhk", "jk") // ТҮК: тұрғын үй кешені
 
 	addMarkers(City, "", "г", "город", "гор", "горд", "қаласы", "қалас", "қала", "қ", "kalasy")
 	addMarkers(Settlement, "", "пос", "поселок", "пгт", "село", "ауыл", "аул", "ауылы")
@@ -80,15 +80,17 @@ func init() {
 		"азс", "бц", "супермаркет", "маркет")
 }
 
-// fuzzyForms are long marker words that are often mistyped ("подлъезд", "кваритра", "микрорайно").
+// fuzzyForms are marker words that are often mistyped ("подлъезд", "кваритра", "микрорайно", "эьаж").
 var fuzzyForms = []string{"подъезд", "квартира", "бульвар", "корпус", "микрорайон", "проспект", "переулок", "улица", "квартал",
-	"город", "район", "область", "облысы", "қаласы", "ауданы", "көшесі", "даңғылы", "этаж", "магазин", "поселок"}
+	"город", "район", "область", "облысы", "қаласы", "ауданы", "көшесі", "даңғылы", "этаж", "офис", "шоссе", "магазин", "поселок"}
 
-// FuzzyMarker finds a marker within a small edit distance: 1 for words of 5–7 letters, 2 for longer ones.
+// FuzzyMarker finds a marker within a small edit distance: 1 for words of 4–7 letters, 2 for longer ones.
+// A word of 4 letters is compared only with markers of at most 5 ("эьаж", "офси", "шосе"): longer
+// markers are too far from it to tell a typo from another word.
 func FuzzyMarker(f string) *Marker {
 	var buf [text.MaxFuzzyLen]rune
 	r := text.ToRunes(f, buf[:0])
-	if len(r) < 5 || len(r) >= text.MaxFuzzyLen {
+	if len(r) < 4 || len(r) >= text.MaxFuzzyLen {
 		return nil
 	}
 	limit := 1
@@ -99,6 +101,9 @@ func FuzzyMarker(f string) *Marker {
 	var best *Marker
 	bestD := limit + 1
 	for _, form := range fuzzyMarkerForms {
+		if len(r) == 4 && len(form.r) > 5 {
+			continue
+		}
 		if d := text.DistanceLimit(r, form.r, limit); d < bestD {
 			best, bestD = form.m, d
 		} else if d == bestD && best != nil && form.m != best {

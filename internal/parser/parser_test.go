@@ -198,6 +198,13 @@ func TestParseExamples(t *testing.T) {
 		{"новый узень Сатпаева 5 кв 3", map[Field]string{City: "Жанаозен", StreetName: "Сатпаева", House: "5"}},
 		{"Өтеген батыр көшесі 14", map[Field]string{City: "-", StreetType: "улица", StreetName: "Өтеген батыр", House: "14"}},
 		{"Ермекво 12 кв 5", map[Field]string{City: "-", StreetName: "Ермекво", House: "12"}},
+		// Kazakh type words and four-letter typos of short markers
+		{"Алматы, Абая 150 кеңсе 12", map[Field]string{House: "150", Apartment: "12"}},
+		{"Астана, Хайвил ТҮК 3 пәтер 15", map[Field]string{StreetType: "жилой комплекс", StreetName: "Хайвил", House: "3", Apartment: "15"}},
+		{"Шымкент, Ботаника тұйығы 6", map[Field]string{StreetType: "переулок", StreetName: "Ботаника", House: "6"}},
+		{"Тараз бульв. Толе би 12", map[Field]string{StreetType: "бульвар", StreetName: "Толе би", House: "12"}},
+		{"Абая 5 кв 7 этпж 3", map[Field]string{House: "5", Apartment: "7", Floor: "3"}},
+		{"Абая 5 офси 12", map[Field]string{House: "5", Apartment: "12"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
