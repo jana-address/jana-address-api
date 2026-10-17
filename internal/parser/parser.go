@@ -998,6 +998,11 @@ func (st *state) untypedStreet() bool {
 			}
 			break
 		}
+		// "самал-2, 59": a number after a hyphen belongs to the name when the house number comes later
+		if st.isPunct(j+1, "-") && glued(st.toks[j], st.toks[j+1]) && st.availNum(j+2) && glued(st.toks[j+1], st.toks[j+2]) &&
+			st.laterNumberExists(j+2) {
+			j += 2
+		}
 		h := j + 1
 		for st.isPunct(h, ".") {
 			h++

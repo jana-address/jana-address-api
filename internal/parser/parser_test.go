@@ -124,6 +124,11 @@ func TestParseExamples(t *testing.T) {
 		{"алматыбогенбайбатыра41д136пәтер4кіреберіс", map[Field]string{House: "41", Apartment: "136", Entrance: "4"}},
 		{"абылайхана д73кв.11под6эт4", map[Field]string{House: "73", Apartment: "11", Entrance: "6", Floor: "4"}},
 		{"актобе 8шағынауданүй13кв23", map[Field]string{StreetType: "микрорайон", StreetName: "8", House: "13", Apartment: "23"}},
+		// a microdistrict without "мкр", the number after a hyphen stays in the name
+		{"Алматы аксай-3, 12, кв 5, у входа во двор", map[Field]string{
+			City: "Алматы", StreetName: "аксай-3", House: "12", Apartment: "5", Landmark: "у входа во двор"}},
+		{"Караганда восток-5 д 20", map[Field]string{StreetName: "восток-5", House: "20"}},
+		{"Тараз жайлау-2", map[Field]string{City: "Тараз"}},
 		// words that only look glued must stay whole
 		{"ул. Алматинская 3", map[Field]string{StreetName: "Алматинская", House: "3"}},
 		{"ул. Таразская 5", map[Field]string{StreetName: "Таразская", House: "5"}},
