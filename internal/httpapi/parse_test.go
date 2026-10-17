@@ -89,6 +89,36 @@ func TestParseBatchNDJSON(t *testing.T) {
 	}
 }
 
+func TestParseBatchInputErrors(t *testing.T) {
+	h := New(fakeDB{}, "test", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	post := func(body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/parse/batch", strings.NewReader(body)))
+		return rec
+	}
+	// a broken body is an error, not one null record per line
+	for _, in := range []string{
+		"{\"id\":\"a\",\"raw_address\":\"жуалы 19\"}\n}\n",
+		"{\n  \"items\": [\n    {\"id\": 1, \"raw_address\": \"жуалы 19\"},\n",
+		`[{"id":1,"raw_address":"жуалы 19"},`,
+		`[{"id":1,"raw_address":"жуалы 19"}] x`,
+	} {
+		if rec := post(in); rec.Code != http.StatusBadRequest {
+			t.Errorf("%q: code = %d, want 400: %s", in, rec.Code, rec.Body.String())
+		}
+	}
+	// pretty-printed objects one after another are records, not lines
+	rec := post("{\n  \"id\": \"a\",\n  \"raw_address\": \"жуалы 19\"\n}\n{\n  \"id\": \"b\",\n  \"raw_address\": \"Кулманова 133\"\n}\n")
+	var res []map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil || len(res) != 2 || res[1]["house"] != "133" {
+		t.Fatalf("pretty objects: %d %v %v", rec.Code, res, err)
+	}
+	// "[{},{},…]" must not expand into millions of results
+	if rec := post("[" + strings.Repeat("{},", maxRecords) + "{}]"); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("too many records: code = %d", rec.Code)
+	}
+}
+
 func TestParseOne(t *testing.T) {
 	h := New(fakeDB{}, "test", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	rec := httptest.NewRecorder()

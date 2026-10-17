@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"runtime"
@@ -38,7 +39,11 @@ func (a *api) parseBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := decodeItems(body)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		code := http.StatusBadRequest
+		if errors.Is(err, errTooManyRecords) {
+			code = http.StatusRequestEntityTooLarge
+		}
+		writeJSON(w, code, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -185,7 +190,15 @@ func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	return body, nil
 }
 
-// decodeItems accepts a JSON array (the jury format), an object wrapping an array, or NDJSON.
+// maxRecords bounds one batch. A 64 MiB body of real addresses holds about 600 000 records,
+// while "[{},{},…]" would expand to tens of millions of null results.
+const maxRecords = 1_000_000
+
+var errTooManyRecords = fmt.Errorf("more than %d records in one request", maxRecords)
+
+// decodeItems accepts a JSON array (the jury format), an object wrapping an array, or NDJSON
+// (also pretty-printed objects one after another). Records are counted while they are decoded,
+// so an oversized batch is rejected before it takes memory.
 func decodeItems(body []byte) ([]inItem, error) {
 	body = bytes.TrimSpace(bytes.TrimPrefix(body, []byte("\xEF\xBB\xBF")))
 	if len(body) == 0 {
@@ -193,14 +206,23 @@ func decodeItems(body []byte) ([]inItem, error) {
 	}
 	switch body[0] {
 	case '[':
+		dec := json.NewDecoder(bytes.NewReader(body))
+		_, _ = dec.Token() // the opening bracket
 		var items []inItem
-		if err := json.Unmarshal(body, &items); err != nil {
-			// a non-object element keeps its slot with nulls; anything else is a broken array
-			if _, ok := errors.AsType[*json.UnmarshalTypeError](err); !ok {
-				return nil, errors.New("invalid JSON array: " + err.Error())
-			}
+		var err error
+		for err == nil && dec.More() {
+			items, err = nextItem(dec, items)
 		}
-		return items, nil
+		if err == nil {
+			_, err = dec.Token() // the closing bracket
+		}
+		if err == nil && unread(dec, body) {
+			err = errors.New("data after the array")
+		}
+		if err != nil && !errors.Is(err, errTooManyRecords) {
+			err = errors.New("invalid JSON array: " + err.Error())
+		}
+		return items, err
 	case '{':
 		var obj map[string]json.RawMessage
 		if json.Unmarshal(body, &obj) == nil {
@@ -213,17 +235,38 @@ func decodeItems(body []byte) ([]inItem, error) {
 			_ = json.Unmarshal(body, &it)
 			return []inItem{it}, nil
 		}
+		dec := json.NewDecoder(bytes.NewReader(body))
 		var items []inItem
-		for _, line := range bytes.Split(body, []byte("\n")) {
-			line = bytes.TrimSpace(line)
-			if len(line) == 0 {
-				continue
-			}
-			var it inItem
-			_ = json.Unmarshal(line, &it)
-			items = append(items, it)
+		var err error
+		for err == nil && dec.More() {
+			items, err = nextItem(dec, items)
 		}
-		return items, nil
+		if err == nil && unread(dec, body) { // More stops at a stray '}' or ']'
+			err = errors.New("unexpected data")
+		}
+		if err != nil && !errors.Is(err, errTooManyRecords) {
+			err = fmt.Errorf("invalid NDJSON at record %d: %v", len(items)+1, err)
+		}
+		return items, err
 	}
 	return nil, errors.New("expected a JSON array of {id, raw_address}")
+}
+
+// unread reports whether anything but white space follows the last decoded value.
+func unread(dec *json.Decoder, body []byte) bool {
+	return len(bytes.TrimSpace(body[dec.InputOffset():])) > 0
+}
+
+// nextItem decodes one record; a record that is not an object keeps its slot with nulls.
+func nextItem(dec *json.Decoder, items []inItem) ([]inItem, error) {
+	if len(items) == maxRecords {
+		return items, errTooManyRecords
+	}
+	var v json.RawMessage
+	if err := dec.Decode(&v); err != nil {
+		return items, err
+	}
+	var it inItem
+	_ = json.Unmarshal(v, &it)
+	return append(items, it), nil
 }

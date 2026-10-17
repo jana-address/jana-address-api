@@ -16,7 +16,8 @@ paths:
         Массив записей на входе, массив той же длины и в том же порядке на выходе.
         Пропусков нет: запись, которую не удалось разобрать, получает null в полях и confidence 0.
         Принимает также объект с массивом в items/records/data/addresses, NDJSON и
-        multipart/form-data с полем file. BOM UTF-8 допускается. Тело не больше 64 МиБ.
+        multipart/form-data с полем file. BOM UTF-8 допускается. Тело не больше 64 МиБ
+        и не больше 1 000 000 записей.
       requestBody:
         required: true
         content:
@@ -60,7 +61,12 @@ paths:
                   landmark: null
                   confidence: 0.95
         '400':
-          description: Тело не является JSON (или пустое)
+          description: Тело пустое, не является JSON или обрезано
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '413':
+          description: Больше 1 000 000 записей
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
