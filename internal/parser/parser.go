@@ -107,6 +107,7 @@ func Parse(raw string) Output {
 	st.units()
 	st.landmarks()
 	st.street()
+	st.livingPart()
 	st.house()
 	st.restore()
 	return Output{Values: st.vals, Sources: st.src, Spans: st.sortedSpans(), Confidence: st.confidence()}
@@ -1082,6 +1083,56 @@ func (st *state) houseAt(i int) bool {
 	}
 	h, ok := st.vals[House]
 	return ok && t.kind == tNum && t.used && compactNum(t.text) == h
+}
+
+// livingPart takes a separate part of plain words between the city and the street as the living area:
+// "Караганда, Пришахтинск, ул. Ленина 5", "Астана, Нурсая, Сыганак 10". Without a city such a part may be
+// the town itself, so it is left alone.
+func (st *state) livingPart() {
+	if _, ok := st.vals[LivingArea]; ok || st.vals[City] == "" || st.vals[StreetName] == "" || st.streetE <= 0 {
+		return
+	}
+	streetSeg := st.toks[st.streetE-1].seg
+	cityEnd := -1
+	for _, sp := range st.spans {
+		if sp.Field == City {
+			cityEnd = max(cityEnd, sp.End)
+		}
+	}
+	best := -1
+	for seg := 0; seg < streetSeg; seg++ {
+		a, b := st.segRange(seg)
+		if a < 0 || b-a > 4 || st.c.start[st.toks[a].s] < cityEnd {
+			continue
+		}
+		words := 0
+		for i := a; i <= b; i++ {
+			t := st.toks[i]
+			switch {
+			case t.kind == tWord && !t.used && t.mk == nil:
+				words++
+			case t.kind == tNum && !t.used && i > a+1 && st.isPunct(i-1, "-") && glued(st.toks[i-1], t): // "Самал-2"
+			case st.isPunct(i, "-\"«»"):
+			default:
+				words = -100
+			}
+		}
+		if words > 0 && words <= 3 {
+			best = seg
+		}
+	}
+	if best < 0 {
+		return
+	}
+	a, b := st.segRange(best)
+	for st.isPunct(a, "\"«»") {
+		a++
+	}
+	for st.isPunct(b, "\"«»") {
+		b--
+	}
+	st.set(LivingArea, st.text(a, b), SourceString, a, b)
+	st.markUsed(a, b)
 }
 
 func (st *state) house() {

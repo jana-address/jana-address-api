@@ -142,6 +142,13 @@ func TestParseExamples(t *testing.T) {
 		{"астана қаласы алматы ауданы абай даңғылы 126б", map[Field]string{District: "Алматинский", StreetType: "проспект", StreetName: "абай", House: "126б"}},
 		{"Астана, мкр. кАбулак, 98", map[Field]string{City: "Астана", StreetName: "кАбулак", House: "98"}},
 		{"проспект гагарина,72, кв 45, за рынком", map[Field]string{House: "72", Landmark: "за рынком"}},
+		// a living area without "мкр"/"ЖК", examples from the case
+		{"Караганда, Пришахтинск, ул. Ленина 5, кв 3", map[Field]string{City: "Караганда", LivingArea: "Пришахтинск", StreetName: "Ленина", House: "5", Apartment: "3"}},
+		{"Астана, Томирис, Сыганак 10", map[Field]string{City: "Астана", LivingArea: "Томирис", StreetName: "Сыганак", House: "10"}},
+		{"Астана, ЖК Томирис, Сыганак 10, кв 5", map[Field]string{LivingArea: "Томирис", StreetName: "Сыганак", House: "10", Apartment: "5"}},
+		{"Алматы, Самал-2, ул. Жолдасбекова 97", map[Field]string{LivingArea: "Самал-2", StreetName: "Жолдасбекова", District: "Медеуский"}},
+		{"Пришахтинск, ул. Ленина 5", map[Field]string{StreetName: "Ленина", House: "5", LivingArea: "-"}},
+		{"Алматы, Сатпаева, 22", map[Field]string{City: "Алматы", StreetName: "Сатпаева", House: "22", LivingArea: "-"}},
 		// words that only look glued must stay whole
 		{"ул. Алматинская 3", map[Field]string{StreetName: "Алматинская", House: "3"}},
 		{"ул. Таразская 5", map[Field]string{StreetName: "Таразская", House: "5"}},
