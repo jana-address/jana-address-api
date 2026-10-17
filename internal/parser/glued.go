@@ -114,8 +114,15 @@ func restOK(f string) bool {
 	return marker || plausibleRest(f)
 }
 
+// maxGluedLen bounds the words split by splitWord, which is quadratic in the word length.
+// Real glued words are under 40 letters: "Алматықаласыабаякөшесі".
+const maxGluedLen = 64
+
 // splitWord splits one glued word; afterCity allows short type words right after a city name.
 func (d *directory) splitWord(r []rune, s, e int, afterCity bool) []token {
+	if e-s > maxGluedLen {
+		return []token{wordToken(r, s, e)}
+	}
 	// 1. a case change: "ТаукеХана", "АлматыАбая"
 	for i := s + 1; i < e; i++ {
 		lowerUpper := i-s >= 2 && unicode.IsLower(r[i-1]) && unicode.IsUpper(r[i])

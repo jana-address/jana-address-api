@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -250,6 +251,24 @@ func TestNothingParsedIsZeroConfidence(t *testing.T) {
 	for _, raw := range []string{"", "   ", "???", "привет"} {
 		if o := Parse(raw); len(o.Values) != 0 || o.Confidence != 0 {
 			t.Errorf("%q: values %v, confidence %.2f", raw, o.Values, o.Confidence)
+		}
+	}
+}
+
+// Several stages are quadratic in tokens: a megabyte in one record must not stall a batch.
+func TestLongInputIsBounded(t *testing.T) {
+	for _, raw := range []string{strings.Repeat(",", 1<<20), strings.Repeat("1 кв ", 200000), "г " + strings.Repeat("а ", 500000),
+		strings.Repeat("а", 1<<20), strings.Repeat("аБ", 1<<19)} {
+		done := make(chan struct{})
+		start := time.Now()
+		go func() { Parse(raw); close(done) }()
+		select {
+		case <-done:
+			if d := time.Since(start); d > 100*time.Millisecond {
+				t.Errorf("%.12q…: %v", raw, d)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("%.12q…: Parse did not return", raw)
 		}
 	}
 }

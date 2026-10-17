@@ -93,7 +93,8 @@ type state struct {
 	src      map[Field]string
 	spans    []Span
 	conflict bool
-	streetE  int // token index after the street name, -1 if none
+	streetE  int      // token index after the street name, -1 if none
+	segs     [][2]int // first and last token of each segment
 }
 
 // Parse parses one raw address string.

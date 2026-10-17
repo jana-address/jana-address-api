@@ -127,6 +127,7 @@ func (st *state) livingTail(i int) int {
 // segment numbers tokens by ',', ';', brackets and a '/' between two words (bilingual pairs).
 func (st *state) segment() {
 	seg := 0
+	st.segs = [][2]int{{-1, -1}}
 	for i := range st.toks {
 		t := &st.toks[i]
 		if t.kind == tPunct {
@@ -136,23 +137,23 @@ func (st *state) segment() {
 			}
 			if sep {
 				seg++
+				st.segs = append(st.segs, [2]int{-1, -1})
 				t.seg = -1
 				continue
 			}
 		}
 		t.seg = seg
+		if st.segs[seg][0] < 0 {
+			st.segs[seg][0] = i
+		}
+		st.segs[seg][1] = i
 	}
 }
 
+// segRange returns the first and last token of a segment, -1, -1 for an empty one.
 func (st *state) segRange(seg int) (int, int) {
-	a, b := -1, -1
-	for i, t := range st.toks {
-		if t.seg == seg {
-			if a < 0 {
-				a = i
-			}
-			b = i
-		}
+	if seg < 0 || seg >= len(st.segs) {
+		return -1, -1
 	}
-	return a, b
+	return st.segs[seg][0], st.segs[seg][1]
 }

@@ -38,12 +38,20 @@ func mapChar(ch rune) rune {
 	return ch
 }
 
+// maxRunes bounds the cleaned input. The longest real address is about 120 characters, and several
+// stages are quadratic in the number of tokens, so a megabyte of commas must not reach them.
+const maxRunes = 512
+
 // clean drops invisible characters, unifies dashes/quotes and collapses whitespace.
+// Only the first maxRunes characters are parsed.
 func clean(raw string) cleaned {
 	var c cleaned
 	u := 0
 	pending, spaceAt := false, 0
 	for _, ch := range raw {
+		if len(c.r) >= maxRunes {
+			break
+		}
 		w := 1
 		if ch >= 0x10000 {
 			w = 2
