@@ -143,6 +143,7 @@ func TestParseExamples(t *testing.T) {
 		{"Республика уй 33 корп 4, 28 патер", map[Field]string{StreetName: "Республика", House: "33", Apartment: "28"}},
 		{"Республика Казахстан, Алматы, Абая 10", map[Field]string{City: "Алматы", StreetName: "Абая", House: "10"}},
 		{"астана қаласы, коргалжын тас жолы 5", map[Field]string{StreetType: "шоссе", StreetName: "коргалжын", House: "5"}},
+		{"Алматы, трасса Алматы-Бишкек 25", map[Field]string{StreetType: "шоссе", StreetName: "Алматы-Бишкек", House: "25"}},
 		{"астана қаласы алматы ауданы абай даңғылы 126б", map[Field]string{District: "Алматинский", StreetType: "проспект", StreetName: "абай", House: "126б"}},
 		{"Астана, мкр. кАбулак, 98", map[Field]string{City: "Астана", StreetName: "кАбулак", House: "98"}},
 		{"проспект гагарина,72, кв 45, за рынком", map[Field]string{House: "72", Landmark: "за рынком"}},

@@ -58,8 +58,7 @@ func init() {
 	addMarkers(mStreet, "квартал", "квартал", "кв-л", "квл", "kvartal")
 	addMarkers(mStreet, "переулок", "пер", "переулок", "пер-к", "тұйық", "pereulok", "per")
 	addMarkers(mStreet, "бульвар", "б-р", "бульвар", "бул", "bulvar", "bul")
-	addMarkers(mStreet, "шоссе", "шоссе", "ш", "shosse")
-	addMarkers(mStreet, "трасса", "трасса")
+	addMarkers(mStreet, "шоссе", "шоссе", "ш", "shosse", "трасса") // "трасса" is not an output type
 	addMarkers(mLiving, "жилой комплекс", "жк", "zhk", "jk")
 
 	addMarkers(mCity, "", "г", "город", "гор", "горд", "қаласы", "қалас", "қала", "қ", "kalasy")
@@ -243,7 +242,7 @@ func minOf(xs []int) int {
 }
 
 // realStreetTypes are street types that can coexist with a microdistrict (which then becomes living_area).
-var realStreetTypes = map[string]bool{"улица": true, "проспект": true, "переулок": true, "бульвар": true, "шоссе": true, "трасса": true}
+var realStreetTypes = map[string]bool{"улица": true, "проспект": true, "переулок": true, "бульвар": true, "шоссе": true}
 
 // numberedAreaTypes may carry a number inside the name: "Аксай 3а", "Нурсити 2", "66 квартал".
 var numberedAreaTypes = map[string]bool{"микрорайон": true, "квартал": true, "жилой комплекс": true}
