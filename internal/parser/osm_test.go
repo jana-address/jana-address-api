@@ -32,6 +32,16 @@ func TestOSMDistricts(t *testing.T) {
 		{"Алматы, ул. Жандосова 140", map[Field]string{District: "-", StreetType: "улица"}, ""},
 		// no city, no district
 		{"ул. Тимирязева 42", map[Field]string{District: "-"}, ""},
+		// a microdistrict that runs into an untyped street the city knows
+		{"astana мкр жагалау кабанбай батыра 37, 295 кв 4 кабат", map[Field]string{LivingArea: "жагалау", StreetName: "кабанбай батыра", House: "37", StreetType: "проспект"}, ""}, // the type from the directory
+		{"г.Алматы Алматы мкрн Баганашыл Муканова д 43 кв. 115, 18эт", map[Field]string{LivingArea: "Баганашыл", StreetName: "Муканова", House: "43"}, ""},
+		// map names are noisy: "Алтын" is an area and "Булак" a street, the ЖК stays whole
+		{"алматы жк алтын булак 31 квартира 93", map[Field]string{StreetName: "алтын булак", LivingArea: "-"}, ""},
+		{"алматы жк. асыл тау 92а 59 кв", map[Field]string{StreetName: "асыл тау", LivingArea: "-"}, ""},
+		{"Шымкент каласы микрорайон Асар Республики д.52 этаж 8 кв 2", map[Field]string{LivingArea: "Асар", StreetName: "Республики", House: "52"}, ""},
+		// known whole, or a number in the name: not split
+		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", LivingArea: "-"}, ""},
+		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{StreetName: "Аксай 3а", LivingArea: "-"}, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

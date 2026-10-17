@@ -120,6 +120,49 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 	return a, b
 }
 
+// areaThenStreet splits a microdistrict or ЖК name that runs into an untyped street, by the directory
+// of the city: "мкр жагалау кабанбай батыра 37" is the area "жагалау" and the street "кабанбай батыра"
+// when the city knows both. It returns the first token of the street, or -1. A name the directory
+// knows whole is never split.
+func (st *state) areaThenStreet(c *cand) int {
+	city := st.vals[City]
+	ref := dict.OSM()
+	if !areaType[c.typ] || c.b <= c.a || (ref.Streets[city] == nil && city != "Алматы") {
+		return -1
+	}
+	key := func(a, b int) string { k, _ := dict.StreetKey(st.text(a, b)); return k }
+	knownStreet := func(k string) bool { s, ok := ref.Street(city, k, dict.AnyType); return ok && s.Votes >= 3 }
+	knownArea := func(a, b int) bool {
+		if _, ok := ref.Areas[city][key(a, b)]; ok {
+			return true
+		}
+		for _, ar := range st.d.Areas[text.Key(st.text(a, b))] {
+			if ar.City == city {
+				return true
+			}
+		}
+		_, ok := dict.AlmatyAreas[st.toks[a].fold]
+		return city == "Алматы" && a == b && ok
+	}
+	if knownStreet(key(c.a, c.b)) || knownArea(c.a, c.b) {
+		return -1
+	}
+	var splits []int // word tokens that may start the street
+	for j := c.a + 1; j <= c.b; j++ {
+		if st.toks[j].kind == tWord && st.toks[j-1].kind == tWord {
+			splits = append(splits, j)
+		}
+	}
+	for _, j := range splits {
+		// both halves must be known: map names are noisy ("Алтын" is an area, "Тау" a street), and
+		// "ЖК Алтын Булак" or "ЖК Асыл Тау" must stay whole
+		if k := key(j, c.b); len([]rune(k)) >= 5 && knownStreet(k) && knownArea(c.a, j-1) && !strings.ContainsAny(k, "0123456789") {
+			return j
+		}
+	}
+	return -1
+}
+
 // opensName reports whether the marker word at i, after its dots, is followed by a plain word that it
 // names: "ул. Толе би", "ул.садовая".
 func (st *state) opensName(i int) bool {
@@ -204,6 +247,13 @@ func (st *state) street() {
 		}
 	}
 	if street != nil {
+		if j := st.areaThenStreet(street); j > 0 { // "мкрн Баганашыл Муканова д 43"
+			st.set(LivingArea, st.text(street.a, j-1), SourceString, street.a, j-1)
+			st.set(StreetName, st.text(j, street.b), SourceString, j, street.b)
+			st.markUsed(min(street.mk, street.a), max(street.mk, street.b))
+			st.streetE = street.b + 1
+			return
+		}
 		st.set(StreetType, street.typ, SourceString, street.mk, street.mk)
 		st.set(StreetName, st.text(street.a, street.b), SourceString, street.a, street.b)
 		st.markUsed(min(street.mk, street.a), max(street.mk, street.b))
