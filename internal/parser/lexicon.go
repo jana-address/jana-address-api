@@ -1,6 +1,9 @@
 package parser
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
 
 type mclass uint8
 
@@ -79,21 +82,22 @@ var fuzzyForms = []string{"подъезд", "квартира", "бульвар"
 
 // fuzzyMarker finds a marker within a small edit distance: 1 for words of 5–7 letters, 2 for longer ones.
 func fuzzyMarker(f string) *marker {
-	r := []rune(f)
-	if len(r) < 5 {
+	var buf [maxFuzzyLen]rune
+	r := toRunes(f, buf[:0])
+	if len(r) < 5 || len(r) >= maxFuzzyLen {
 		return nil
 	}
 	limit := 1
 	if len(r) >= 8 {
 		limit = 2
 	}
+	fuzzyIndex.Do(buildFuzzyIndex)
 	var best *marker
 	bestD := limit + 1
-	for _, form := range fuzzyForms {
-		ff := fold(form)
-		if d := osaDistance(r, []rune(ff)); d < bestD {
-			best, bestD = markers[ff], d
-		} else if d == bestD && best != nil && markers[ff] != best {
+	for _, form := range fuzzyMarkerForms {
+		if d := osaDistanceLimit(r, form.r, limit); d < bestD {
+			best, bestD = form.m, d
+		} else if d == bestD && best != nil && form.m != best {
 			best = nil // ambiguous between two markers
 		}
 	}
@@ -122,20 +126,27 @@ func lookupCity(k string) (place, bool) {
 	if p, ok := cities[k]; ok {
 		return p, true
 	}
-	r := []rune(k)
+	var buf [maxFuzzyLen]rune
+	r := toRunes(k, buf[:0])
 	limit := fuzzyLimit(len(r))
-	if limit == 0 {
+	if limit == 0 || len(r) >= maxFuzzyLen {
 		return place{}, false
 	}
+	fuzzyIndex.Do(buildFuzzyIndex)
 	var best place
 	bestD, ambiguous := limit+1, false
-	for ck, p := range cities {
-		d := osaDistance(r, []rune(ck))
-		switch {
-		case d < bestD:
-			best, bestD, ambiguous = p, d, false
-		case d == bestD && p.name != best.name:
-			ambiguous = true
+	for n := len(r) - limit; n <= len(r)+limit; n++ {
+		if n < 0 || n >= maxFuzzyLen {
+			continue
+		}
+		for _, c := range cityByLen[n] {
+			d := osaDistanceLimit(r, c.r, limit)
+			switch {
+			case d < bestD:
+				best, bestD, ambiguous = c.p, d, false
+			case d == bestD && c.p.name != best.name:
+				ambiguous = true
+			}
 		}
 	}
 	if bestD <= limit && !ambiguous {
@@ -144,19 +155,68 @@ func lookupCity(k string) (place, bool) {
 	return place{}, false
 }
 
-// osaDistance is the optimal string alignment (Damerau-Levenshtein with adjacent transpositions).
-func osaDistance(a, b []rune) int {
-	if d := len(a) - len(b); d > 2 || d < -2 {
-		return 3
+// maxFuzzyLen bounds the words compared by edit distance; longer words are matched exactly only.
+const maxFuzzyLen = 48
+
+type cityEntry struct {
+	r []rune
+	p place
+}
+
+type markerForm struct {
+	r []rune
+	m *marker
+}
+
+var (
+	fuzzyIndex       sync.Once
+	cityByLen        [maxFuzzyLen][]cityEntry // directory keys bucketed by length in runes
+	fuzzyMarkerForms []markerForm
+)
+
+// buildFuzzyIndex prepares the directory for edit-distance search once, after all tables are filled.
+func buildFuzzyIndex() {
+	for k, p := range cities {
+		if r := []rune(k); len(r) < maxFuzzyLen {
+			cityByLen[len(r)] = append(cityByLen[len(r)], cityEntry{r, p})
+		}
 	}
-	prev2 := make([]int, len(b)+1)
-	prev := make([]int, len(b)+1)
-	cur := make([]int, len(b)+1)
+	for _, f := range fuzzyForms {
+		ff := fold(f)
+		fuzzyMarkerForms = append(fuzzyMarkerForms, markerForm{[]rune(ff), markers[ff]})
+	}
+}
+
+// toRunes decodes s into dst without allocating when s fits.
+func toRunes(s string, dst []rune) []rune {
+	for _, c := range s {
+		dst = append(dst, c)
+	}
+	return dst
+}
+
+// osaDistance is the optimal string alignment (Damerau-Levenshtein with adjacent transpositions).
+func osaDistance(a, b []rune) int { return osaDistanceLimit(a, b, 2) }
+
+// osaDistanceLimit returns the distance, or limit+1 as soon as it is known to exceed limit.
+// It does not allocate for words shorter than maxFuzzyLen.
+func osaDistanceLimit(a, b []rune, limit int) int {
+	if d := len(a) - len(b); d > limit || d < -limit {
+		return limit + 1
+	}
+	var rows [3][maxFuzzyLen + 1]int
+	var prev2, prev, cur []int
+	if len(b) < maxFuzzyLen {
+		prev2, prev, cur = rows[0][:len(b)+1], rows[1][:len(b)+1], rows[2][:len(b)+1]
+	} else {
+		prev2, prev, cur = make([]int, len(b)+1), make([]int, len(b)+1), make([]int, len(b)+1)
+	}
 	for j := range prev {
 		prev[j] = j
 	}
 	for i := 1; i <= len(a); i++ {
 		cur[0] = i
+		rowMin := i
 		for j := 1; j <= len(b); j++ {
 			cost := 1
 			if a[i-1] == b[j-1] {
@@ -166,10 +226,23 @@ func osaDistance(a, b []rune) int {
 			if i > 1 && j > 1 && a[i-1] == b[j-2] && a[i-2] == b[j-1] {
 				cur[j] = min(cur[j], prev2[j-2]+1)
 			}
+			rowMin = min(rowMin, cur[j])
+		}
+		// a transposition reaches back two rows, so stop only when both rows are over the limit
+		if rowMin > limit && i > 1 && minOf(prev) > limit {
+			return limit + 1
 		}
 		prev2, prev, cur = prev, cur, prev2
 	}
-	return prev[len(b)]
+	return min(prev[len(b)], limit+1)
+}
+
+func minOf(xs []int) int {
+	m := xs[0]
+	for _, x := range xs[1:] {
+		m = min(m, x)
+	}
+	return m
 }
 
 // realStreetTypes are street types that can coexist with a microdistrict (which then becomes living_area).

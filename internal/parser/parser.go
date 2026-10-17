@@ -202,7 +202,7 @@ func (st *state) classify() {
 			if m := fuzzyMarker(t.fold); m != nil {
 				t.mk = m
 			} else if i+1 < len(st.toks) && adminKnown(mCity, st.toks[i+1].fold) &&
-				osaDistance([]rune(t.fold), []rune("город")) <= 2 {
+				osaDistanceLimit([]rune(t.fold), []rune("город"), 2) <= 2 {
 				t.mk = markers["город"]
 			}
 		}
@@ -245,7 +245,7 @@ func (st *state) livingTail(i int) int {
 			return 2
 		}
 	case at(i, "жилой"):
-		if i+1 < len(st.toks) && osaDistance([]rune(st.toks[i+1].fold), []rune("комплекс")) <= 2 {
+		if i+1 < len(st.toks) && osaDistanceLimit([]rune(st.toks[i+1].fold), []rune("комплекс"), 2) <= 2 {
 			return 1
 		}
 	case at(i, "тұрғын"):
