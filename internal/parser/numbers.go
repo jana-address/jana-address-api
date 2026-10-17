@@ -1,12 +1,16 @@
 package parser
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jana-address/jana-address-api/internal/parser/dict"
+)
 
 // units binds numbers to house/apartment/entrance/floor markers.
 func (st *state) units() {
 	var ms []int
 	for i, t := range st.toks {
-		if t.kind == tWord && !t.used && t.mk.isUnit() {
+		if t.kind == tWord && !t.used && t.mk.IsUnit() {
 			ms = append(ms, i)
 		}
 	}
@@ -16,18 +20,18 @@ func (st *state) units() {
 		for st.isPunct(j, ".") {
 			j++
 		}
-		if st.toks[m].mk.class == mBlock && j < len(st.toks) && st.toks[j].kind == tWord && len([]rune(st.toks[j].text)) == 1 {
+		if st.toks[m].mk.Class == dict.Block && j < len(st.toks) && st.toks[j].kind == tWord && len([]rune(st.toks[j].text)) == 1 {
 			st.toks[m].used, st.toks[j].used, bound[m] = true, true, true
 		}
 	}
 	after, before := 0, 0
 	bind := func(m, n int) {
 		bound[m] = true
-		if st.toks[m].mk.class == mBlock { // "корпус 2", "блок 3": not an output field, just consume the number
+		if st.toks[m].mk.Class == dict.Block { // "корпус 2", "блок 3": not an output field, just consume the number
 			st.toks[m].used, st.toks[n].used = true, true
 			return
 		}
-		f := map[mclass]Field{mHouse: House, mApartment: Apartment, mEntrance: Entrance, mFloor: Floor}[st.toks[m].mk.class]
+		f := map[dict.Class]Field{dict.House: House, dict.Apartment: Apartment, dict.Entrance: Entrance, dict.Floor: Floor}[st.toks[m].mk.Class]
 		v := compactNum(st.toks[n].text)
 		if f != House {
 			v = strings.SplitN(v, "/", 2)[0]
@@ -61,11 +65,11 @@ func (st *state) units() {
 		if st.toks[p].mk == nil {
 			return true
 		}
-		if st.toks[p].mk.class == mStreet && numberedAreaTypes[st.toks[p].mk.canon] {
+		if st.toks[p].mk.Class == dict.Street && dict.NumberedAreaTypes[st.toks[p].mk.Canon] {
 			return true // "мкр.12 дом 117": 12 is the microdistrict
 		}
 		// a postfix street type after its name: "Естай көшесі 38 кв. 37"
-		return st.toks[p].mk.class == mStreet && p > 0 && st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil
+		return st.toks[p].mk.Class == dict.Street && p > 0 && st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil
 	}
 	// attachedRight returns the number written right after the marker, also across a dot: "кв5", "кв.5"
 	attachedRight := func(m int) int {
@@ -83,7 +87,7 @@ func (st *state) units() {
 		last := m
 		for k := m + 1; k < len(st.toks) && glued(st.toks[k-1], st.toks[k]); k++ {
 			t := st.toks[k]
-			if t.kind != tNum && !st.isPunct(k, ".") && !(t.kind == tWord && t.mk.isUnit()) {
+			if t.kind != tNum && !st.isPunct(k, ".") && !(t.kind == tWord && t.mk.IsUnit()) {
 				break
 			}
 			last = k
@@ -110,7 +114,7 @@ func (st *state) units() {
 		for i >= 0 && st.isPunct(i, ".:№#") {
 			i--
 		}
-		if st.availNum(i) && st.toks[m].mk.class != mBlock {
+		if st.availNum(i) && st.toks[m].mk.Class != dict.Block {
 			l = i
 		}
 		i = m + 1
@@ -157,5 +161,56 @@ func (st *state) units() {
 				break
 			}
 		}
+	}
+}
+
+// houseAt reports whether a house marker or the bound house number starts at i: "д 10", "д72", "41үй".
+func (st *state) houseAt(i int) bool {
+	if i < 0 || i >= len(st.toks) {
+		return false
+	}
+	t := st.toks[i]
+	if t.kind == tWord && t.mk != nil && t.mk.Class == dict.House {
+		return true
+	}
+	h, ok := st.vals[House]
+	return ok && t.kind == tNum && t.used && compactNum(t.text) == h
+}
+
+func (st *state) house() {
+	if _, ok := st.vals[House]; !ok {
+		from := st.streetE
+		if from < 0 {
+			from = 0
+		}
+		for k := from; k < len(st.toks); k++ {
+			if st.availNum(k) {
+				st.vals[House], st.src[House] = compactNum(st.toks[k].text), SourceString
+				st.addSpan(House, k, k)
+				st.toks[k].used = true
+				break
+			}
+		}
+	}
+	// "дом 5, 12" — a single leftover number after the house is the apartment
+	if _, ok := st.vals[Apartment]; ok {
+		return
+	}
+	if _, ok := st.vals[House]; !ok {
+		return
+	}
+	left := -1
+	for k := range st.toks {
+		if st.availNum(k) {
+			if left >= 0 {
+				return
+			}
+			left = k
+		}
+	}
+	if left >= 0 && strings.IndexFunc(st.toks[left].text, isLetter) < 0 && !strings.Contains(st.toks[left].text, "/") {
+		st.vals[Apartment], st.src[Apartment] = st.toks[left].text, SourceString
+		st.addSpan(Apartment, left, left)
+		st.toks[left].used = true
 	}
 }

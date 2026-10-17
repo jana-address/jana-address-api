@@ -1,16 +1,21 @@
 package parser
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jana-address/jana-address-api/internal/parser/dict"
+	"github.com/jana-address/jana-address-api/internal/parser/text"
+)
 
 // kazakhPostfix markers always follow the name, unlike Russian "район" that can stand on either side.
-var kazakhPostfix = map[string]bool{fold("ауданы"): true, fold("аудан"): true, fold("қаласы"): true, fold("облысы"): true}
+var kazakhPostfix = map[string]bool{text.Fold("ауданы"): true, text.Fold("аудан"): true, text.Fold("қаласы"): true, text.Fold("облысы"): true}
 
 // postfixAdmin markers usually follow the name: "Алматы қаласы", "Тұран ауданы", "Турксибский район".
 var postfixAdmin = map[string]bool{}
 
 func init() {
 	for _, w := range []string{"қаласы", "қалас", "ауданы", "аудан", "облысы", "район", "р-н", "рн", "область", "обл", "обл-ть", "ауылы", "ауыл", "ауд", "қ", "қала"} {
-		postfixAdmin[fold(w)] = true
+		postfixAdmin[text.Fold(w)] = true
 	}
 }
 
@@ -22,19 +27,6 @@ func (st *state) keyOf(a, b int) string {
 		}
 	}
 	return strings.Join(parts, " ")
-}
-
-func (d *directory) adminKnown(class mclass, k string) bool {
-	switch class {
-	case mRegion:
-		_, ok := d.regions[k]
-		return ok
-	case mDistrict:
-		_, ok := d.districts[k]
-		return ok
-	}
-	_, ok := d.lookupCity(k)
-	return ok
 }
 
 // wordRun returns consecutive unmarked words next to the marker m in direction dir (+1/-1).
@@ -67,14 +59,14 @@ func (st *state) wordRun(m, dir int) (int, int) {
 // adminName picks the name of an admin marker: the longest directory match next to it,
 // otherwise a single word when more text follows ("г. Арысь Абая 10" -> "Арысь").
 func (st *state) adminName(m int) (int, int) {
-	class := st.toks[m].mk.class
+	class := st.toks[m].mk.Class
 	fa, fb := st.wordRun(m, +1)
 	ba, bb := st.wordRun(m, -1)
 	gluedAfter := m > 0 && st.toks[m-1].kind == tWord && glued(st.toks[m-1], st.toks[m])
 	backward := ba >= 0 && (postfixAdmin[st.toks[m].fold] || fa < 0 || gluedAfter)
 	fwdKnown := func() bool {
 		for b := fb; fa >= 0 && b >= fa; b-- {
-			if st.d.adminKnown(class, st.keyOf(fa, b)) {
+			if st.d.AdminKnown(class, st.keyOf(fa, b)) {
 				return true
 			}
 		}
@@ -83,17 +75,17 @@ func (st *state) adminName(m int) (int, int) {
 	if backward {
 		for a := ba; a <= bb; a++ {
 			k := st.keyOf(a, bb)
-			if _, city := st.d.cities[k]; city && class == mDistrict && !kazakhPostfix[st.toks[m].fold] && fwdKnown() {
+			if _, city := st.d.Cities[k]; city && class == dict.District && !kazakhPostfix[st.toks[m].fold] && fwdKnown() {
 				break
 			}
-			if st.d.adminKnown(class, k) {
+			if st.d.AdminKnown(class, k) {
 				return a, bb
 			}
 		}
 	}
 	if fa >= 0 { // a known name after the marker wins over an unknown one before it: "Астана р-н Нура"
 		for b := fb; b >= fa; b-- {
-			if st.d.adminKnown(class, st.keyOf(fa, b)) {
+			if st.d.AdminKnown(class, st.keyOf(fa, b)) {
 				return fa, b
 			}
 		}
@@ -117,7 +109,7 @@ func (st *state) admin() {
 	// 1. explicit markers: "г. Алматы", "Алматы қаласы", "Тұран ауданы", "Карагандинская обл"
 	for i := range st.toks {
 		t := st.toks[i]
-		if t.kind != tWord || t.used || !t.mk.isAdmin() {
+		if t.kind != tWord || t.used || !t.mk.IsAdmin() {
 			continue
 		}
 		a, b := st.adminName(i)
@@ -125,17 +117,17 @@ func (st *state) admin() {
 			continue
 		}
 		k, name := st.keyOf(a, b), st.text(a, b)
-		switch t.mk.class {
-		case mRegion:
-			if r, ok := st.d.regions[k]; ok {
+		switch t.mk.Class {
+		case dict.Region:
+			if r, ok := st.d.Regions[k]; ok {
 				st.set(Province, r, SourceString, a, b)
 			} else {
 				st.set(Province, name, SourceString, a, b)
 			}
-		case mDistrict:
+		case dict.District:
 			st.setDistrict(k, name, a, b)
 		default:
-			st.setCity(k, name, a, b, t.mk.class == mSettlement)
+			st.setCity(k, name, a, b, t.mk.Class == dict.Settlement)
 		}
 		st.markUsed(min(i, a), max(i, b))
 	}
@@ -166,40 +158,40 @@ func (st *state) admin() {
 		k := st.keyOf(a, b)
 		switch {
 		// 2. a segment that is just a known name: "Алматы", "Турксибский"
-		case clean && (st.d.cities[k] != place{} || (seg == 0 && st.d.adminKnown(mCity, k) && st.typoCityBefore(b))): // close spelling only in the first segment
+		case clean && (st.d.Cities[k] != dict.Place{} || (seg == 0 && st.d.AdminKnown(dict.City, k) && st.typoCityBefore(b))): // close spelling only in the first segment
 			st.setCity(k, st.text(a, b), a, b, false)
 			st.markUsed(a, b)
-		case clean && st.d.regions[k] != "" && (len([]rune(k)) == 3 || strings.HasSuffix(k, "ская")):
-			st.set(Province, st.d.regions[k], SourceString, a, b)
+		case clean && st.d.Regions[k] != "" && (len([]rune(k)) == 3 || strings.HasSuffix(k, "ская")):
+			st.set(Province, st.d.Regions[k], SourceString, a, b)
 			st.markUsed(a, b)
-		case clean && st.vals[City] == "" && len(st.d.settlements[k]) > 0 &&
+		case clean && st.vals[City] == "" && len(st.d.Settlements[k]) > 0 &&
 			(st.writtenValue(Province) != "" || st.writtenValue(District) != ""):
 			st.setCity(k, st.text(a, b), a, b, true)
 			st.markUsed(a, b)
-		case clean && strings.HasSuffix(k, "ий") && st.d.adminKnown(mDistrict, k):
+		case clean && strings.HasSuffix(k, "ий") && st.d.AdminKnown(dict.District, k):
 			st.setDistrict(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
 		default:
 			// 3. a known city inside a street segment: "Алматы Сатпаева 5", "050000 Алматы ул Абая 10"
 			for i := a; i <= b; i++ {
 				t := st.toks[i]
-				if t.kind != tWord || t.used || t.mk != nil || !st.d.adminKnown(mCity, t.fold) {
+				if t.kind != tWord || t.used || t.mk != nil || !st.d.AdminKnown(dict.City, t.fold) {
 					continue
 				}
-				areaNext := i+2 <= b && st.toks[i+1].kind == tNum && st.toks[i+2].mk != nil && numberedAreaTypes[st.toks[i+2].mk.canon]
-				if _, exact := st.d.cities[t.fold]; !exact && !areaNext && !st.typoCityBefore(i) {
+				areaNext := i+2 <= b && st.toks[i+1].kind == tNum && st.toks[i+2].mk != nil && dict.NumberedAreaTypes[st.toks[i+2].mk.Canon]
+				if _, exact := st.d.Cities[t.fold]; !exact && !areaNext && !st.typoCityBefore(i) {
 					continue
 				}
 				p := i - 1
 				for st.isPunct(p, ".") {
 					p--
 				}
-				if p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.class == mStreet {
+				if p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.Class == dict.Street {
 					continue // "ул. Астана" is a street, not the city
 				}
 				if cur, set := st.vals[City]; set {
 					// the city written twice: "алматы алматы жандосова 58"
-					if pl, _ := st.d.lookupCity(t.fold); pl.name == cur && i < b && st.toks[i+1].kind == tWord {
+					if pl, _ := st.d.LookupCity(t.fold); pl.Name == cur && i < b && st.toks[i+1].kind == tWord {
 						st.toks[i].used = true
 					}
 					break
@@ -227,46 +219,46 @@ func (st *state) typoCityBefore(i int) bool {
 // among namesakes; a typo match comes last and, after "с.", "п.", "ауылы", only for names the
 // classifier does not know ("с. Алмалы" must not become Алматы).
 func (st *state) setCity(k, name string, a, b int, village bool) {
-	use := func(p place) {
-		st.set(City, p.name, SourceString, a, b)
-		st.setDir(Province, p.province)
-		st.setDir(District, p.district)
+	use := func(p dict.Place) {
+		st.set(City, p.Name, SourceString, a, b)
+		st.setDir(Province, p.Province)
+		st.setDir(District, p.District)
 	}
-	consistent := func(p place) bool {
+	consistent := func(p dict.Place) bool {
 		prov, dist := st.writtenValue(Province), st.writtenValue(District)
-		return (prov == "" || p.province == prov) && (dist == "" || p.district == "" || p.district == dist)
+		return (prov == "" || p.Province == prov) && (dist == "" || p.District == "" || p.District == dist)
 	}
-	if hand, ok := st.d.cities[k]; ok && consistent(hand) {
+	if hand, ok := st.d.Cities[k]; ok && consistent(hand) {
 		// a written rayon picks its own village over a town of another region: "Мамлютский район, Щучье"
 		// is a village there, not Щучинск; in the same region the hand table keeps its spelling
-		if p, own := st.settlement(k); own && hand.district == "" && st.writtenValue(District) != "" && p.province != hand.province {
+		if p, own := st.settlement(k); own && hand.District == "" && st.writtenValue(District) != "" && p.Province != hand.Province {
 			use(p)
 		} else {
 			use(hand)
 		}
 		return
 	}
-	ps := st.d.settlements[k]
+	ps := st.d.Settlements[k]
 	if p, ok := st.settlement(k); ok {
 		use(p)
 		return
 	}
 	if len(ps) == 0 || !village {
-		if p, ok := st.d.lookupCity(k); ok {
+		if p, ok := st.d.LookupCity(k); ok {
 			use(p)
 			return
 		}
 	}
 	if len(ps) > 0 && sameName(ps) { // namesakes in several regions: the name is certain, the region is not
-		st.set(City, ps[0].name, SourceString, a, b)
+		st.set(City, ps[0].Name, SourceString, a, b)
 		return
 	}
-	st.set(City, ruSpelling(name), SourceString, a, b)
+	st.set(City, text.RuSpelling(name), SourceString, a, b)
 }
 
-func sameName(ps []place) bool {
+func sameName(ps []dict.Place) bool {
 	for _, p := range ps[1:] {
-		if p.name != ps[0].name {
+		if p.Name != ps[0].Name {
 			return false
 		}
 	}
@@ -274,16 +266,44 @@ func sameName(ps []place) bool {
 }
 
 func (st *state) setDistrict(k, name string, a, b int) {
-	d, ok := st.d.districts[k]
+	d, ok := st.d.Districts[k]
 	if !ok {
 		st.set(District, name, SourceString, a, b)
 		return
 	}
-	st.set(District, d.name, SourceString, a, b)
+	st.set(District, d.Name, SourceString, a, b)
 	// "Абайский", "Есильский" are city districts of Шымкент and Астана and also rural rayons in other
 	// regions: the city comes from the district only when the line names no other region
-	if prov := st.writtenValue(Province); prov == "" || prov == d.province {
-		st.setDir(City, d.city)
-		st.setDir(Province, d.province)
+	if prov := st.writtenValue(Province); prov == "" || prov == d.Province {
+		st.setDir(City, d.City)
+		st.setDir(Province, d.Province)
 	}
+}
+
+// settlement resolves a town or village name; province and district written in the line pick one
+// of several namesakes. It returns false when the name is unknown or still ambiguous.
+func (st *state) settlement(k string) (dict.Place, bool) {
+	ps := st.d.Settlements[k]
+	if len(ps) == 0 {
+		return dict.Place{}, false
+	}
+	prov, dist := st.writtenValue(Province), st.writtenValue(District)
+	var match []dict.Place
+	for _, p := range ps {
+		if (prov == "" || p.Province == prov) && (dist == "" || p.District == dist) {
+			match = append(match, p)
+		}
+	}
+	if len(match) == 1 {
+		return match[0], true
+	}
+	return dict.Place{}, false
+}
+
+// writtenValue returns a field value only when it came from the line itself.
+func (st *state) writtenValue(f Field) string {
+	if st.src[f] != SourceString {
+		return ""
+	}
+	return st.vals[f]
 }

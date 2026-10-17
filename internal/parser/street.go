@@ -1,6 +1,11 @@
 package parser
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jana-address/jana-address-api/internal/parser/dict"
+	"github.com/jana-address/jana-address-api/internal/parser/text"
+)
 
 type cand struct {
 	typ      string
@@ -35,24 +40,24 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 		}
 		switch t.kind {
 		case tWord:
-			if t.mk != nil && typ == "жилой комплекс" && a >= 0 && t.mk.class == mStreet &&
+			if t.mk != nil && typ == "жилой комплекс" && a >= 0 && t.mk.Class == dict.Street &&
 				!(k+1 < len(st.toks) && st.toks[k+1].kind == tWord && st.toks[k+1].mk == nil && !st.toks[k+1].used) {
 				break
 			}
 			if t.mk != nil {
 				return a, b
 			}
-			if typ == "жилой комплекс" && a >= 0 && isLatin(st.toks[b].text) != isLatin(t.text) {
+			if typ == "жилой комплекс" && a >= 0 && text.IsLatin(st.toks[b].text) != text.IsLatin(t.text) {
 				return a, b
 			}
-			if !realStreetTypes[typ] && a >= 0 && st.postfixStreetAt(k+1) {
+			if !dict.RealStreetTypes[typ] && a >= 0 && st.postfixStreetAt(k+1) {
 				return a, b
 			}
 		case tNum:
 			if t.ignore {
 				return a, b
 			}
-			if numberedAreaTypes[typ] {
+			if dict.NumberedAreaTypes[typ] {
 				hyphened := a >= 0 && st.isPunct(k-1, "-") && glued(st.toks[k-1], t) // "Самал-2"
 				if !(hyphened || st.laterNumberExists(k)) {
 					return a, b
@@ -64,7 +69,7 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 			}
 			// "ул. 8 Марта": a number right after the type followed by a word
 			if a < 0 && k+1 < len(st.toks) && st.toks[k+1].kind == tWord && st.toks[k+1].mk == nil && !st.toks[k+1].used &&
-				!st.d.adminKnown(mCity, st.toks[k+1].fold) {
+				!st.d.AdminKnown(dict.City, st.toks[k+1].fold) {
 				break
 			}
 			return a, b
@@ -98,7 +103,7 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 		case tWord:
 			ok = t.mk == nil
 		case tNum:
-			ok = numberedAreaTypes[typ] && !t.ignore
+			ok = dict.NumberedAreaTypes[typ] && !t.ignore
 		case tPunct:
 			ok = t.text == "-" && a >= 0 || strings.Contains("\"«»", t.text)
 		}
@@ -119,7 +124,7 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 // postfixStreetAt reports whether a real street type word starts at i: "көшесі", "көш.", "ул.".
 func (st *state) postfixStreetAt(i int) bool {
 	if !(i < len(st.toks) && st.toks[i].kind == tWord && !st.toks[i].used && st.toks[i].mk != nil &&
-		st.toks[i].mk.class == mStreet && realStreetTypes[st.toks[i].mk.canon]) {
+		st.toks[i].mk.Class == dict.Street && dict.RealStreetTypes[st.toks[i].mk.Canon]) {
 		return false
 	}
 	// "ул.садовая" opens a new name, so it is a prefix, not a postfix
@@ -134,13 +139,13 @@ func (st *state) street() {
 	var cands []cand
 	covered := -1 // a type word inside a collected name is not a new street: "жк Экспо Бульвар"
 	for i, t := range st.toks {
-		if i <= covered || t.kind != tWord || t.used || t.mk == nil || (t.mk.class != mStreet && t.mk.class != mLiving) {
+		if i <= covered || t.kind != tWord || t.used || t.mk == nil || (t.mk.Class != dict.Street && t.mk.Class != dict.Living) {
 			continue
 		}
-		typ := t.mk.canon
-		c := cand{typ: typ, mk: i, isLiving: t.mk.class == mLiving}
+		typ := t.mk.Canon
+		c := cand{typ: typ, mk: i, isLiving: t.mk.Class == dict.Living}
 		c.a, c.b = st.collectForward(i, typ)
-		if numberedAreaTypes[typ] && st.availNum(i-1) && c.a >= 0 && c.a == c.b && st.toks[c.a].kind == tNum {
+		if dict.NumberedAreaTypes[typ] && st.availNum(i-1) && c.a >= 0 && c.a == c.b && st.toks[c.a].kind == tNum {
 			c.a = -1 // "6 шағын ауданы 10": 6 is the area, 10 the house
 		}
 		if c.a < 0 {
@@ -156,7 +161,7 @@ func (st *state) street() {
 	var street, living *cand
 	for i := range cands {
 		c := &cands[i]
-		if realStreetTypes[c.typ] && street == nil {
+		if dict.RealStreetTypes[c.typ] && street == nil {
 			street = c
 		}
 	}
@@ -184,7 +189,7 @@ func (st *state) street() {
 			st.set(LivingArea, st.text(living.a, living.b), SourceString, living.a, living.b)
 		}
 	}
-	if street != nil && living == nil && !untyped && !realStreetTypes[street.typ] {
+	if street != nil && living == nil && !untyped && !dict.RealStreetTypes[street.typ] {
 		st.markUsed(min(street.mk, street.a), max(street.mk, street.b))
 		if st.untypedStreet() { // "мкр Самал-2, Жолдасбекова 97"
 			st.set(LivingArea, st.text(street.a, street.b), SourceString, street.a, street.b)
@@ -248,4 +253,54 @@ func (st *state) untypedStreet() bool {
 		i = j
 	}
 	return false
+}
+
+// livingPart takes a separate part of plain words between the city and the street as the living area:
+// "Караганда, Пришахтинск, ул. Ленина 5", "Астана, Нурсая, Сыганак 10". Without a city such a part may be
+// the town itself, so it is left alone.
+func (st *state) livingPart() {
+	if _, ok := st.vals[LivingArea]; ok || st.vals[City] == "" || st.vals[StreetName] == "" || st.streetE <= 0 {
+		return
+	}
+	streetSeg := st.toks[st.streetE-1].seg
+	cityEnd := -1
+	for _, sp := range st.spans {
+		if sp.Field == City {
+			cityEnd = max(cityEnd, sp.End)
+		}
+	}
+	best := -1
+	for seg := 0; seg < streetSeg; seg++ {
+		a, b := st.segRange(seg)
+		if a < 0 || b-a > 4 || st.c.Start[st.toks[a].s] < cityEnd {
+			continue
+		}
+		words := 0
+		for i := a; i <= b; i++ {
+			t := st.toks[i]
+			switch {
+			case t.kind == tWord && !t.used && t.mk == nil:
+				words++
+			case t.kind == tNum && !t.used && i > a+1 && st.isPunct(i-1, "-") && glued(st.toks[i-1], t): // "Самал-2"
+			case st.isPunct(i, "-\"«»"):
+			default:
+				words = -100
+			}
+		}
+		if words > 0 && words <= 3 {
+			best = seg
+		}
+	}
+	if best < 0 {
+		return
+	}
+	a, b := st.segRange(best)
+	for st.isPunct(a, "\"«»") {
+		a++
+	}
+	for st.isPunct(b, "\"«»") {
+		b--
+	}
+	st.set(LivingArea, st.text(a, b), SourceString, a, b)
+	st.markUsed(a, b)
 }

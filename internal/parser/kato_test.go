@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jana-address/jana-address-api/internal/kato"
+	"github.com/jana-address/jana-address-api/internal/parser/dict"
 )
 
 func TestKATOSettlements(t *testing.T) {
@@ -11,8 +12,8 @@ func TestKATOSettlements(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	old := current.Load()
-	defer current.Store(old)
+	old := dict.Current()
+	defer dict.SetCurrent(old)
 	if st := UseKATO(recs); st.Settlements < 5000 || st.Districts < 100 {
 		t.Fatalf("too little from the classifier: %+v", st)
 	}

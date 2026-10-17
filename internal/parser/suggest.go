@@ -1,60 +1,15 @@
 package parser
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jana-address/jana-address-api/internal/parser/dict"
+)
 
 // Suggestion is the address written back in a clean form for the operator:
 // "Астана, проспект Мәңгілік Ел, д. 55, кв. 12".
 // The street name in the output fields stays verbatim; only the suggestion
 // uses the directory spelling of a well-known street.
-
-type knownStreet struct{ name, typ string }
-
-// knownStreets holds main streets of the largest cities until the full OSM directory is loaded.
-var knownStreets = map[string][]knownStreet{}
-
-func init() {
-	add := func(city, typ string, names ...string) {
-		for _, n := range names {
-			knownStreets[city] = append(knownStreets[city], knownStreet{n, typ})
-		}
-	}
-	add("Астана", "проспект", "Мәңгілік Ел", "Қабанбай батыр", "Тұран", "Республики", "Абая", "Сарыарка", "Улы Дала",
-		"Богенбай батыра", "Бауыржан Момышулы", "Жеңіс", "Кошкарбаева", "Шәкәрім Құдайбердіұлы")
-	add("Астана", "улица", "Кенесары", "Сығанақ", "Кунаева", "Достык", "Сауран", "Бокейхана", "Иманова", "Бейбитшилик",
-		"Ауэзова", "Сейфуллина", "Желтоксан", "Пушкина", "Петрова", "Жубанова", "Орынбор", "Акмешит")
-	add("Алматы", "проспект", "Абая", "Аль-Фараби", "Достык", "Райымбека", "Назарбаева", "Жибек Жолы", "Сейфуллина", "Гагарина", "Рыскулова", "Суюнбая")
-	add("Алматы", "улица", "Толе би", "Сатпаева", "Жандосова", "Розыбакиева", "Тимирязева", "Жолдасбекова", "Байтурсынова",
-		"Шевченко", "Гоголя", "Курмангазы", "Кабанбай батыра", "Богенбай батыра", "Муканова", "Навои", "Утепова",
-		"Байзакова", "Ауэзова", "Манаса", "Желтоксан", "Фурманова", "Тулебаева", "Панфилова", "Торайгырова", "Жамбыла")
-	add("Шымкент", "проспект", "Тауке хана", "Кунаева", "Республики", "Байдибек би", "Абая")
-	add("Шымкент", "улица", "Байтурсынова", "Толе би", "Казыбек би", "Мадели кожа", "Жибек жолы")
-	add("Караганда", "проспект", "Бухар жырау", "Нуркена Абдирова", "Строителей", "Республики")
-	add("Караганда", "улица", "Ерубаева", "Гоголя", "Алиханова", "Ермекова", "Мустафина")
-	add("Актобе", "проспект", "Абилкайыр хана", "Санкибай батыра", "Алии Молдагуловой", "Маресьева")
-	add("Актобе", "улица", "Бр. Жубановых", "Есет батыра", "Маметовой")
-}
-
-func squash(s string) string {
-	return strings.NewReplacer(" ", "", "-", "", ".", "").Replace(fold(s))
-}
-
-// matchStreet finds a single well-known street within a small typo distance of the written name.
-func matchStreet(city, name string) (knownStreet, bool) {
-	w := []rune(squash(name))
-	limit := fuzzyLimit(len(w))
-	var best knownStreet
-	bestD, ambiguous := limit+1, false
-	for _, s := range knownStreets[city] {
-		d := osaDistance(w, []rune(squash(s.name)))
-		switch {
-		case d < bestD:
-			best, bestD, ambiguous = s, d, false
-		case d == bestD && s.name != best.name:
-			ambiguous = true
-		}
-	}
-	return best, bestD <= limit && !ambiguous
-}
 
 func title(s string) string {
 	r := []rune(s)
@@ -86,10 +41,10 @@ func (o Output) Suggest() string {
 	}
 	if name := v[StreetName]; name != "" {
 		typ := v[StreetType]
-		if s, ok := matchStreet(v[City], name); ok {
-			name = s.name
+		if s, ok := dict.MatchStreet(v[City], name); ok {
+			name = s.Name
 			if typ == "" {
-				typ = s.typ
+				typ = s.Type
 			}
 		} else {
 			name = title(name)

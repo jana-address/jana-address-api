@@ -1,6 +1,11 @@
 package parser
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jana-address/jana-address-api/internal/parser/dict"
+	"github.com/jana-address/jana-address-api/internal/parser/text"
+)
 
 func (st *state) classify() {
 	for i := range st.toks {
@@ -10,15 +15,15 @@ func (st *state) classify() {
 		}
 		// "шағын аудан(ы)" = микрорайон (two words)
 		if (t.fold == "шагын" || t.fold == "ыкшам") && i+1 < len(st.toks) && (st.toks[i+1].fold == "аудан" || st.toks[i+1].fold == "ауданы") {
-			t.mk = markers["мкр"]
+			t.mk = dict.Markers["мкр"]
 			st.toks[i+1].mk = t.mk
 			st.toks[i+1].used = true // second word is part of the marker
 			t.tail = 1
 			continue
 		}
 		// "тас жолы" = шоссе (two words)
-		if t.fold == "тас" && i+1 < len(st.toks) && st.toks[i+1].fold == fold("жолы") {
-			t.mk = markers["шоссе"]
+		if t.fold == "тас" && i+1 < len(st.toks) && st.toks[i+1].fold == text.Fold("жолы") {
+			t.mk = dict.Markers["шоссе"]
 			st.toks[i+1].mk = t.mk
 			st.toks[i+1].used = true
 			t.tail = 1
@@ -26,7 +31,7 @@ func (st *state) classify() {
 		}
 		// ЖК written in several tokens: "ж.к.", "ж/к", "жилой комплекс", "тұрғын үй кешені"
 		if n := st.livingTail(i); n > 0 {
-			t.mk = markers["жк"]
+			t.mk = dict.Markers["жк"]
 			t.tail = n
 			for k := i + 1; k <= i+n; k++ {
 				st.toks[k].used = true
@@ -34,13 +39,13 @@ func (st *state) classify() {
 			}
 			continue
 		}
-		if m, ok := markers[t.fold]; ok && t.mk == nil {
+		if m, ok := dict.Markers[t.fold]; ok && t.mk == nil {
 			t.mk = m
-			if m.class == mNoise {
+			if m.Class == dict.Noise {
 				republic := t.fold == "республика"
 				if republic && !(i+1 < len(st.toks) && st.toks[i+1].fold == "казахстан") {
 					t.mk = nil
-				} else if i == 0 || st.toks[i-1].kind == tPunct || (st.toks[i-1].mk != nil && st.toks[i-1].mk.class == mNoise) {
+				} else if i == 0 || st.toks[i-1].kind == tPunct || (st.toks[i-1].mk != nil && st.toks[i-1].mk.Class == dict.Noise) {
 					t.used = true
 					continue
 				}
@@ -48,12 +53,12 @@ func (st *state) classify() {
 			}
 		}
 		// typo in a long marker word: "подлъезд", "кваритра"; a typo right before a known city: "гролд актобе"
-		if t.mk == nil && !st.d.adminKnown(mCity, t.fold) {
-			if m := fuzzyMarker(t.fold); m != nil {
+		if t.mk == nil && !st.d.AdminKnown(dict.City, t.fold) {
+			if m := dict.FuzzyMarker(t.fold); m != nil {
 				t.mk = m
-			} else if i+1 < len(st.toks) && st.d.adminKnown(mCity, st.toks[i+1].fold) &&
-				osaDistanceLimit([]rune(t.fold), []rune("город"), 2) <= 2 {
-				t.mk = markers["город"]
+			} else if i+1 < len(st.toks) && st.d.AdminKnown(dict.City, st.toks[i+1].fold) &&
+				text.DistanceLimit([]rune(t.fold), []rune("город"), 2) <= 2 {
+				t.mk = dict.Markers["город"]
 			}
 		}
 		// an initial inside a street name: "ул. Д. Кунаева", "пр. С. Сейфуллина"; without the type only a capital
@@ -64,9 +69,9 @@ func (st *state) classify() {
 			for st.isPunct(p, ".") {
 				p--
 			}
-			afterType := p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.class == mStreet
-			afterCity := p == i-1 && p >= 0 && st.toks[p].kind == tWord && t.mk != nil && t.mk.class == mCity && st.d.adminKnown(mCity, st.toks[p].fold)
-			initial := capital(t.text) && capital(st.toks[i+2].text) && !st.placeAt(i+2) && !afterCity && (t.mk == nil || t.mk.class != mStreet)
+			afterType := p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.Class == dict.Street
+			afterCity := p == i-1 && p >= 0 && st.toks[p].kind == tWord && t.mk != nil && t.mk.Class == dict.City && st.d.AdminKnown(dict.City, st.toks[p].fold)
+			initial := text.Capital(t.text) && text.Capital(st.toks[i+2].text) && !st.placeAt(i+2) && !afterCity && (t.mk == nil || t.mk.Class != dict.Street)
 			if afterType || initial {
 				t.mk = nil
 				continue
@@ -74,9 +79,9 @@ func (st *state) classify() {
 		}
 		// "с." before a name is a village, otherwise a preposition; "с Отеген батыр" without a dot only before a known place
 		if t.fold == "с" && (st.isPunct(i+1, ".") || st.knownPlaceAt(i+1)) {
-			t.mk = &marker{class: mSettlement}
+			t.mk = &dict.Marker{Class: dict.Settlement}
 		}
-		if t.fold == "кала" && t.mk != nil && !(i > 0 && st.toks[i-1].kind == tWord && st.d.knownCityWord(st.toks[i-1].fold)) {
+		if t.fold == "кала" && t.mk != nil && !(i > 0 && st.toks[i-1].kind == tWord && st.d.KnownCityWord(st.toks[i-1].fold)) {
 			t.mk = nil // "Жана кала" is a name
 		}
 		if t.fold == "п" {
@@ -84,8 +89,8 @@ func (st *state) classify() {
 			for st.isPunct(j, ".") {
 				j++
 			}
-			if j < len(st.toks) && st.toks[j].kind == tWord && markers[st.toks[j].fold] == nil {
-				t.mk = markers["пос"]
+			if j < len(st.toks) && st.toks[j].kind == tWord && dict.Markers[st.toks[j].fold] == nil {
+				t.mk = dict.Markers["пос"]
 			}
 		}
 	}
@@ -97,11 +102,11 @@ func (st *state) knownPlaceAt(i int) bool {
 		return false
 	}
 	k := st.toks[i].fold
-	if st.d.knownCityWord(k) {
+	if st.d.KnownCityWord(k) {
 		return true
 	}
 	if i+1 < len(st.toks) && st.toks[i+1].kind == tWord {
-		return st.d.knownCityWord(k + " " + st.toks[i+1].fold)
+		return st.d.KnownCityWord(k + " " + st.toks[i+1].fold)
 	}
 	return false
 }
@@ -111,18 +116,18 @@ func (st *state) knownPlaceAt(i int) bool {
 // called Сейфуллина exist; "С. Кайнар, Новая 4" and "Г. Шымкнт, Тауке хана 20" are places.
 func (st *state) placeAt(i int) bool {
 	k := st.toks[i].fold
-	if _, ok := st.d.cities[k]; ok {
+	if _, ok := st.d.Cities[k]; ok {
 		return true
 	}
-	if i+1 < len(st.toks) && st.toks[i+1].kind == tWord && st.d.knownCityWord(k+" "+st.toks[i+1].fold) {
+	if i+1 < len(st.toks) && st.toks[i+1].kind == tWord && st.d.KnownCityWord(k+" "+st.toks[i+1].fold) {
 		return true // "С. Отеген батыр"
 	}
-	return (len(st.d.settlements[k]) > 0 || st.d.adminKnown(mCity, k)) && st.typoCityBefore(i)
+	return (len(st.d.Settlements[k]) > 0 || st.d.AdminKnown(dict.City, k)) && st.typoCityBefore(i)
 }
 
 // livingTail returns how many tokens after i complete a multi-token ЖК marker.
 func (st *state) livingTail(i int) int {
-	at := func(k int, w string) bool { return k < len(st.toks) && st.toks[k].fold == fold(w) }
+	at := func(k int, w string) bool { return k < len(st.toks) && st.toks[k].fold == text.Fold(w) }
 	switch {
 	case at(i, "ж"):
 		if (st.isPunct(i+1, ".") || st.isPunct(i+1, "/")) && at(i+2, "к") {
@@ -132,7 +137,7 @@ func (st *state) livingTail(i int) int {
 			return 2
 		}
 	case at(i, "жилой"):
-		if i+1 < len(st.toks) && osaDistanceLimit([]rune(st.toks[i+1].fold), []rune("комплекс"), 2) <= 2 {
+		if i+1 < len(st.toks) && text.DistanceLimit([]rune(st.toks[i+1].fold), []rune("комплекс"), 2) <= 2 {
 			return 1
 		}
 	case at(i, "тұрғын"):

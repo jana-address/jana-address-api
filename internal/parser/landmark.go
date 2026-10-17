@@ -1,6 +1,11 @@
 package parser
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jana-address/jana-address-api/internal/parser/dict"
+	"github.com/jana-address/jana-address-api/internal/parser/text"
+)
 
 // landmarks: from a trigger word to the next comma, marker or number.
 func (st *state) landmarks() {
@@ -19,13 +24,13 @@ func (st *state) landmarks() {
 				continue
 			}
 		}
-		if t.kind != tWord || t.used || t.mk == nil || t.mk.class != mLandmark {
+		if t.kind != tWord || t.used || t.mk == nil || t.mk.Class != dict.Landmark {
 			continue
 		}
 		j := i
 		for j+1 < len(st.toks) {
 			n := st.toks[j+1]
-			if n.used || (n.kind == tPunct && n.text != "\"") || n.kind == tNum || (n.mk != nil && n.mk.class != mLandmark) {
+			if n.used || (n.kind == tPunct && n.text != "\"") || n.kind == tNum || (n.mk != nil && n.mk.Class != dict.Landmark) {
 				break
 			}
 			j++
@@ -48,7 +53,7 @@ var postfixLandmark = map[string]bool{}
 
 func init() {
 	for _, w := range []string{"жанында", "қасында", "маңында", "қарсы", "қарсысында", "артында"} {
-		postfixLandmark[fold(w)] = true
+		postfixLandmark[text.Fold(w)] = true
 	}
 }
 
