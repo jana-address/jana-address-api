@@ -34,10 +34,15 @@ func predict(raw string) map[string]string {
 
 // TestFastTypeSet scores the parser on fast-typed addresses and guards against regressions.
 // fasttype_100 is the development set, holdout_100 is only measured.
+// EVAL_EXTRA=set1,set2 scores more sets from testdata (without .jsonl).
 // EVAL_FAILURES=dir writes every wrong field to dir/<set>.txt for error analysis.
 func TestFastTypeSet(t *testing.T) {
 	const dir = "../../testdata/"
-	for _, set := range []string{"fasttype/fasttype_100", "fasttype/holdout_100", "synth/synth_10000"} {
+	sets := []string{"fasttype/fasttype_100", "fasttype/holdout_100", "synth/synth_10000"}
+	if extra := os.Getenv("EVAL_EXTRA"); extra != "" { // e.g. synth/synth_100000 made by cmd/synth, not committed
+		sets = append(sets, strings.Split(extra, ",")...)
+	}
+	for _, set := range sets {
 		t.Run(set, func(t *testing.T) {
 			gold, err := Load(dir + set + ".jsonl")
 			if os.IsNotExist(err) {
