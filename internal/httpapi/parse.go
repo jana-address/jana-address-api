@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -9,7 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jana-address/jana-address-api/internal/addr"
@@ -42,27 +43,81 @@ func (a *api) parseBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	out := make([]addr.Result, len(items))
-	jobs := make(chan int)
-	var wg sync.WaitGroup
-	for range runtime.GOMAXPROCS(0) {
-		wg.Add(1)
+	ctx := r.Context()
+
+	// Workers take chunks of records by a shared counter, parse them and encode each chunk to JSON;
+	// the handler writes the chunks strictly in input order as soon as the next one is ready.
+	nchunks := (len(items) + batchChunk - 1) / batchChunk
+	parts := make([][]byte, nchunks)
+	ready := make([]chan struct{}, nchunks)
+	for c := range ready {
+		ready[c] = make(chan struct{})
+	}
+	var next atomic.Int64
+	for range min(runtime.GOMAXPROCS(0), nchunks) {
 		go func() {
-			defer wg.Done()
-			for i := range jobs {
-				out[i] = a.parseItem(items[i])
+			var tmp bytes.Buffer
+			enc := json.NewEncoder(&tmp)
+			enc.SetEscapeHTML(false)
+			for {
+				c := int(next.Add(1) - 1)
+				if c >= nchunks {
+					return
+				}
+				if ctx.Err() == nil { // the client is still there
+					parts[c] = a.encodeChunk(items[c*batchChunk:min((c+1)*batchChunk, len(items))], enc, &tmp)
+				}
+				close(ready[c])
 			}
 		}()
 	}
-	for i := range items {
-		jobs <- i
-	}
-	close(jobs)
-	wg.Wait()
 
-	w.Header().Set("X-Records", strconv.Itoa(len(out)))
-	w.Header().Set("X-Parse-Ms", strconv.FormatInt(time.Since(start).Milliseconds(), 10))
-	writeJSON(w, http.StatusOK, out)
+	h := w.Header()
+	h.Set("Content-Type", "application/json; charset=utf-8")
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Records", strconv.Itoa(len(items)))
+	h.Set("Trailer", "X-Parse-Ms")
+	w.WriteHeader(http.StatusOK)
+	bw := bufio.NewWriterSize(w, 64<<10)
+	_ = bw.WriteByte('[')
+	for c := range nchunks {
+		select {
+		case <-ready[c]:
+		case <-ctx.Done():
+			return
+		}
+		if c > 0 {
+			_ = bw.WriteByte(',')
+		}
+		if _, err := bw.Write(parts[c]); err != nil {
+			return
+		}
+		parts[c] = nil
+	}
+	_, _ = bw.WriteString("]\n")
+	_ = bw.Flush()
+	h.Set("X-Parse-Ms", strconv.FormatInt(time.Since(start).Milliseconds(), 10))
+}
+
+// batchChunk is how many records a worker parses and encodes at a time.
+const batchChunk = 256
+
+// encodeChunk parses records and returns them as comma-separated JSON objects (no brackets).
+func (a *api) encodeChunk(items []inItem, enc *json.Encoder, tmp *bytes.Buffer) []byte {
+	out := make([]byte, 0, len(items)*400)
+	for i, it := range items {
+		res := a.parseItem(it)
+		tmp.Reset()
+		if enc.Encode(&res) != nil {
+			tmp.Reset()
+			_ = enc.Encode(&addr.Result{}) // never break the array: a record that cannot be encoded becomes nulls
+		}
+		if i > 0 {
+			out = append(out, ',')
+		}
+		out = append(out, bytes.TrimSuffix(tmp.Bytes(), []byte("\n"))...)
+	}
+	return out
 }
 
 // parseItem never fails: a bad or crashing record yields nulls with zero confidence.
@@ -138,13 +193,12 @@ func decodeItems(body []byte) ([]inItem, error) {
 	}
 	switch body[0] {
 	case '[':
-		var raws []json.RawMessage
-		if err := json.Unmarshal(body, &raws); err != nil {
-			return nil, errors.New("invalid JSON array: " + err.Error())
-		}
-		items := make([]inItem, len(raws))
-		for i, rm := range raws {
-			_ = json.Unmarshal(rm, &items[i]) // a non-object element keeps its slot with nulls
+		var items []inItem
+		if err := json.Unmarshal(body, &items); err != nil {
+			// a non-object element keeps its slot with nulls; anything else is a broken array
+			if _, ok := errors.AsType[*json.UnmarshalTypeError](err); !ok {
+				return nil, errors.New("invalid JSON array: " + err.Error())
+			}
 		}
 		return items, nil
 	case '{':
