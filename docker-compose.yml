@@ -1,0 +1,99 @@
+# Jana Address: PostgreSQL + Go API + React UI.
+#
+#   git clone --recurse-submodules https://github.com/jana-address/jana-address-api.git
+#   cd jana-address-api && docker compose up
+#
+# UI: http://localhost:3000   API: http://localhost:8080/api/v1/health
+# If the build fails on ./web: the submodule is empty, run `git submodule update --init`.
+# Images are built once with internet access; after that `docker compose up` works offline.
+name: jana-address
+
+services:
+  db:
+    build:
+      context: ./db  # postgres:18.6-alpine without gosu, runs as the postgres user
+    image: jana-address/db:local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jana}
+      POSTGRES_USER: ${POSTGRES_USER:-jana}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jana_local_only}  # db is on an internal network only
+      POSTGRES_INITDB_ARGS: "--locale-provider=builtin --locale=C.UTF-8 --encoding=UTF8"
+    volumes:
+      - pgdata:/var/lib/postgresql  # PostgreSQL 18 layout: mount the parent, not .../data
+    healthcheck:
+      # TCP on purpose: during init the temporary server listens only on the unix socket.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+    shm_size: 128mb
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks: [backend]
+
+  api:
+    build:
+      context: .
+      args:
+        VERSION: ${APP_VERSION:-0.1.0}
+    image: jana-address/api:local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HTTP_ADDR: ":8080"
+      DATABASE_URL: postgres://${POSTGRES_USER:-jana}:${POSTGRES_PASSWORD:-jana_local_only}@db:5432/${POSTGRES_DB:-jana}?sslmode=disable
+      # true: parse with the KATO snapshot built into the image, never go online (the final run has no network).
+      # false: check stat.gov.kz every KATO_REFRESH_INTERVAL and switch to a new classifier version on the fly.
+      OFFLINE: ${OFFLINE:-true}
+      KATO_REFRESH_INTERVAL: ${KATO_REFRESH_INTERVAL:-168h}
+      KATO_PAGE_URL: ${KATO_PAGE_URL:-https://stat.gov.kz/ru/classifiers/statistical/21/}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "/app/server", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks: [backend, frontend]
+
+  web:
+    build:
+      context: ./web
+    image: jana-address/web:local
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks: [frontend]
+
+networks:
+  backend:
+    internal: true  # db: no published port, no egress
+  frontend: {}
+
+volumes:
+  pgdata: {}

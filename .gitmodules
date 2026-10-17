@@ -1,0 +1,4 @@
+[submodule "web"]
+	path = web
+	url = ../jana-address-web.git
+	branch = main
