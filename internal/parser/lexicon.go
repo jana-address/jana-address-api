@@ -16,6 +16,8 @@ const (
 	mDistrict   // район, ауданы
 	mRegion     // область, облысы
 	mLandmark   // магазин, ТЦ, напротив, ...
+	mBlock      // корпус, блок, строение: consumes its number, not an output field
+	mNoise      // Казахстан, РК: ignored words
 )
 
 type marker struct {
@@ -24,7 +26,7 @@ type marker struct {
 }
 
 func (m *marker) isUnit() bool {
-	return m != nil && (m.class == mHouse || m.class == mApartment || m.class == mEntrance || m.class == mFloor)
+	return m != nil && (m.class == mHouse || m.class == mApartment || m.class == mEntrance || m.class == mFloor || m.class == mBlock)
 }
 
 func (m *marker) isAdmin() bool {
@@ -47,7 +49,7 @@ func init() {
 	addMarkers(mEntrance, "", "подъезд", "подьезд", "подезд", "падезд", "под", "пд", "кіреберіс", "entrance", "ent", "pod", "podezd", "podyezd")
 	addMarkers(mFloor, "", "этаж", "етаж", "этж", "етж", "эт", "қабат", "floor", "fl", "etazh", "etaj")
 
-	addMarkers(mStreet, "улица", "ул", "улица", "көшесі", "көш", "street", "st", "ul", "ulica")
+	addMarkers(mStreet, "улица", "ул", "улица", "улца", "улиц", "көшесі", "көш", "street", "st", "ul", "ulica")
 	addMarkers(mStreet, "проспект", "пр", "пр-т", "просп", "проспект", "даңғылы", "даңғ", "avenue", "ave", "pr")
 	addMarkers(mStreet, "микрорайон", "мкр", "мкрн", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "microdistrict")
 	addMarkers(mStreet, "квартал", "квартал", "кв-л", "квл", "kvartal")
@@ -62,6 +64,8 @@ func init() {
 	addMarkers(mDistrict, "", "район", "р-н", "рн", "ауданы", "аудан")
 	addMarkers(mRegion, "", "область", "обл", "облысы", "обл-ть")
 
+	addMarkers(mBlock, "", "корпус", "корп", "блок", "строение", "стр", "block")
+	addMarkers(mNoise, "", "казахстан", "қазақстан", "рк", "республика", "kz", "kazakhstan")
 	addMarkers(mLandmark, "", "магазин", "маг", "тц", "трц", "тд", "рынок", "базар", "школа", "мектеп", "садик",
 		"напротив", "возле", "около", "рядом", "остановка", "аялдама", "qazpost", "казпочта", "аптека", "кафе",
 		"азс", "бц", "супермаркет", "маркет")
@@ -247,7 +251,7 @@ func initPlaces() {
 	addRegion(mng, "мангистауская", "маңғыстау")
 	addRegion(pvl, "павлодарская", "павлодар")
 	addRegion(sko, "северо-казахстанская", "солтүстік қазақстан", "ско")
-	addRegion(trk, "туркестанская", "түркістан")
+	addRegion(trk, "туркестанская", "түркістан", "юко", "южно-казахстанская")
 	addRegion(aba, "абай", "абайская")
 	addRegion(zht, "жетісу", "жетысу", "жетысуская")
 	addRegion(ult, "ұлытау", "улытауская")
@@ -288,6 +292,22 @@ func initPlaces() {
 	addCity("Талдыкорган", zht, "талдықорған", "талды-курган")
 	addCity("Жезказган", ult, "жезқазған")
 	addCity("Сатпаев", ult, "сәтбаев")
+
+	// Latin and colloquial spellings
+	for name, aliases := range map[string][]string{
+		"Алматы": {"almaty", "alma-ata"}, "Астана": {"astana", "nur-sultan"}, "Шымкент": {"shymkent", "chimkent"},
+		"Актобе": {"aktobe", "aqtobe"}, "Караганда": {"karaganda", "karagandy", "qaragandy"}, "Атырау": {"atyrau"},
+		"Актау": {"aktau", "aqtau"}, "Павлодар": {"pavlodar"}, "Костанай": {"kostanay", "kostanai", "qostanay"},
+		"Тараз": {"taraz"}, "Семей": {"semey", "semei"}, "Уральск": {"uralsk", "oral"}, "Кокшетау": {"kokshetau"},
+		"Туркестан": {"turkestan", "turkistan"}, "Кызылорда": {"kyzylorda", "qyzylorda"},
+		"Петропавловск": {"petropavlovsk", "petropavl"}, "Талдыкорган": {"taldykorgan", "taldyqorgan"},
+		"Усть-Каменогорск": {"ust-kamenogorsk", "oskemen", "усть-каман", "устькаман", "уска"},
+		"Экибастуз":        {"ekibastuz"}, "Темиртау": {"temirtau"}, "Конаев": {"konaev", "qonaev"}, "Жезказган": {"zhezkazgan"},
+	} {
+		for _, a := range aliases {
+			cities[key(a)] = cities[key(name)]
+		}
+	}
 
 	// city districts
 	for _, d := range [][]string{

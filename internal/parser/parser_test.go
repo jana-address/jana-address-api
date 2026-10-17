@@ -71,6 +71,29 @@ func TestParseExamples(t *testing.T) {
 		{"алматыы, абая 10", map[Field]string{City: "Алматы", Province: "Алматы", StreetName: "абая", House: "10"}},
 		{"Ауэзова 12", map[Field]string{StreetName: "Ауэзова", House: "12"}},
 		{"ул. Сейфуллина 498", map[Field]string{StreetType: "улица", StreetName: "Сейфуллина", House: "498"}},
+		// review: blocks, letter after a space, country prefix
+		{"Абая 10 корпус 2 кв 5", map[Field]string{StreetName: "Абая", House: "10", Apartment: "5"}},
+		{"ул Абая 10 а, кв 5", map[Field]string{StreetName: "Абая", House: "10а", Apartment: "5"}},
+		{"ул Абая 10 в подъезде 2", map[Field]string{StreetName: "Абая", House: "10"}},
+		{"Казахстан, г. Алматы, ул. Абая 10", map[Field]string{City: "Алматы", StreetName: "Абая", House: "10", Landmark: "-"}},
+		{"РК, Алматы, Абая 10", map[Field]string{City: "Алматы", StreetName: "Абая", House: "10"}},
+		// fast-typing set: Latin cities, duplicates, direction of "кв", ЖК, spaced fractions, regions
+		{"almaty, abaya 52 kv 10", map[Field]string{City: "Алматы", Province: "Алматы", StreetName: "abaya", House: "52", Apartment: "10"}},
+		{"алматы алматы жандосова 58 кв 4", map[Field]string{City: "Алматы", StreetName: "жандосова", House: "58", Apartment: "4"}},
+		{"ул Сыганак 25 кв 300 4подъезд 12этаж", map[Field]string{StreetName: "Сыганак", House: "25", Apartment: "300", Entrance: "4", Floor: "12"}},
+		{"Муканова 241 кв 34 5 этаж", map[Field]string{StreetName: "Муканова", House: "241", Apartment: "34", Floor: "5"}},
+		{"Астана жк Северное сияние дом 7 кв 88", map[Field]string{StreetType: "жилой комплекс", StreetName: "Северное сияние", House: "7", LivingArea: "-"}},
+		{"алматы жк Esentai City аль-фараби 77/7 кв 112", map[Field]string{LivingArea: "Esentai City", StreetName: "аль-фараби", House: "77/7"}},
+		{"навои 208 / 2 кв 17", map[Field]string{StreetName: "навои", House: "208/2", Apartment: "17"}},
+		{"шымкент микрорайн нурсат 112 кв 45", map[Field]string{StreetType: "микрорайон", StreetName: "нурсат", House: "112"}},
+		{"усть-каменогорск пр казахстан 66 кв 20", map[Field]string{StreetType: "проспект", StreetName: "казахстан", House: "66"}},
+		{"ВКО, Усть-Каман, ул. Протозанова 83 кв 5", map[Field]string{Province: "Восточно-Казахстанская область", City: "Усть-Каменогорск"}},
+		{"Илийский район п Боралдай ул Аэродромная 14", map[Field]string{City: "Боралдай", District: "Илийский", StreetName: "Аэродромная"}},
+		{"Астана Алматинский р-н Момышулы 23 кв 56", map[Field]string{District: "Алматинский", StreetName: "Момышулы", House: "23"}},
+		{"Алматы мкр Орбита-1 дом 21 кв 30 напротив школы 12", map[Field]string{Landmark: "напротив школы 12", House: "21"}},
+		{"Алматы улца Сейфуллина 498 кв 61", map[Field]string{StreetType: "улица", StreetName: "Сейфуллина"}},
+		{"Астана р-н Нура ул Мухамедханова 8 кв 3", map[Field]string{City: "Астана", District: "Нура", StreetName: "Мухамедханова"}},
+		{"Алматы мкр Самал-2 ул Жолдасбекова 97 кв 14", map[Field]string{LivingArea: "Самал-2", StreetType: "улица", StreetName: "Жолдасбекова", House: "97"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

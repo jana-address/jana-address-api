@@ -178,6 +178,13 @@ func (st *state) classify() {
 		}
 		if m, ok := markers[t.fold]; ok && t.mk == nil {
 			t.mk = m
+			if m.class == mNoise {
+				if i == 0 || st.toks[i-1].kind == tPunct || (st.toks[i-1].mk != nil && st.toks[i-1].mk.class == mNoise) {
+					t.used = true
+					continue
+				}
+				t.mk = nil
+			}
 		}
 		// typo in a long marker word: "подлъезд", "кваритра"; a typo right before a known city: "гролд актобе"
 		if t.mk == nil && !adminKnown(mCity, t.fold) {
@@ -202,6 +209,15 @@ func (st *state) classify() {
 		// "с." before a name is a village, otherwise a preposition
 		if t.fold == "с" && st.isPunct(i+1, ".") {
 			t.mk = &marker{class: mSettlement}
+		}
+		if t.fold == "п" {
+			j := i + 1
+			for st.isPunct(j, ".") {
+				j++
+			}
+			if j < len(st.toks) && st.toks[j].kind == tWord && markers[st.toks[j].fold] == nil {
+				t.mk = markers["пос"]
+			}
 		}
 	}
 }
@@ -240,7 +256,8 @@ func (st *state) segRange(seg int) (int, int) {
 }
 
 // postfixAdmin markers usually follow the name: "Алматы қаласы", "Тұран ауданы", "Турксибский район".
-var postfixAdmin = map[string]bool{"каласы": true, "ауданы": true, "аудан": true, "облысы": true, "район": true, "область": true, "обл": true}
+var postfixAdmin = map[string]bool{"каласы": true, "ауданы": true, "аудан": true, "облысы": true, "район": true, "р-н": true, "рн": true,
+	"область": true, "обл": true, "обл-ть": true}
 
 func (st *state) keyOf(a, b int) string {
 	var parts []string
@@ -295,21 +312,26 @@ func (st *state) adminName(m int) (int, int) {
 	class := st.toks[m].mk.class
 	fa, fb := st.wordRun(m, +1)
 	ba, bb := st.wordRun(m, -1)
-	if ba >= 0 && (postfixAdmin[st.toks[m].fold] || fa < 0) {
+	backward := ba >= 0 && (postfixAdmin[st.toks[m].fold] || fa < 0)
+	if backward {
 		for a := ba; a <= bb; a++ {
 			if adminKnown(class, st.keyOf(a, bb)) {
 				return a, bb
 			}
 		}
+	}
+	if fa >= 0 { // a known name after the marker wins over an unknown one before it: "Астана р-н Нура"
+		for b := fb; b >= fa; b-- {
+			if adminKnown(class, st.keyOf(fa, b)) {
+				return fa, b
+			}
+		}
+	}
+	if backward {
 		return bb, bb
 	}
 	if fa < 0 {
 		return -1, -1
-	}
-	for b := fb; b >= fa; b-- {
-		if adminKnown(class, st.keyOf(fa, b)) {
-			return fa, b
-		}
 	}
 	if fb > fa && st.availNum(fb+1) {
 		return fa, fa
@@ -373,6 +395,9 @@ func (st *state) admin() {
 		case clean && (cities[k] != place{} || (seg == 0 && adminKnown(mCity, k))): // close spelling only in the first segment
 			st.setCity(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
+		case clean && regions[k] != "" && (len([]rune(k)) == 3 || strings.HasSuffix(k, "ская")):
+			st.set(Province, regions[k], SourceString, a, b)
+			st.markUsed(a, b)
 		case clean && strings.HasSuffix(k, "ий") && adminKnown(mDistrict, k):
 			st.setDistrict(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
@@ -380,9 +405,6 @@ func (st *state) admin() {
 			// 3. a known city inside a street segment: "Алматы Сатпаева 5", "050000 Алматы ул Абая 10"
 			for i := a; i <= b; i++ {
 				t := st.toks[i]
-				if _, set := st.vals[City]; set {
-					break
-				}
 				if t.kind != tWord || t.used || t.mk != nil || !adminKnown(mCity, t.fold) {
 					continue
 				}
@@ -397,6 +419,13 @@ func (st *state) admin() {
 				}
 				if p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.class == mStreet {
 					continue // "ул. Астана" is a street, not the city
+				}
+				if cur, set := st.vals[City]; set {
+					// the city written twice: "алматы алматы жандосова 58"
+					if pl, _ := lookupCity(t.fold); pl.name == cur && i < b && st.toks[i+1].kind == tWord {
+						st.toks[i].used = true
+					}
+					break
 				}
 				st.setCity(t.fold, t.text, i, i)
 				st.toks[i].used = true
@@ -436,12 +465,16 @@ func (st *state) units() {
 	bound := map[int]bool{}
 	after, before := 0, 0
 	bind := func(m, n int) {
+		bound[m] = true
+		if st.toks[m].mk.class == mBlock { // "корпус 2", "блок 3": not an output field, just consume the number
+			st.toks[m].used, st.toks[n].used = true, true
+			return
+		}
 		f := map[mclass]Field{mHouse: House, mApartment: Apartment, mEntrance: Entrance, mFloor: Floor}[st.toks[m].mk.class]
-		v := st.toks[n].text
+		v := compactNum(st.toks[n].text)
 		if f != House {
 			v = strings.SplitN(v, "/", 2)[0]
 		}
-		bound[m] = true
 		if _, ok := st.vals[f]; ok { // repeated marker ("кв 5 кв 6"): keep the first value
 			st.toks[m].used = true
 			return
@@ -464,6 +497,7 @@ func (st *state) units() {
 			bind(m, m+1)
 		}
 	}
+	after, before = 0, 0 // "4подъезд 12этаж" says nothing about "25 кв 300"
 	neighbors := func(m int) (l, r int) {
 		l, r = -1, -1
 		i := m - 1
@@ -508,7 +542,12 @@ func (st *state) units() {
 			}
 			l, r := neighbors(m)
 			if l >= 0 && r >= 0 {
-				if before > after {
+				p := l - 1
+				for st.isPunct(p, ".") {
+					p--
+				}
+				houseOnLeft := p >= 0 && st.toks[p].kind == tWord && st.toks[p].mk == nil // "Муканова 241 кв 34 5 этаж"
+				if before > after && !houseOnLeft {
 					bind(m, l)
 				} else {
 					bind(m, r)
@@ -536,6 +575,10 @@ func (st *state) landmarks() {
 			}
 			j++
 		}
+		if j+1 < len(st.toks) && st.availNum(j+1) && numberedPlace(st.toks[j].fold) &&
+			(j+2 == len(st.toks) || st.isPunct(j+2, ",;")) {
+			j++
+		}
 		parts = append(parts, st.text(i, j))
 		st.addSpan(Landmark, i, j)
 		st.markUsed(i, j)
@@ -544,6 +587,16 @@ func (st *state) landmarks() {
 	if len(parts) > 0 {
 		st.vals[Landmark], st.src[Landmark] = strings.Join(parts, ", "), SourceString
 	}
+}
+
+// numberedPlace reports whether a landmark noun usually carries a number: "школы 12", "садика 5".
+func numberedPlace(f string) bool {
+	for _, p := range []string{"школ", "гимназ", "лице", "сад", "детсад", "поликлиник", "больниц", "мектеп", "колледж"} {
+		if strings.HasPrefix(f, p) {
+			return true
+		}
+	}
+	return false
 }
 
 type cand struct {
@@ -555,8 +608,11 @@ type cand struct {
 }
 
 func (st *state) laterNumberExists(i int) bool {
+	if _, ok := st.vals[House]; ok {
+		return true
+	}
 	for j := i + 1; j < len(st.toks); j++ {
-		if st.toks[j].kind == tNum && !st.toks[j].ignore {
+		if st.availNum(j) {
 			return true
 		}
 	}
@@ -578,6 +634,9 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 		switch t.kind {
 		case tWord:
 			if t.mk != nil {
+				return a, b
+			}
+			if typ == "жилой комплекс" && a >= 0 && isLatin(st.toks[b].text) != isLatin(t.text) {
 				return a, b
 			}
 		case tNum:
@@ -644,6 +703,15 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 	return a, b
 }
 
+func isLatin(s string) bool {
+	for _, r := range s {
+		if isLetter(r) {
+			return r < 0x250
+		}
+	}
+	return false
+}
+
 func hasLetter(s string) bool {
 	for _, r := range s {
 		if isLetter(r) {
@@ -690,9 +758,17 @@ func (st *state) street() {
 		}
 	}
 
+	untyped := false
 	if living != nil {
-		st.set(LivingArea, st.text(living.a, living.b), SourceString, living.a, living.b)
 		st.markUsed(min(living.mk, living.a), max(living.mk, living.b))
+		if street == nil {
+			untyped = st.untypedStreet()
+		}
+		if street == nil && !untyped && living.isLiving {
+			street = living // ЖК without a street is the street: "Астана жк Северное сияние дом 7"
+		} else {
+			st.set(LivingArea, st.text(living.a, living.b), SourceString, living.a, living.b)
+		}
 	}
 	if street != nil {
 		st.set(StreetType, street.typ, SourceString, street.mk, street.mk)
@@ -701,8 +777,13 @@ func (st *state) street() {
 		st.streetE = max(street.mk, street.b) + 1
 		return
 	}
+	if !untyped {
+		st.untypedStreet()
+	}
+}
 
-	// untyped street: words followed by a house number ("Кулманова 133", "Назарбаева8")
+// untypedStreet finds words followed by a house number ("Кулманова 133", "Назарбаева8").
+func (st *state) untypedStreet() bool {
 	for i := 0; i < len(st.toks); i++ {
 		t := st.toks[i]
 		if t.kind != tWord || t.used || t.mk != nil {
@@ -729,10 +810,11 @@ func (st *state) street() {
 			st.set(StreetName, st.text(i, j), SourceString, i, j)
 			st.markUsed(i, j)
 			st.streetE = j + 1
-			return
+			return true
 		}
 		i = j
 	}
+	return false
 }
 
 func (st *state) house() {
@@ -743,7 +825,7 @@ func (st *state) house() {
 		}
 		for k := from; k < len(st.toks); k++ {
 			if st.availNum(k) {
-				st.vals[House], st.src[House] = st.toks[k].text, SourceString
+				st.vals[House], st.src[House] = compactNum(st.toks[k].text), SourceString
 				st.addSpan(House, k, k)
 				st.toks[k].used = true
 				break

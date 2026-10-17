@@ -1,6 +1,9 @@
 package parser
 
-import "unicode"
+import (
+	"strings"
+	"unicode"
+)
 
 type kind uint8
 
@@ -51,16 +54,30 @@ func tokenize(r []rune) []token {
 			}
 			if singleLetterAt(r, j) {
 				j++
+			} else if j+1 < n && r[j] == ' ' && singleLetterAt(r, j+1) && strings.ContainsRune("аАбБвВ", r[j+1]) &&
+				(j+2 == n || r[j+2] == ',' || (r[j+2] == ' ' && !strings.ContainsRune("вВ", r[j+1]))) {
+				j += 2 // "10 а" -> house "10а" ("10 в подъезде" keeps the preposition)
 			}
-			if j+1 < n && r[j] == '/' && isDigit(r[j+1]) {
-				m := j + 1
-				for m < n && isDigit(r[m]) {
-					m++
+			// fraction: "55/6", "208 / 2"
+			q := j
+			if q < n && r[q] == ' ' {
+				q++
+			}
+			if q < n && r[q] == '/' {
+				q++
+				if q < n && r[q] == ' ' {
+					q++
 				}
-				if singleLetterAt(r, m) {
-					m++
+				if q < n && isDigit(r[q]) {
+					m := q
+					for m < n && isDigit(r[m]) {
+						m++
+					}
+					if singleLetterAt(r, m) {
+						m++
+					}
+					j = m
 				}
-				j = m
 			}
 		case isLetter(ch):
 			k = tWord
@@ -87,6 +104,9 @@ func tokenize(r []rune) []token {
 	}
 	return toks
 }
+
+// compactNum drops spaces inside a number token ("10 а" -> "10а").
+func compactNum(s string) string { return strings.ReplaceAll(s, " ", "") }
 
 // glued reports whether two tokens touch without a space.
 func glued(a, b token) bool { return a.e == b.s }
