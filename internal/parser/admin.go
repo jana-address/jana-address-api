@@ -268,11 +268,16 @@ func sameName(ps []place) bool {
 }
 
 func (st *state) setDistrict(k, name string, a, b int) {
-	if d, ok := st.d.districts[k]; ok {
-		st.set(District, d.name, SourceString, a, b)
-		st.setDir(City, d.city)
-		st.setDir(Province, d.province)
+	d, ok := st.d.districts[k]
+	if !ok {
+		st.set(District, name, SourceString, a, b)
 		return
 	}
-	st.set(District, name, SourceString, a, b)
+	st.set(District, d.name, SourceString, a, b)
+	// "Абайский", "Есильский" are city districts of Шымкент and Астана and also rural rayons in other
+	// regions: the city comes from the district only when the line names no other region
+	if prov := st.writtenValue(Province); prov == "" || prov == d.province {
+		st.setDir(City, d.city)
+		st.setDir(Province, d.province)
+	}
 }
