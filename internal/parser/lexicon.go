@@ -371,7 +371,7 @@ func initPlaces() {
 	addCity("Костанай", kst, "қостанай", "кустанай")
 	addCity("Рудный", kst)
 	addCity("Кызылорда", kzo, "қызылорда")
-	addCity("Актау", mng, "ақтау", "шевченко")
+	addCity("Актау", mng, "ақтау") // not the old name "Шевченко": one of the most common street names
 	addCity("Жанаозен", mng, "жаңаөзен")
 	addCity("Павлодар", pvl)
 	addCity("Экибастуз", pvl, "екібастұз")
