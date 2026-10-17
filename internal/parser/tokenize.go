@@ -52,7 +52,7 @@ func tokenize(r []rune) []token {
 			for j < n && isDigit(r[j]) {
 				j++
 			}
-			if singleLetterAt(r, j) {
+			if singleLetterAt(r, j) && !strings.ContainsRune("дД", r[j]) { // "55д" is "55 дом"
 				j++
 			} else if j+1 < n && r[j] == ' ' && singleLetterAt(r, j+1) && unicode.Is(unicode.Cyrillic, r[j+1]) &&
 				(j+2 == n || r[j+2] == ',' || (r[j+2] == ' ' && (strings.ContainsRune("аАбБ", r[j+1]) || (!strings.ContainsRune("иИ", r[j+1]) && markerAt(r, j+3))))) {

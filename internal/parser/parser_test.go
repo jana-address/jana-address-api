@@ -106,6 +106,20 @@ func TestParseExamples(t *testing.T) {
 		{"Іле ауданы, Өтеген батыр ауылы, Нұрлы көшесі 17", map[Field]string{City: "Отеген батыр", StreetName: "Нұрлы", House: "17"}},
 		{"Астана жк Экспо Бульвар д 3 кв 117", map[Field]string{StreetType: "жилой комплекс", StreetName: "Экспо Бульвар", House: "3"}},
 		{"жк Хайвил ул Абая 5", map[Field]string{LivingArea: "Хайвил", StreetType: "улица", StreetName: "Абая", House: "5"}},
+		// glued words without spaces
+		{"Алматыабая10кв5", map[Field]string{City: "Алматы", StreetName: "абая", House: "10", Apartment: "5"}},
+		{"ШымкентТаукеХана20", map[Field]string{City: "Шымкент", StreetName: "ТаукеХана", House: "20"}},
+		{"Алматықаласыабая10", map[Field]string{City: "Алматы", StreetName: "абая", House: "10"}},
+		{"Караганды23мкр10д5кв", map[Field]string{City: "Караганда", StreetType: "микрорайон", StreetName: "23", House: "10", Apartment: "5"}},
+		{"городшымкент байтурсынова 12", map[Field]string{City: "Шымкент", StreetName: "байтурсынова", House: "12"}},
+		{"Самалмкр 5 кв 2", map[Field]string{StreetType: "микрорайон", StreetName: "Самал", House: "5"}},
+		{"ЖКХайвил ул Абая 5", map[Field]string{LivingArea: "Хайвил", StreetName: "Абая"}},
+		// words that only look glued must stay whole
+		{"ул. Таразская 5", map[Field]string{StreetName: "Таразская", House: "5"}},
+		{"ул. Городская 7", map[Field]string{StreetName: "Городская", House: "7"}},
+		{"Райымбека 10", map[Field]string{StreetName: "Райымбека", House: "10"}},
+		{"Сатпаевская 3", map[Field]string{StreetName: "Сатпаевская", House: "3"}},
+		{"Алматы Жолдасбекова 97", map[Field]string{City: "Алматы", StreetName: "Жолдасбекова", House: "97"}},
 		{"Алматы мкр Самал-2 ул Жолдасбекова 97 кв 14", map[Field]string{LivingArea: "Самал-2", StreetType: "улица", StreetName: "Жолдасбекова", House: "97"}},
 	}
 	for _, tc := range cases {
@@ -163,6 +177,20 @@ func TestRepeatedMarkersTerminate(t *testing.T) {
 			}
 		case <-time.After(2 * time.Second):
 			t.Fatalf("%q: Parse did not return", raw)
+		}
+	}
+}
+
+func TestSuggest(t *testing.T) {
+	for raw, want := range map[string]string{
+		"астана кенесары 40 кв 12":             "Астана, улица Кенесары, д. 40, кв. 12",
+		"алматыы толеби 286 kv 41":             "Алматы, улица Толе би, д. 286, кв. 41",
+		"Караганды бухаржырау 50":              "Карагандинская область, Караганда, проспект Бухар жырау, д. 50",
+		"Темиртау ул. Мира 4":                  "Карагандинская область, Темиртау, улица Мира, д. 4",
+		"Алматы, мкр Самал-2, Жолдасбекова 97": "Алматы, Самал-2, улица Жолдасбекова, д. 97",
+	} {
+		if got := Parse(raw).Suggest(); got != want {
+			t.Errorf("Suggest(%q) = %q, want %q", raw, got, want)
 		}
 	}
 }

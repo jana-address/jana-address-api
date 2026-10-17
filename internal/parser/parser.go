@@ -98,7 +98,7 @@ type state struct {
 // Parse parses one raw address string.
 func Parse(raw string) Output {
 	c := clean(raw)
-	st := &state{c: c, toks: tokenize(c.r), vals: map[Field]string{}, src: map[Field]string{}, streetE: -1}
+	st := &state{c: c, toks: splitGlued(c.r, tokenize(c.r)), vals: map[Field]string{}, src: map[Field]string{}, streetE: -1}
 	st.classify()
 	st.segment()
 	st.admin()
@@ -259,7 +259,7 @@ func (st *state) segRange(seg int) (int, int) {
 var postfixAdmin = map[string]bool{}
 
 func init() {
-	for _, w := range []string{"қаласы", "ауданы", "аудан", "облысы", "район", "р-н", "рн", "область", "обл", "обл-ть", "ауылы", "ауыл"} {
+	for _, w := range []string{"қаласы", "қалас", "ауданы", "аудан", "облысы", "район", "р-н", "рн", "область", "обл", "обл-ть", "ауылы", "ауыл"} {
 		postfixAdmin[fold(w)] = true
 	}
 }
@@ -506,11 +506,22 @@ func (st *state) units() {
 			before++
 		}
 	}
+	// houseOnLeft: the number at l follows a street name, so it is the house ("Абая 10 кв 5", "абая10кв5")
+	houseOnLeft := func(l int) bool {
+		p := l - 1
+		for st.isPunct(p, ".") {
+			p--
+		}
+		return p >= 0 && st.toks[p].kind == tWord && st.toks[p].mk == nil
+	}
 	// 1. glued: "11дом", "4подьезд", "кв12"
 	for _, m := range ms {
-		if m > 0 && st.availNum(m-1) && glued(st.toks[m-1], st.toks[m]) {
+		left := m > 0 && st.availNum(m-1) && glued(st.toks[m-1], st.toks[m])
+		right := st.availNum(m+1) && glued(st.toks[m], st.toks[m+1])
+		switch {
+		case left && !(right && houseOnLeft(m-1)):
 			bind(m, m-1)
-		} else if st.availNum(m+1) && glued(st.toks[m], st.toks[m+1]) {
+		case right:
 			bind(m, m+1)
 		}
 	}
@@ -559,12 +570,7 @@ func (st *state) units() {
 			}
 			l, r := neighbors(m)
 			if l >= 0 && r >= 0 {
-				p := l - 1
-				for st.isPunct(p, ".") {
-					p--
-				}
-				houseOnLeft := p >= 0 && st.toks[p].kind == tWord && st.toks[p].mk == nil // "Муканова 241 кв 34 5 этаж"
-				if before > after && !houseOnLeft {
+				if before > after && !houseOnLeft(l) { // "Муканова 241 кв 34 5 этаж"
 					bind(m, l)
 				} else {
 					bind(m, r)
@@ -811,6 +817,16 @@ func (st *state) street() {
 			street = living // ЖК without a street is the street: "Астана жк Северное сияние дом 7"
 		} else {
 			st.set(LivingArea, st.text(living.a, living.b), SourceString, living.a, living.b)
+		}
+	}
+	if street != nil && living == nil && !untyped && !realStreetTypes[street.typ] && !street.numbered {
+		st.markUsed(min(street.mk, street.a), max(street.mk, street.b))
+		if st.untypedStreet() { // "мкр Самал-2, Жолдасбекова 97"
+			st.set(LivingArea, st.text(street.a, street.b), SourceString, street.a, street.b)
+			return
+		}
+		for i := min(street.mk, street.a); i <= max(street.mk, street.b); i++ {
+			st.toks[i].used = false
 		}
 	}
 	if street != nil {

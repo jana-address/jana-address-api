@@ -87,6 +87,8 @@ type parseResponse struct {
 	Spans   []parser.Span     `json:"spans"`
 	Sources map[string]string `json:"sources"`
 	Status  string            `json:"status"`
+	// Suggestion is the address in a clean form ("Астана, проспект Мәңгілік Ел, д. 55") for the hint under the input.
+	Suggestion string `json:"suggestion"`
 }
 
 // parseOne parses a single line for the UI and also returns highlight spans and value sources.
@@ -100,7 +102,7 @@ func (a *api) parseOne(w http.ResponseWriter, r *http.Request) {
 	}
 	raw, _ := json.Marshal(in.RawAddress)
 	o := parser.Parse(in.RawAddress)
-	resp := parseResponse{Result: addr.Result{RawAddress: raw}, Spans: o.Spans, Sources: map[string]string{}, Status: o.Status()}
+	resp := parseResponse{Result: addr.Result{RawAddress: raw}, Spans: o.Spans, Sources: map[string]string{}, Status: o.Status(), Suggestion: o.Suggest()}
 	o.Fill(&resp.Result)
 	if resp.Spans == nil {
 		resp.Spans = []parser.Span{}

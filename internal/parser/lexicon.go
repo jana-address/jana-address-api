@@ -44,7 +44,7 @@ func addMarkers(class mclass, canon string, forms ...string) {
 }
 
 func init() {
-	addMarkers(mHouse, "", "д", "дом", "үй", "уй", "house", "dom")
+	addMarkers(mHouse, "", "д", "дом", "үй", "уй", "house", "dom", "d")
 	addMarkers(mApartment, "", "кв", "квартира", "кварт", "квартра", "кв-ра", "пәтер", "flat", "kv", "apt", "apartment", "оф", "офис")
 	addMarkers(mEntrance, "", "подъезд", "подьезд", "подезд", "падезд", "под", "пд", "кіреберіс", "entrance", "ent", "pod", "podezd", "podyezd")
 	addMarkers(mFloor, "", "этаж", "етаж", "этж", "етж", "эт", "қабат", "floor", "fl", "etazh", "etaj")
