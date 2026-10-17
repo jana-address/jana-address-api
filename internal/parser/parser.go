@@ -179,6 +179,14 @@ func (st *state) classify() {
 			t.tail = 1
 			continue
 		}
+		// "тас жолы" = шоссе (two words)
+		if t.fold == "тас" && i+1 < len(st.toks) && st.toks[i+1].fold == fold("жолы") {
+			t.mk = markers["шоссе"]
+			st.toks[i+1].mk = t.mk
+			st.toks[i+1].used = true
+			t.tail = 1
+			continue
+		}
 		// ЖК written in several tokens: "ж.к.", "ж/к", "жилой комплекс", "тұрғын үй кешені"
 		if n := st.livingTail(i); n > 0 {
 			t.mk = markers["жк"]
@@ -192,7 +200,10 @@ func (st *state) classify() {
 		if m, ok := markers[t.fold]; ok && t.mk == nil {
 			t.mk = m
 			if m.class == mNoise {
-				if i == 0 || st.toks[i-1].kind == tPunct || (st.toks[i-1].mk != nil && st.toks[i-1].mk.class == mNoise) {
+				republic := t.fold == "республика"
+				if republic && !(i+1 < len(st.toks) && st.toks[i+1].fold == "казахстан") {
+					t.mk = nil
+				} else if i == 0 || st.toks[i-1].kind == tPunct || (st.toks[i-1].mk != nil && st.toks[i-1].mk.class == mNoise) {
 					t.used = true
 					continue
 				}
@@ -219,9 +230,12 @@ func (st *state) classify() {
 				continue
 			}
 		}
-		// "с." before a name is a village, otherwise a preposition
-		if t.fold == "с" && st.isPunct(i+1, ".") {
+		// "с." before a name is a village, otherwise a preposition; "с Отеген батыр" without a dot only before a known place
+		if t.fold == "с" && (st.isPunct(i+1, ".") || st.knownPlaceAt(i+1)) {
 			t.mk = &marker{class: mSettlement}
+		}
+		if t.fold == "кала" && t.mk != nil && !(i > 0 && st.toks[i-1].kind == tWord && st.d.knownCityWord(st.toks[i-1].fold)) {
+			t.mk = nil // "Жана кала" is a name
 		}
 		if t.fold == "п" {
 			j := i + 1
@@ -233,6 +247,21 @@ func (st *state) classify() {
 			}
 		}
 	}
+}
+
+// knownPlaceAt reports whether a city or a classifier settlement of one or two words starts at i.
+func (st *state) knownPlaceAt(i int) bool {
+	if i >= len(st.toks) || st.toks[i].kind != tWord {
+		return false
+	}
+	k := st.toks[i].fold
+	if st.d.knownCityWord(k) {
+		return true
+	}
+	if i+1 < len(st.toks) && st.toks[i+1].kind == tWord {
+		return st.d.knownCityWord(k + " " + st.toks[i+1].fold)
+	}
+	return false
 }
 
 // livingTail returns how many tokens after i complete a multi-token ЖК marker.
@@ -291,6 +320,9 @@ func (st *state) segRange(seg int) (int, int) {
 	return a, b
 }
 
+// kazakhPostfix markers always follow the name, unlike Russian "район" that can stand on either side.
+var kazakhPostfix = map[string]bool{fold("ауданы"): true, fold("аудан"): true, fold("қаласы"): true, fold("облысы"): true}
+
 // postfixAdmin markers usually follow the name: "Алматы қаласы", "Тұран ауданы", "Турксибский район".
 var postfixAdmin = map[string]bool{}
 
@@ -335,6 +367,9 @@ func (st *state) wordRun(m, dir int) (int, int) {
 		if t.kind != tWord || t.used || t.mk != nil || t.seg != st.toks[m].seg {
 			break
 		}
+		if dir > 0 && a >= 0 && st.postfixStreetAt(k+1) {
+			break
+		}
 		if a < 0 {
 			a, b = k, k
 		}
@@ -366,7 +401,7 @@ func (st *state) adminName(m int) (int, int) {
 	if backward {
 		for a := ba; a <= bb; a++ {
 			k := st.keyOf(a, bb)
-			if _, city := st.d.cities[k]; city && class == mDistrict && fwdKnown() {
+			if _, city := st.d.cities[k]; city && class == mDistrict && !kazakhPostfix[st.toks[m].fold] && fwdKnown() {
 				break
 			}
 			if st.d.adminKnown(class, k) {
@@ -601,11 +636,17 @@ func (st *state) units() {
 		for st.isPunct(p, ".") {
 			p--
 		}
+		if st.isPunct(p, "-") && p == l-1 && glued(st.toks[p], st.toks[l]) && p > 0 && st.toks[p-1].kind == tWord {
+			return true // "Ақсай-1 үй 51б": 1 belongs to the name
+		}
 		if p < 0 || st.toks[p].kind != tWord {
 			return false
 		}
 		if st.toks[p].mk == nil {
 			return true
+		}
+		if st.toks[p].mk.class == mStreet && numberedAreaTypes[st.toks[p].mk.canon] {
+			return true // "мкр.12 дом 117": 12 is the microdistrict
 		}
 		// a postfix street type after its name: "Естай көшесі 38 кв. 37"
 		return st.toks[p].mk.class == mStreet && p > 0 && st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil
@@ -880,8 +921,16 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 
 // postfixStreetAt reports whether a real street type word starts at i: "көшесі", "көш.", "ул.".
 func (st *state) postfixStreetAt(i int) bool {
-	return i < len(st.toks) && st.toks[i].kind == tWord && !st.toks[i].used && st.toks[i].mk != nil &&
-		st.toks[i].mk.class == mStreet && realStreetTypes[st.toks[i].mk.canon]
+	if !(i < len(st.toks) && st.toks[i].kind == tWord && !st.toks[i].used && st.toks[i].mk != nil &&
+		st.toks[i].mk.class == mStreet && realStreetTypes[st.toks[i].mk.canon]) {
+		return false
+	}
+	// "ул.садовая" opens a new name, so it is a prefix, not a postfix
+	j := i + 1 + st.toks[i].tail
+	for st.isPunct(j, ".") {
+		j++
+	}
+	return !(j < len(st.toks) && st.toks[j].kind == tWord && st.toks[j].mk == nil && !st.toks[j].used)
 }
 
 func isLatin(s string) bool {
@@ -1008,7 +1057,7 @@ func (st *state) untypedStreet() bool {
 			h++
 		}
 		// a whole part of the line may be the street: "алматы, саина, 84"
-		if st.isPunct(h, ",") && (i == 0 || st.toks[i-1].kind == tPunct || st.toks[i-1].used) {
+		if st.isPunct(h, ",") && (i == 0 || st.toks[i-1].kind != tWord || st.toks[i-1].used) {
 			h++
 		}
 		if st.availNum(h) || st.houseAt(h) {

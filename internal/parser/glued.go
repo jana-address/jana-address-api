@@ -32,8 +32,10 @@ func (d *directory) knownWord(f string) bool {
 	if _, ok := d.districts[f]; ok {
 		return true
 	}
-	_, ok := d.lookupCityWithin(f, 1)
-	return ok
+	if _, ok := d.lookupCityWithin(f, 1); ok {
+		return true
+	}
+	return fuzzyMarker(f) != nil
 }
 
 func plausibleRest(f string) bool {
@@ -116,7 +118,7 @@ func restOK(f string) bool {
 func (d *directory) splitWord(r []rune, s, e int, afterCity bool) []token {
 	// 1. a case change: "ТаукеХана", "АлматыАбая"
 	for i := s + 1; i < e; i++ {
-		lowerUpper := unicode.IsLower(r[i-1]) && unicode.IsUpper(r[i])
+		lowerUpper := i-s >= 2 && unicode.IsLower(r[i-1]) && unicode.IsUpper(r[i])
 		acronym := i-s >= 2 && unicode.IsUpper(r[i-1]) && unicode.IsUpper(r[i]) && i+1 < e && unicode.IsLower(r[i+1]) // "ЖКХайвил"
 		if lowerUpper || acronym {
 			left := d.splitWord(r, s, i, afterCity)

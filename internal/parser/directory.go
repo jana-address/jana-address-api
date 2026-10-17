@@ -16,6 +16,14 @@ type directory struct {
 // current is set at the end of the lexicon init, after the base tables are filled.
 var current atomic.Pointer[directory]
 
+// knownCityWord: a city from the hand table or a classifier settlement, exact spelling only.
+func (d *directory) knownCityWord(k string) bool {
+	if _, ok := d.cities[k]; ok {
+		return true
+	}
+	return len(d.settlements[k]) > 0
+}
+
 // newDirectory copies the hand-written base tables and applies extra entries without overriding them.
 func newDirectory(extend func(d *directory)) *directory {
 	d := &directory{
