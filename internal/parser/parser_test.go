@@ -55,7 +55,7 @@ func TestParseExamples(t *testing.T) {
 		{"гролд актобе дом5 6 кв 55 подлъезд 5", map[Field]string{
 			City: "Актобе", Province: "Актюбинская область", House: "5", Apartment: "55", Entrance: "5"}},
 		{"алматы абая 15 кваритра 3", map[Field]string{City: "Алматы", StreetName: "абая", House: "15", Apartment: "3"}},
-		{"Астана, проспкт Республики 24, этж 3", map[Field]string{City: "Астана", StreetType: "проспект", StreetName: "Республики", House: "24"}},
+		{"Астана, проспкт Республики 24, этж 3", map[Field]string{City: "Астана", StreetType: "проспект", StreetName: "Республики", House: "24", Floor: "3", Apartment: "-"}},
 		// real street names close to marker words must stay names
 		{"Райымбек 160", map[Field]string{StreetName: "Райымбек", House: "160"}},
 		{"Гоголя 5", map[Field]string{StreetName: "Гоголя", House: "5"}},

@@ -45,7 +45,7 @@ func init() {
 	addMarkers(mHouse, "", "д", "дом", "үй", "уй", "house", "dom")
 	addMarkers(mApartment, "", "кв", "квартира", "кварт", "квартра", "кв-ра", "пәтер", "flat", "kv", "apt", "apartment", "оф", "офис")
 	addMarkers(mEntrance, "", "подъезд", "подьезд", "подезд", "падезд", "под", "пд", "кіреберіс", "entrance", "ent", "pod", "podezd", "podyezd")
-	addMarkers(mFloor, "", "этаж", "етаж", "эт", "қабат", "floor", "fl", "etazh", "etaj")
+	addMarkers(mFloor, "", "этаж", "етаж", "этж", "етж", "эт", "қабат", "floor", "fl", "etazh", "etaj")
 
 	addMarkers(mStreet, "улица", "ул", "улица", "көшесі", "көш", "street", "st", "ul", "ulica")
 	addMarkers(mStreet, "проспект", "пр", "пр-т", "просп", "проспект", "даңғылы", "даңғ", "avenue", "ave", "pr")
