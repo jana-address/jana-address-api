@@ -13,6 +13,8 @@ type Directory struct {
 	Cities    map[string]Place
 	Regions   map[string]string
 	Districts map[string]DistrictInfo
+	// CityDistricts: districts of each city by name, so "район Алматы" of Актобе is not the one of Астана
+	CityDistricts map[string]map[string]DistrictInfo
 	// Settlements from the classifier by name; several entries are namesakes in different regions
 	Settlements map[string][]Place
 	// Areas: living areas by name; one name may be an area of several cities
@@ -73,8 +75,12 @@ func newDirectory(extend func(d *Directory)) *Directory {
 	for k, v := range baseRegions {
 		d.Regions[k] = v
 	}
+	d.CityDistricts = map[string]map[string]DistrictInfo{}
 	for k, v := range baseDistricts {
 		d.Districts[k] = v
+		if v.City != "" {
+			d.addCityDistrict(k, v)
+		}
 	}
 	if extend != nil {
 		extend(d)
@@ -85,6 +91,22 @@ func newDirectory(extend func(d *Directory)) *Directory {
 		}
 	}
 	return d
+}
+
+func (d *Directory) addCityDistrict(k string, v DistrictInfo) {
+	if d.CityDistricts[v.City] == nil {
+		d.CityDistricts[v.City] = map[string]DistrictInfo{}
+	}
+	d.CityDistricts[v.City][k] = v
+}
+
+// District finds a district by key, first among the districts of city.
+func (d *Directory) District(city, k string) (DistrictInfo, bool) {
+	if v, ok := d.CityDistricts[city][k]; ok {
+		return v, true
+	}
+	v, ok := d.Districts[k]
+	return v, ok
 }
 
 type cityEntry struct {

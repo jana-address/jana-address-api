@@ -8,7 +8,7 @@ import (
 )
 
 // kazakhPostfix markers always follow the name, unlike Russian "район" that can stand on either side.
-var kazakhPostfix = map[string]bool{text.Fold("ауданы"): true, text.Fold("аудан"): true, text.Fold("қаласы"): true, text.Fold("облысы"): true}
+var kazakhPostfix = map[string]bool{text.Fold("ауданы"): true, text.Fold("аудан"): true, text.Fold("ауд"): true, text.Fold("қаласы"): true, text.Fold("облысы"): true}
 
 // postfixAdmin markers usually follow the name: "Алматы қаласы", "Тұран ауданы", "Турксибский район".
 var postfixAdmin = map[string]bool{}
@@ -38,6 +38,9 @@ func (st *state) wordRun(m, dir int) (int, int) {
 	a, b := -1, -1
 	for k := j; k >= 0 && k < len(st.toks); k += dir {
 		t := st.toks[k]
+		if dir > 0 && a >= 0 && st.isPunct(k, ".") && st.toks[k-1].fold == "им" {
+			continue // "район им. Казыбек би"
+		}
 		if t.kind != tWord || t.used || t.mk != nil || t.seg != st.toks[m].seg {
 			break
 		}
@@ -121,6 +124,7 @@ func (st *state) admin() {
 		case dict.Region:
 			if r, ok := st.d.Regions[k]; ok {
 				st.set(Province, r, SourceString, a, b)
+				st.writtenRegion(r, k, name, t.fold)
 			} else {
 				st.set(Province, name, SourceString, a, b)
 			}
@@ -171,6 +175,7 @@ func (st *state) admin() {
 			st.markUsed(a, b)
 		case clean && st.d.Regions[k] != "" && (len([]rune(k)) == 3 || strings.HasSuffix(k, "ская")):
 			st.set(Province, st.d.Regions[k], SourceString, a, b)
+			st.writtenRegion(st.d.Regions[k], k, st.text(a, b), "")
 			st.markUsed(a, b)
 		case clean && st.vals[City] == "" && len(st.d.Settlements[k]) > 0 &&
 			(st.writtenValue(Province) != "" || st.writtenValue(District) != ""):
@@ -339,11 +344,24 @@ func sameName(ps []dict.Place) bool {
 	return true
 }
 
+// setDistrict stores a district written in the line. The output keeps it as written, without the
+// word "район" ("Сарыарка ауданы" -> "Сарыарка"); the directory name is used while parsing, so a
+// written rayon still picks its own village and a city.
 func (st *state) setDistrict(k, name string, a, b int) {
-	d, ok := st.d.Districts[k]
+	for a < b && (st.toks[a].fold == "им" || st.toks[a].fold == "имени") { // "им. Казыбек би" -> "Казыбек би"
+		a++
+		for a < b && st.isPunct(a, ".") {
+			a++
+		}
+		k, name = st.keyOf(a, b), st.text(a, b)
+	}
+	d, ok := st.d.District(st.vals[City], k)
 	if !ok {
 		st.set(District, name, SourceString, a, b)
 		return
+	}
+	if st.src[District] != SourceString {
+		st.written[District] = name
 	}
 	st.set(District, d.Name, SourceString, a, b)
 	// "Абайский", "Есильский" are city districts of Шымкент and Астана and also rural rayons in other
@@ -372,6 +390,29 @@ func (st *state) settlement(k string) (dict.Place, bool) {
 		return match[0], true
 	}
 	return dict.Place{}, false
+}
+
+// writtenRegion keeps the Russian form of a new region as written: "Абайская область", "область Абай"
+// and "область Жетысу" stay so; the Kazakh "Абай облысы" gives the official "область Абай". The old
+// regions have one Russian form, the canonical one.
+func (st *state) writtenRegion(canon, k, name, marker string) {
+	if !strings.HasPrefix(canon, "область ") || st.vals[Province] != canon || kazakhPostfix[marker] {
+		return
+	}
+	if strings.HasSuffix(k, "ская") {
+		st.written[Province] = name + " область"
+	} else if marker != "" {
+		st.written[Province] = "область " + name
+	}
+}
+
+// writtenForms puts the written forms of province and district into the output once parsing is done.
+func (st *state) writtenForms() {
+	for f, v := range st.written {
+		if st.src[f] == SourceString {
+			st.vals[f] = v
+		}
+	}
 }
 
 // writtenValue returns a field value only when it came from the line itself.

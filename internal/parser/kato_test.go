@@ -46,8 +46,28 @@ func TestKATOSettlements(t *testing.T) {
 		// an old name of a town in the hand table is also a village in the written rayon of another region
 		{"Мамлютский район, Щучье, ул. Абая 5", map[Field]string{
 			City: "Щучье", Province: "Северо-Казахстанская область", District: "Мамлютский"}},
-		// a Kazakh rayon name
-		{"Іле ауданы, Өтеген батыр ауылы, Нұрлы көшесі 17", map[Field]string{City: "Отеген батыр", District: "Илийский"}},
+		// a Kazakh rayon name: written as is, and it still picks the village
+		{"Іле ауданы, Өтеген батыр ауылы, Нұрлы көшесі 17", map[Field]string{City: "Отеген батыр", District: "Іле", Province: "Алматинская область"}},
+		// a written rayon replaces the one the village gives
+		{"Алматинская обл, село Боралдай, Іле ауданы, ул. Школьная 33", map[Field]string{City: "Боралдай", District: "Іле"}},
+		// city districts of Караганда and Актобе from the classifier
+		{"Караганда, район им. Казыбек би, ул. Ерубаева 20", map[Field]string{City: "Караганда", District: "Казыбек би", StreetName: "Ерубаева"}},
+		{"Караганда, Казыбек би ауданы, Ерубаева 20", map[Field]string{City: "Караганда", District: "Казыбек би"}},
+		{"Караганда, район Әлихан Бөкейхан, ул. Гоголя 5", map[Field]string{City: "Караганда", District: "Әлихан Бөкейхан"}},
+		{"район им. Казыбек би, ул. Ерубаева 20", map[Field]string{City: "Караганда", Province: "Карагандинская область", District: "Казыбек би"}},
+		{"город Актобе/Ақтөбе қаласы, район Алматы, 12 мкр, 5, кв 10", map[Field]string{
+			City: "Актобе", Province: "Актюбинская область", District: "Алматы", StreetName: "12", House: "5"}},
+		{"Актобе, район Астана, ул. Абая 5", map[Field]string{City: "Актобе", Province: "Актюбинская область", District: "Астана"}},
+		{"Астана, район Алматы, ул. Абая 5", map[Field]string{City: "Астана", Province: "Астана", District: "Алматы"}},
+		// a new region keeps its written Russian form
+		{"Абайская область, Семей, ул. Шакарима 20", map[Field]string{Province: "Абайская область", City: "Семей", StreetName: "Шакарима"}},
+		{"область Абай, Семей, ул. Шакарима 20", map[Field]string{Province: "область Абай", City: "Семей"}},
+		{"Абай облысы, Семей қаласы, Шәкәрім көшесі 20", map[Field]string{Province: "область Абай", City: "Семей"}},
+		{"Жетысуская обл, Талдыкорган, Абая 5", map[Field]string{Province: "Жетысуская область", City: "Талдыкорган"}},
+		{"область Жетысу, Талдыкорган, Абая 5", map[Field]string{Province: "область Жетысу", City: "Талдыкорган"}},
+		{"обл. Улытау, Жезказган, Абая 5", map[Field]string{Province: "область Улытау", City: "Жезказган"}},
+		{"Ұлытау облысы, Жезқазған қаласы, Абай көшесі 5", map[Field]string{Province: "область Ұлытау", City: "Жезказган"}},
+		{"Карагандинская обл, Темиртау, Мира 4", map[Field]string{Province: "Карагандинская область"}},
 		// a village next to a written rayon, without "с."
 		{"Карасайский район, Иргели, ул Центральная 5", map[Field]string{
 			City: "Иргели", Province: "Алматинская область", District: "Карасайский"}},

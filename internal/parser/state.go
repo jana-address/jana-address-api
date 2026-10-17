@@ -15,6 +15,7 @@ type state struct {
 	toks     []token
 	vals     map[Field]string
 	src      map[Field]string
+	written  map[Field]string // output forms of fields written in the line, set by writtenForms
 	spans    []Span
 	conflict bool
 	streetE  int      // token index after the street name, -1 if none
@@ -35,11 +36,12 @@ func (st *state) addSpan(f Field, a, b int) {
 }
 
 // set stores a value; a different value for an already set field is a conflict and is ignored.
+// A value written in the line replaces one taken from the directory ("село Боралдай, Іле ауданы").
 func (st *state) set(f Field, v, src string, a, b int) {
 	if v == "" {
 		return
 	}
-	if old, ok := st.vals[f]; ok {
+	if old, ok := st.vals[f]; ok && !(src == SourceString && st.src[f] == SourceDirectory) {
 		if text.Key(old) != text.Key(v) {
 			st.conflict = true
 			return

@@ -243,10 +243,13 @@ func (b *builder) record() string {
 	}
 
 	var oblast, city, district, area, street, house, blk, landmark []chunk
+	province := c.Province
 	if withOblast {
 		b.tag("oblast")
-		oblast = []chunk{{text: b.oblast(c.Province), kind: 'o'}}
-		b.set("province", c.Province, true)
+		var txt string
+		txt, province = b.oblast(c.Province)
+		oblast = []chunk{{text: txt, kind: 'o'}}
+		b.set("province", province, true)
 	}
 	if noCity {
 		b.tag("no-city")
@@ -278,13 +281,14 @@ func (b *builder) record() string {
 			b.tag("camel")
 		}
 		b.set("city", c.Name, true)
-		b.set("province", c.Province, c.big() || withOblast)
+		b.set("province", province, c.big() || withOblast)
 	}
 	if withDistrict {
 		b.tag("district")
 		d := c.Districts[b.r.IntN(len(c.Districts))]
-		district = []chunk{{text: b.district(d), kind: 'o'}}
-		b.set("district", d.Name, true)
+		txt, written := b.district(d)
+		district = []chunk{{text: txt, kind: 'o'}}
+		b.set("district", written, true)
 	}
 
 	// Street-like element.
@@ -525,7 +529,9 @@ func (b *builder) sep(noComma bool, prev, next chunk) string {
 	return " "
 }
 
-func (b *builder) oblast(prov string) string {
+// oblast writes a region and returns the text and the expected value: a district or a new region is
+// expected as written in Russian ("Абайская область", "область Жетысу"), a Kazakh form gives the official name.
+func (b *builder) oblast(prov string) (string, string) {
 	forms := Provinces[prov]
 	s := b.pick(forms)
 	if b.mode == modeKz {
@@ -544,7 +550,17 @@ func (b *builder) oblast(prov string) string {
 	if !strings.Contains(s, "область") && !strings.Contains(s, "облысы") {
 		b.tag("abbreviations")
 	}
-	return b.cs(s)
+	want := prov
+	if strings.HasPrefix(prov, "область ") && !strings.Contains(s, "облысы") {
+		w := strings.Fields(s)
+		switch {
+		case strings.HasSuffix(w[0], "ская"):
+			want = w[0] + " область"
+		case w[0] == "область" || w[0] == "обл.":
+			want = "область " + strings.Join(w[1:], " ")
+		}
+	}
+	return b.cs(s), want
 }
 
 func (b *builder) cityText(c *City) string {
@@ -694,18 +710,19 @@ func (b *builder) villageText(c *City) string {
 	return b.prefixed(list("с. ", "с.", "с ", "село ", "пос. ", "п. ", "поселок ", "аул ", "", "", ""), name)
 }
 
-func (b *builder) district(d District) string {
+// district writes a district and returns the text and the name as written, without "район".
+func (b *builder) district(d District) (string, string) {
 	if b.mode == modeKz || b.p(0.18) {
 		b.tag("kazakh")
-		s := d.Kz + " ауданы"
+		s, name := d.Kz+" ауданы", d.Kz
 		if b.p(0.2) {
 			s = d.Kz + " ауд."
 			b.tag("abbreviations")
 		}
 		if b.fast && b.p(0.3) {
-			s = deKaz(s)
+			s, name = deKaz(s), deKaz(name)
 		}
-		return b.cs(s)
+		return b.cs(s), name
 	}
 	n := d.Name
 	var forms []string
@@ -721,7 +738,7 @@ func (b *builder) district(d District) string {
 	if strings.Contains(s, "р-н") {
 		b.tag("abbreviations")
 	}
-	return b.cs(s)
+	return b.cs(s), n
 }
 
 // typed renders a name with an optional type word. It returns the text, the

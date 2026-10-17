@@ -99,7 +99,7 @@ func UseKATO(recs []kato.Record) KATOStats { return dict.UseKATO(recs) }
 func Parse(raw string) Output {
 	c := text.Clean(raw)
 	d := dict.Current()
-	st := &state{d: d, c: c, toks: splitGlued(d, c.Runes, tokenize(c.Runes)), vals: map[Field]string{}, src: map[Field]string{}, streetE: -1}
+	st := &state{d: d, c: c, toks: splitGlued(d, c.Runes, tokenize(c.Runes)), vals: map[Field]string{}, src: map[Field]string{}, written: map[Field]string{}, streetE: -1}
 	st.classify()
 	st.segment()
 	st.admin()
@@ -109,5 +109,6 @@ func Parse(raw string) Output {
 	st.livingPart()
 	st.house()
 	st.restore()
+	st.writtenForms()
 	return Output{Values: st.vals, Sources: st.src, Spans: st.sortedSpans(), Confidence: st.confidence()}
 }

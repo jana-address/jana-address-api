@@ -23,6 +23,19 @@ func UseKATO(recs []kato.Record) KATOStats {
 	return st
 }
 
+// districtName drops "им." and the Kazakh "атын." from a district named after a person:
+// "им.Казыбек би" and "Қазыбек би атын." are "Казыбек би".
+func districtName(s string) string {
+	s = strings.TrimSpace(s)
+	for _, p := range []string{"им.", "имени "} {
+		s = strings.TrimSpace(strings.TrimPrefix(s, p))
+	}
+	for _, p := range []string{"атындағы", "атын."} {
+		s = strings.TrimSpace(strings.TrimSuffix(s, p))
+	}
+	return s
+}
+
 func (d *Directory) addKATO(recs []kato.Record) KATOStats {
 	byCode := make(map[string]*kato.Record, len(recs))
 	for i := range recs {
@@ -50,6 +63,14 @@ func (d *Directory) addKATO(recs []kato.Record) KATOStats {
 			return r.NameRUClean
 		}
 		return r.NameRU
+	}
+
+	// districts of a city share the first five digits with it: г.Актобе 151010000, район Астана 151011100
+	cityOf := map[string]string{}
+	for i := range recs {
+		if r := &recs[i]; r.Kind == kato.City && strings.HasSuffix(r.Code, "0000") {
+			cityOf[r.Code[:5]] = r.NameRUClean
+		}
 	}
 
 	var st KATOStats
@@ -82,6 +103,22 @@ func (d *Directory) addKATO(recs []kato.Record) KATOStats {
 		case kato.District:
 			if !isRayon(r) || r.Code[:2] == "71" || r.Code[:2] == "75" || r.Code[:2] == "79" {
 				continue // city districts of Астана, Алматы, Шымкент keep the hand-written names
+			}
+			if city, ok := cityOf[r.Code[:5]]; ok { // "район Алматы" of Актобе, "район им.Казыбек би" of Караганда
+				info := DistrictInfo{Name: districtName(r.NameRUClean), City: city, Province: regionName(ancestor(r, isRegion))}
+				for _, name := range []string{r.NameRUClean, r.NameKKClean} {
+					k := text.Key(districtName(name))
+					if k == "" {
+						continue
+					}
+					d.addCityDistrict(k, info)
+					_, known := d.Districts[k]
+					if _, city := d.Cities[k]; !known && !city { // "алматы", "астана" stay cities and Астана's district
+						d.Districts[k] = info
+					}
+				}
+				st.Districts++
+				continue
 			}
 			info := DistrictInfo{Name: r.NameRUClean, Province: regionName(ancestor(r, isRegion))}
 			for _, name := range []string{r.NameRUClean, r.NameKKClean} {

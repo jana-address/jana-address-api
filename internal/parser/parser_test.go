@@ -22,6 +22,11 @@ func TestParseExamples(t *testing.T) {
 			StreetName: "Туран", House: "55/6", Landmark: "магазин береке", Entrance: "4", Floor: "9", Apartment: "-"}},
 		{"Нурсити 2 микрорайон 11дом 5 подьезд 239 кв", map[Field]string{
 			StreetType: "микрорайон", StreetName: "Нурсити 2", House: "11", Entrance: "5", Apartment: "239"}},
+		// a district is returned as written, without "район"; its city and region come from the directory
+		{"Астана қаласы, Сарыарка ауданы, Кенесары 40", map[Field]string{City: "Астана", District: "Сарыарка", StreetName: "Кенесары"}},
+		{"г. Астана, Есильский район, ул. Сығанақ 10", map[Field]string{City: "Астана", District: "Есильский"}},
+		{"Аастана алматы ауд. Туран пр 47", map[Field]string{City: "Астана", District: "алматы", StreetName: "Туран", House: "47"}},
+		{"Алматы, Түрксіб ауданы/Турксибский район, Рыбинский 4", map[Field]string{City: "Алматы", District: "Түрксіб"}},
 		{"Турксибский район, Рыбинский переулок, дом 4", map[Field]string{
 			District: "Турксибский", City: "Алматы", Province: "Алматы", StreetType: "переулок", StreetName: "Рыбинский", House: "4"}},
 		{"Кулманова 133", map[Field]string{StreetName: "Кулманова", House: "133", StreetType: "-"}},
@@ -44,7 +49,7 @@ func TestParseExamples(t *testing.T) {
 		{"г Алматы Абая 10", map[Field]string{City: "Алматы", StreetName: "Абая", House: "10"}},
 		{"г.Шымкент ул.Байтурсынова 12 кв.4", map[Field]string{City: "Шымкент", StreetName: "Байтурсынова", House: "12", Apartment: "4"}},
 		{"с.Иргели ул.Абая 5", map[Field]string{City: "Иргели", StreetName: "Абая", House: "5"}},
-		{"Тұран ауданы Байтұрсынов көшесі 12", map[Field]string{District: "Туранский", City: "Шымкент", StreetName: "Байтұрсынов", House: "12"}},
+		{"Тұран ауданы Байтұрсынов көшесі 12", map[Field]string{District: "Тұран", City: "Шымкент", StreetName: "Байтұрсынов", House: "12"}},
 		{"Карагандинская обл г. Темиртау ул. Мира 4", map[Field]string{Province: "Карагандинская область", City: "Темиртау", StreetName: "Мира", House: "4"}},
 		{"Алматы, ул. Г. Потанина 3", map[Field]string{City: "Алматы", StreetType: "улица", StreetName: "Г. Потанина", House: "3"}},
 		{"ул. Д. Кунаева 12, кв 5", map[Field]string{StreetType: "улица", StreetName: "Д. Кунаева", House: "12", Apartment: "5"}},
@@ -154,7 +159,7 @@ func TestParseExamples(t *testing.T) {
 		{"Республика Казахстан, Алматы, Абая 10", map[Field]string{City: "Алматы", StreetName: "Абая", House: "10"}},
 		{"астана қаласы, коргалжын тас жолы 5", map[Field]string{StreetType: "шоссе", StreetName: "коргалжын", House: "5"}},
 		{"Алматы, трасса Алматы-Бишкек 25", map[Field]string{StreetType: "шоссе", StreetName: "Алматы-Бишкек", House: "25"}},
-		{"астана қаласы алматы ауданы абай даңғылы 126б", map[Field]string{District: "Алматинский", StreetType: "проспект", StreetName: "абай", House: "126б"}},
+		{"астана қаласы алматы ауданы абай даңғылы 126б", map[Field]string{District: "алматы", StreetType: "проспект", StreetName: "абай", House: "126б"}},
 		{"Астана, мкр. кАбулак, 98", map[Field]string{City: "Астана", StreetName: "кАбулак", House: "98"}},
 		{"проспект гагарина,72, кв 45, за рынком", map[Field]string{House: "72", Landmark: "за рынком"}},
 		// a living area without "мкр"/"ЖК", examples from the case
