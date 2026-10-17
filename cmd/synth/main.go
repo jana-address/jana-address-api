@@ -1,7 +1,7 @@
 // Command synth writes a synthetic labeled address set.
 //
-//	synth -n 10000 -seed 1 -format gold -o testdata/synth/synth_10000.jsonl
-//	synth -n 10000 -seed 1 -format jury -o testdata/synth/synth_10000_input.json
+//	synth -n 10000 -seed 1 -format gold -o testdata/synth/synth_10000.jsonl       (the set the tests generate in place)
+//	synth -n 10000 -seed 1 -format jury -o testdata/synth/synth_10000_input.json  (the same set to upload in the UI)
 package main
 
 import (

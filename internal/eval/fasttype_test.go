@@ -1,4 +1,4 @@
-package eval
+package eval_test
 
 import (
 	"fmt"
@@ -7,8 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jana-address/jana-address-api/internal/eval"
 	"github.com/jana-address/jana-address-api/internal/kato"
 	"github.com/jana-address/jana-address-api/internal/parser"
+	"github.com/jana-address/jana-address-api/internal/synth"
 )
 
 // TestMain scores the parser the way the server runs it: with the embedded KATO snapshot.
@@ -33,7 +35,8 @@ func predict(raw string) map[string]string {
 }
 
 // TestFastTypeSet scores the parser on fast-typed addresses and guards against regressions.
-// fasttype_100 is the development set, holdout_100 is only measured.
+// fasttype_100 and holdout_100 are labeled by hand; synth_10000 is generated in place by cmd/synth's
+// generator with seed 1, so it is not stored in the repository.
 // EVAL_EXTRA=set1,set2 scores more sets from testdata (without .jsonl).
 // EVAL_FAILURES=dir writes every wrong field to dir/<set>.txt for error analysis.
 func TestFastTypeSet(t *testing.T) {
@@ -44,14 +47,20 @@ func TestFastTypeSet(t *testing.T) {
 	}
 	for _, set := range sets {
 		t.Run(set, func(t *testing.T) {
-			gold, err := Load(dir + set + ".jsonl")
+			var gold []eval.Gold
+			var err error
+			if set == "synth/synth_10000" {
+				gold = synth.Generate(10000, 1)
+			} else {
+				gold, err = eval.Load(dir + set + ".jsonl")
+			}
 			if os.IsNotExist(err) {
 				t.Skip("no gold file")
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			rep := Score(gold, predict)
+			rep := eval.Score(gold, predict)
 			t.Log("\n" + rep.String())
 
 			if out := os.Getenv("EVAL_FAILURES"); out != "" {
@@ -76,7 +85,7 @@ func TestFastTypeSet(t *testing.T) {
 
 func TestNorm(t *testing.T) {
 	for in, want := range map[string]string{"Аксай-3а": "аксай 3а", "  Ул .Курильская ": "ул курильская", "1/2": "1 2", "": ""} {
-		if got := Norm(in); got != want {
+		if got := eval.Norm(in); got != want {
 			t.Errorf("Norm(%q) = %q, want %q", in, got, want)
 		}
 	}

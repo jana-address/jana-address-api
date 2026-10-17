@@ -91,11 +91,12 @@ curl -s -XPOST http://localhost:8080/api/v1/parse/batch \
   веса 60/25/15, справочные поля только там, где они есть в строке.
   - Два набора по 100 строк размечены вручную.
   - Генератор быстрого набора `cmd/synth`: опечатки, склейки, латиница, казахский, ЖК,
-    сёла. 10 000 строк лежат в `testdata/synth`, CI не даёт метрике опуститься ниже
-    базовой линии.
+    сёла. Набор детерминирован сидом: тест генерирует 10 000 строк (сид 1) на лету, в
+    репозитории их нет. CI не даёт метрике опуститься ниже базовой линии.
 
 ```bash
 go test ./internal/eval -run TestFastTypeSet -v                  # 100 + 100 + 10 000
+go run ./cmd/synth -n 10000 -seed 1 -format jury -o testdata/synth/synth_10000_input.json  # файл для интерфейса
 go run ./cmd/synth -n 100000 -seed 2 -o testdata/synth/synth_100000.jsonl
 EVAL_EXTRA=synth/synth_100000 go test ./internal/eval -run TestFastTypeSet -v
 ```

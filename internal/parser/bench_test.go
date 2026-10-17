@@ -4,18 +4,26 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+
+	"github.com/jana-address/jana-address-api/internal/synth"
 )
 
-// benchInput reads the raw addresses of a jury-format file; BENCH_INPUT overrides the default set.
+// benchInput returns the raw addresses of the generated 10k set (seed 1); BENCH_INPUT=file.json
+// (jury format) benchmarks another set.
 func benchInput(b *testing.B) []string {
 	b.Helper()
 	path := os.Getenv("BENCH_INPUT")
 	if path == "" {
-		path = "../../testdata/synth/synth_10000_input.json"
+		gold := synth.Generate(10000, 1)
+		raws := make([]string, len(gold))
+		for i, g := range gold {
+			raws[i] = g.Raw
+		}
+		return raws
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		b.Skip(err)
+		b.Fatal(err)
 	}
 	var items []struct {
 		Raw string `json:"raw_address"`
