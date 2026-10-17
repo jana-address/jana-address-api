@@ -82,7 +82,7 @@ curl -s -XPOST http://localhost:8080/api/v1/parse/batch \
    - район Алматы по микрорайону.
 8. **Уверенность:** ≥ 0,8 «уверенно», 0,5–0,8 «проверить», < 0,5 «не разобрано».
 
-Подробно, с примерами из ТЗ: http://localhost:3000/docs.
+Описание API: http://localhost:3000/docs и `GET /api/v1/openapi.yaml`.
 
 ## Качество
 
