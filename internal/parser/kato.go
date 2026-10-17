@@ -41,7 +41,10 @@ func (d *directory) addKATO(recs []kato.Record) KATOStats {
 		return nil
 	}
 	isRegion := func(r *kato.Record) bool { return r.Kind == kato.Region }
-	isRayon := func(r *kato.Record) bool { return r.Kind == kato.District && strings.Contains(r.NameRU, "район") }
+	// lower case: also "Район Шал акына"
+	isRayon := func(r *kato.Record) bool {
+		return r.Kind == kato.District && strings.Contains(strings.ToLower(r.NameRU), "район")
+	}
 	regionName := func(r *kato.Record) string {
 		if r == nil {
 			return ""

@@ -30,6 +30,9 @@ func TestKATOSettlements(t *testing.T) {
 		{"с. Узынагаш, ул. Абая 5", map[Field]string{City: "Узынагаш", Province: "Алматинская область"}},
 		// a village known only to the classifier, after "с."
 		{"с. Кайнар, Новая 4", map[Field]string{City: "Кайнар", House: "4"}},
+		// a rayon written "Район Магжана Жумабаева" in the classifier picks one of several villages called Полтавка
+		{"Магжана Жумабаева ауданы, с. Полтавка, ул. Абая 5", map[Field]string{
+			City: "Полтавка", District: "Магжана Жумабаева", Province: "Северо-Казахстанская область"}},
 		// a Kazakh rayon name
 		{"Іле ауданы, Өтеген батыр ауылы, Нұрлы көшесі 17", map[Field]string{City: "Отеген батыр", District: "Илийский"}},
 		// a village next to a written rayon, without "с."
