@@ -6,7 +6,6 @@ type cand struct {
 	typ      string
 	mk       int // marker token index
 	a, b     int // name token range
-	numbered bool
 	isLiving bool
 }
 
@@ -185,7 +184,7 @@ func (st *state) street() {
 			st.set(LivingArea, st.text(living.a, living.b), SourceString, living.a, living.b)
 		}
 	}
-	if street != nil && living == nil && !untyped && !realStreetTypes[street.typ] && !street.numbered {
+	if street != nil && living == nil && !untyped && !realStreetTypes[street.typ] {
 		st.markUsed(min(street.mk, street.a), max(street.mk, street.b))
 		if st.untypedStreet() { // "мкр Самал-2, Жолдасбекова 97"
 			st.set(LivingArea, st.text(street.a, street.b), SourceString, street.a, street.b)

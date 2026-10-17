@@ -112,12 +112,3 @@ func isLatin(s string) bool {
 	}
 	return false
 }
-
-func hasLetter(s string) bool {
-	for _, r := range s {
-		if isLetter(r) {
-			return true
-		}
-	}
-	return false
-}
