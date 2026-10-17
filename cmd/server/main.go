@@ -30,6 +30,7 @@ import (
 	"github.com/jana-address/jana-address-api/internal/db"
 	"github.com/jana-address/jana-address-api/internal/httpapi"
 	"github.com/jana-address/jana-address-api/internal/katosync"
+	"github.com/jana-address/jana-address-api/internal/parser/dict"
 	"github.com/jana-address/jana-address-api/internal/synth"
 )
 
@@ -88,6 +89,9 @@ func serve() error {
 		return err
 	}
 	go syncer.Run(ctx)
+	start := time.Now()
+	osm := dict.OSM() // the street directory is read before the server listens, not on the first request
+	log.Info("osm directory loaded", "cities", len(osm.Streets), "ms", time.Since(start).Milliseconds())
 
 	srv := &http.Server{
 		Addr:              addr,

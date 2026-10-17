@@ -253,10 +253,10 @@ func (st *state) livingArea(k string, a, b int) bool {
 	}
 	st.set(LivingArea, st.text(a, b), SourceString, a, b)
 	if p, ok := st.d.Cities[text.Key(found.City)]; ok {
-		st.setDir(City, p.Name)
-		st.setDir(Province, p.Province)
+		st.setDir(City, p.Name, LevelArea)
+		st.setDir(Province, p.Province, LevelArea)
 	}
-	st.setDir(District, found.District)
+	st.setDir(District, found.District, LevelArea)
 	return true
 }
 
@@ -296,8 +296,8 @@ func (st *state) typoCityBefore(i int) bool {
 func (st *state) setCity(k, name string, a, b int, village bool) {
 	use := func(p dict.Place) {
 		st.set(City, p.Name, SourceString, a, b)
-		st.setDir(Province, p.Province)
-		st.setDir(District, p.District)
+		st.setDir(Province, p.Province, LevelSettlement)
+		st.setDir(District, p.District, LevelSettlement)
 	}
 	consistent := func(p dict.Place) bool {
 		prov, dist := st.writtenValue(Province), st.writtenValue(District)
@@ -367,8 +367,8 @@ func (st *state) setDistrict(k, name string, a, b int) {
 	// "Абайский", "Есильский" are city districts of Шымкент and Астана and also rural rayons in other
 	// regions: the city comes from the district only when the line names no other region
 	if prov := st.writtenValue(Province); prov == "" || prov == d.Province {
-		st.setDir(City, d.City)
-		st.setDir(Province, d.Province)
+		st.setDir(City, d.City, LevelDistrict)
+		st.setDir(Province, d.Province, LevelDistrict)
 	}
 }
 

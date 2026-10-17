@@ -36,6 +36,15 @@ const (
 	SourceAbsent    = "absent"
 )
 
+// Levels of a value taken from the directory: how it was matched, from the most to the least exact.
+const (
+	LevelHouse      = "house"      // the building lies in the district (OSM)
+	LevelStreet     = "street"     // most buildings of the street lie in one district, or its only type (OSM)
+	LevelArea       = "area"       // a microdistrict or living area of the district or city
+	LevelSettlement = "settlement" // the region and rayon of the written town or village (KATO)
+	LevelDistrict   = "district"   // the city and region of the written district
+)
+
 // Span is a highlighted fragment of the raw string, in UTF-16 offsets.
 type Span struct {
 	Field Field `json:"field"`
@@ -47,6 +56,7 @@ type Span struct {
 type Output struct {
 	Values     map[Field]string
 	Sources    map[Field]string
+	Levels     map[Field]string // for directory values only
 	Spans      []Span
 	Confidence float64
 }
@@ -99,7 +109,7 @@ func UseKATO(recs []kato.Record) KATOStats { return dict.UseKATO(recs) }
 func Parse(raw string) Output {
 	c := text.Clean(raw)
 	d := dict.Current()
-	st := &state{d: d, c: c, toks: splitGlued(d, c.Runes, tokenize(c.Runes)), vals: map[Field]string{}, src: map[Field]string{}, written: map[Field]string{}, streetE: -1}
+	st := &state{d: d, c: c, toks: splitGlued(d, c.Runes, tokenize(c.Runes)), vals: map[Field]string{}, src: map[Field]string{}, written: map[Field]string{}, lvl: map[Field]string{}, streetE: -1}
 	st.classify()
 	st.segment()
 	st.admin()
@@ -110,5 +120,5 @@ func Parse(raw string) Output {
 	st.house()
 	st.restore()
 	st.writtenForms()
-	return Output{Values: st.vals, Sources: st.src, Spans: st.sortedSpans(), Confidence: st.confidence()}
+	return Output{Values: st.vals, Sources: st.src, Levels: st.lvl, Spans: st.sortedSpans(), Confidence: st.confidence()}
 }

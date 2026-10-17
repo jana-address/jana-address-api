@@ -1,0 +1,132 @@
+package dict
+
+import (
+	"bufio"
+	"compress/gzip"
+	"embed"
+	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+)
+
+// The street directory of the city districts of Алматы, Астана and Шымкент, built from OpenStreetMap
+// by cmd/osmref (manifest.json lists the source, the date and the checks).
+//
+//go:embed osm/streets.tsv.gz osm/houses.tsv.gz osm/areas.tsv.gz osm/manifest.json
+var osmFiles embed.FS
+
+// StreetRef is where a street or a living area lies: the district of most of its segments and
+// buildings, their share there, the number of votes and the only street type the map gives it.
+type StreetRef struct {
+	District string
+	Share    float64
+	Votes    int
+	Type     string
+}
+
+// AnyType is the type column of the row that joins all streets of one name, for a line without a type.
+const AnyType = "*"
+
+// OSMRef holds the street directory, keyed by the canonical city name, StreetKey and the street type.
+type OSMRef struct {
+	Streets map[string]map[string]StreetRef // key + "\x00" + type (or AnyType)
+	Houses  map[string]map[string]string    // key + "\x00" + type + "\x00" + HouseKey -> district, streets across a border
+	Areas   map[string]map[string]StreetRef // area key
+}
+
+// Street finds a street by its key and type ("улица", "проспект" or AnyType).
+func (r *OSMRef) Street(city, key, typ string) (StreetRef, bool) {
+	s, ok := r.Streets[city][key+"\x00"+typ]
+	return s, ok
+}
+
+// House returns the district of one building of a street.
+func (r *OSMRef) House(city, key, typ, house string) (string, bool) {
+	d, ok := r.Houses[city][key+"\x00"+typ+"\x00"+HouseKey(house)]
+	return d, ok
+}
+
+// OSM returns the embedded street directory; it is read once, on first use.
+var OSM = sync.OnceValue(func() *OSMRef {
+	r, err := loadOSM()
+	if err != nil {
+		panic("dict: embedded OSM directory: " + err.Error())
+	}
+	return r
+})
+
+func loadOSM() (*OSMRef, error) {
+	r := &OSMRef{Streets: map[string]map[string]StreetRef{}, Houses: map[string]map[string]string{}, Areas: map[string]map[string]StreetRef{}}
+	for _, t := range []struct {
+		name string
+		cols int
+		add  func(f []string) error
+	}{
+		// city, key, type, district, share, votes, only type
+		{"streets", 7, func(f []string) error {
+			share, err := strconv.ParseFloat(f[4], 64)
+			if err != nil {
+				return err
+			}
+			n, err := strconv.Atoi(f[5])
+			put(r.Streets, f[0], f[1]+"\x00"+f[2], StreetRef{District: f[3], Share: share, Votes: n, Type: f[6]})
+			return err
+		}},
+		// city, key, type, house, district
+		{"houses", 5, func(f []string) error {
+			put(r.Houses, f[0], f[1]+"\x00"+f[2]+"\x00"+f[3], f[4])
+			return nil
+		}},
+		// city, key, district, share
+		{"areas", 4, func(f []string) error {
+			share, err := strconv.ParseFloat(f[3], 64)
+			put(r.Areas, f[0], f[1], StreetRef{District: f[2], Share: share})
+			return err
+		}},
+	} {
+		if err := readTSV("osm/"+t.name+".tsv.gz", t.cols, t.add); err != nil {
+			return nil, err
+		}
+	}
+	return r, nil
+}
+
+func put[V any](m map[string]map[string]V, city, k string, v V) {
+	if m[city] == nil {
+		m[city] = map[string]V{}
+	}
+	m[city][k] = v
+}
+
+func readTSV(path string, cols int, add func([]string) error) error {
+	f, err := osmFiles.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	zr, err := gzip.NewReader(f)
+	if err != nil {
+		if strings.Contains(err.Error(), "EOF") {
+			return nil // an empty snapshot
+		}
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	sc := bufio.NewScanner(zr)
+	for n := 1; sc.Scan(); n++ {
+		fields := strings.Split(sc.Text(), "\t")
+		if len(fields) != cols {
+			return fmt.Errorf("%s:%d: %d columns, want %d", path, n, len(fields), cols)
+		}
+		if err := add(fields); err != nil {
+			return fmt.Errorf("%s:%d: %w", path, n, err)
+		}
+	}
+	return sc.Err()
+}
+
+// OSMManifest is the manifest of the embedded street directory, for the health endpoint and the docs.
+func OSMManifest() []byte {
+	b, _ := osmFiles.ReadFile("osm/manifest.json")
+	return b
+}

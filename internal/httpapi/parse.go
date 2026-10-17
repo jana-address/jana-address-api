@@ -191,7 +191,9 @@ type parseResponse struct {
 	Result  addr.Result       `json:"result"`
 	Spans   []parser.Span     `json:"spans"`
 	Sources map[string]string `json:"sources"`
-	Status  string            `json:"status"`
+	// Levels says how each directory value was matched: house, street, area, settlement, district.
+	Levels map[string]string `json:"levels"`
+	Status string            `json:"status"`
 	// Suggestion is the address in a clean form ("Астана, проспект Мәңгілік Ел, д. 55") for the hint under the input.
 	Suggestion string `json:"suggestion"`
 }
@@ -207,13 +209,16 @@ func (a *api) parseOne(w http.ResponseWriter, r *http.Request) {
 	}
 	raw, _ := json.Marshal(*in.RawAddress)
 	o := parser.Parse(*in.RawAddress)
-	resp := parseResponse{Result: addr.Result{RawAddress: raw}, Spans: o.Spans, Sources: map[string]string{}, Status: o.Status(), Suggestion: o.Suggest()}
+	resp := parseResponse{Result: addr.Result{RawAddress: raw}, Spans: o.Spans, Sources: map[string]string{}, Levels: map[string]string{}, Status: o.Status(), Suggestion: o.Suggest()}
 	o.Fill(&resp.Result)
 	if resp.Spans == nil {
 		resp.Spans = []parser.Span{}
 	}
 	for _, f := range parser.Fields {
 		resp.Sources[string(f)] = o.SourceOf(f)
+		if l := o.Levels[f]; l != "" {
+			resp.Levels[string(f)] = l
+		}
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

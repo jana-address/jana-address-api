@@ -16,6 +16,7 @@ type state struct {
 	vals     map[Field]string
 	src      map[Field]string
 	written  map[Field]string // output forms of fields written in the line, set by writtenForms
+	lvl      map[Field]string // how a directory value was matched, see Level*
 	spans    []Span
 	conflict bool
 	streetE  int      // token index after the street name, -1 if none
@@ -54,9 +55,10 @@ func (st *state) set(f Field, v, src string, a, b int) {
 	}
 }
 
-func (st *state) setDir(f Field, v string) {
+// setDir fills an empty field from the directory and records how the value was matched.
+func (st *state) setDir(f Field, v, level string) {
 	if _, ok := st.vals[f]; !ok && v != "" {
-		st.vals[f], st.src[f] = v, SourceDirectory
+		st.vals[f], st.src[f], st.lvl[f] = v, SourceDirectory, level
 	}
 }
 

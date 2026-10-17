@@ -7,20 +7,91 @@ import (
 	"github.com/jana-address/jana-address-api/internal/parser/text"
 )
 
-// restore fills missing reference fields from the built-in directory.
+// restore fills missing reference fields from the built-in directory. A value the line gives is
+// never replaced; each restored value records how it was matched (Level*).
 func (st *state) restore() {
 	if city, ok := st.vals[City]; ok {
 		if p, ok := st.d.Cities[text.Key(city)]; ok {
-			st.setDir(Province, p.Province)
-			st.setDir(District, p.District)
+			st.setDir(Province, p.Province, LevelSettlement)
+			st.setDir(District, p.District, LevelSettlement)
 		} else if p, ok := st.settlement(text.Key(city)); ok {
-			st.setDir(Province, p.Province)
-			st.setDir(District, p.District)
+			st.setDir(Province, p.Province, LevelSettlement)
+			st.setDir(District, p.District, LevelSettlement)
 		}
 	}
-	if _, ok := st.vals[District]; ok || st.vals[City] != "Алматы" {
+	city := st.vals[City]
+	ref := dict.OSM()
+	if _, ok := st.vals[District]; !ok {
+		st.districtFromStreets(ref, city)
+	}
+	if _, ok := st.vals[District]; !ok && city == "Алматы" {
+		st.districtFromAlmatyAreas()
+	}
+	if _, ok := st.vals[StreetType]; !ok {
+		if name, ok := st.vals[StreetName]; ok {
+			k, _ := dict.StreetKey(name)
+			if s, ok := ref.Street(city, k, dict.AnyType); ok && s.Type != "" {
+				st.setDir(StreetType, s.Type, LevelStreet) // every street of that name has this type
+			}
+		}
+	}
+}
+
+// osmStreet finds the written street in the directory. The written type picks among streets of one
+// name ("пр. Абая" is not "ул. Абая"), unless that street is small next to the others of the name:
+// "ул. Абая 150" in Алматы is most likely the avenue, so then all streets of the name are taken.
+func (st *state) osmStreet(ref *dict.OSMRef, city string) (key, typ string, s dict.StreetRef, ok bool) {
+	name, ok := st.vals[StreetName]
+	if !ok {
+		return "", "", s, false
+	}
+	key, _ = dict.StreetKey(name)
+	all, okAll := ref.Street(city, key, dict.AnyType)
+	if st.src[StreetType] == SourceString {
+		if t, okT := ref.Street(city, key, st.vals[StreetType]); okT && (!okAll || t.Votes*2 >= all.Votes) {
+			return key, st.vals[StreetType], t, true
+		}
+	}
+	return key, dict.AnyType, all, okAll
+}
+
+// districtFromStreets restores the district of a city address from the OSM directory: the building
+// when the street crosses a district border, else the street when most of it lies in one district,
+// else the microdistrict or living area.
+func (st *state) districtFromStreets(ref *dict.OSMRef, city string) {
+	if ref.Streets[city] == nil {
 		return
 	}
+	if k, typ, s, ok := st.osmStreet(ref, city); ok {
+		if h, ok := st.vals[House]; ok {
+			if d, ok := ref.House(city, k, typ, h); ok {
+				st.setDir(District, d, LevelHouse)
+				return
+			}
+		}
+		if s.Share >= dict.MinStreetShare {
+			st.setDir(District, s.District, LevelStreet)
+			return
+		}
+	}
+	for _, f := range []Field{LivingArea, StreetName} {
+		v, ok := st.vals[f]
+		if !ok || (f == StreetName && !areaType[st.vals[StreetType]]) {
+			continue
+		}
+		k, _ := dict.StreetKey(v)
+		if a, ok := ref.Areas[city][k]; ok && a.Share >= dict.MinStreetShare {
+			st.setDir(District, a.District, LevelArea)
+			return
+		}
+	}
+}
+
+// areaType: street types that name a living area rather than a street
+var areaType = map[string]bool{"микрорайон": true, "квартал": true, "жилой комплекс": true}
+
+// districtFromAlmatyAreas is the hand table of Almaty microdistricts, for the ones the map does not name.
+func (st *state) districtFromAlmatyAreas() {
 	for _, f := range []Field{LivingArea, StreetName} {
 		v, ok := st.vals[f]
 		if !ok || (f == StreetName && st.vals[StreetType] != "микрорайон") {
@@ -31,7 +102,7 @@ func (st *state) restore() {
 			continue
 		}
 		if d, ok := dict.AlmatyAreas[w[0]]; ok {
-			st.setDir(District, d)
+			st.setDir(District, d, LevelArea)
 			return
 		}
 	}

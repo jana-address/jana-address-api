@@ -1,0 +1,10 @@
+Справочные данные в образе / Reference data in the image
+
+KATO (классификатор административно-территориальных объектов)
+  internal/kato/snapshot/
+  © Бюро национальной статистики Агентства по стратегическому планированию и реформам РК, stat.gov.kz
+
+OpenStreetMap
+  internal/parser/dict/osm/
+  © OpenStreetMap contributors, Open Database License (ODbL) 1.0
+  https://www.openstreetmap.org/copyright

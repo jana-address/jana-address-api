@@ -1,0 +1,215 @@
+{
+  "districts": [
+    {
+      "addresses": 31488,
+      "city": "Алматы",
+      "district": "Алатауский",
+      "elements": 33254,
+      "named_areas": 99,
+      "named_ways": 1698,
+      "relation": 3072216
+    },
+    {
+      "addresses": 6409,
+      "city": "Алматы",
+      "district": "Алмалинский",
+      "elements": 7240,
+      "named_areas": 45,
+      "named_ways": 770,
+      "relation": 3072807
+    },
+    {
+      "addresses": 7339,
+      "city": "Алматы",
+      "district": "Ауэзовский",
+      "elements": 8098,
+      "named_areas": 92,
+      "named_ways": 690,
+      "relation": 3072808
+    },
+    {
+      "addresses": 10784,
+      "city": "Алматы",
+      "district": "Бостандыкский",
+      "elements": 12355,
+      "named_areas": 168,
+      "named_ways": 1432,
+      "relation": 3390291
+    },
+    {
+      "addresses": 15275,
+      "city": "Алматы",
+      "district": "Жетысуский",
+      "elements": 16178,
+      "named_areas": 31,
+      "named_ways": 881,
+      "relation": 3072130
+    },
+    {
+      "addresses": 18105,
+      "city": "Алматы",
+      "district": "Медеуский",
+      "elements": 19864,
+      "named_areas": 132,
+      "named_ways": 1565,
+      "relation": 3072217
+    },
+    {
+      "addresses": 15463,
+      "city": "Алматы",
+      "district": "Наурызбайский",
+      "elements": 16408,
+      "named_areas": 66,
+      "named_ways": 865,
+      "relation": 5460063
+    },
+    {
+      "addresses": 24046,
+      "city": "Алматы",
+      "district": "Турксибский",
+      "elements": 25302,
+      "named_areas": 63,
+      "named_ways": 1213,
+      "relation": 3072001
+    },
+    {
+      "addresses": 6065,
+      "city": "Астана",
+      "district": "Алматы",
+      "elements": 6776,
+      "named_areas": 15,
+      "named_ways": 699,
+      "relation": 3482819
+    },
+    {
+      "addresses": 5670,
+      "city": "Астана",
+      "district": "Байконур",
+      "elements": 6440,
+      "named_areas": 5,
+      "named_ways": 765,
+      "relation": 8593081
+    },
+    {
+      "addresses": 3650,
+      "city": "Астана",
+      "district": "Есиль",
+      "elements": 5002,
+      "named_areas": 224,
+      "named_ways": 1148,
+      "relation": 3479876
+    },
+    {
+      "addresses": 1927,
+      "city": "Астана",
+      "district": "Нура",
+      "elements": 2759,
+      "named_areas": 63,
+      "named_ways": 777,
+      "relation": 20593940
+    },
+    {
+      "addresses": 2305,
+      "city": "Астана",
+      "district": "Сарайшык",
+      "elements": 2942,
+      "named_areas": 47,
+      "named_ways": 585,
+      "relation": 19733918
+    },
+    {
+      "addresses": 10370,
+      "city": "Астана",
+      "district": "Сарыарка",
+      "elements": 11263,
+      "named_areas": 11,
+      "named_ways": 875,
+      "relation": 3486954
+    },
+    {
+      "addresses": 29398,
+      "city": "Шымкент",
+      "district": "Абайский",
+      "elements": 30708,
+      "named_areas": 84,
+      "named_ways": 1255,
+      "relation": 5548210
+    },
+    {
+      "addresses": 11332,
+      "city": "Шымкент",
+      "district": "Аль-Фарабийский",
+      "elements": 12033,
+      "named_areas": 30,
+      "named_ways": 676,
+      "relation": 5550509
+    },
+    {
+      "addresses": 15511,
+      "city": "Шымкент",
+      "district": "Енбекшинский",
+      "elements": 16266,
+      "named_areas": 54,
+      "named_ways": 719,
+      "relation": 5551117
+    },
+    {
+      "addresses": 13366,
+      "city": "Шымкент",
+      "district": "Каратауский",
+      "elements": 14029,
+      "named_areas": 47,
+      "named_ways": 631,
+      "relation": 5551119
+    },
+    {
+      "addresses": 22814,
+      "city": "Шымкент",
+      "district": "Туран",
+      "elements": 23740,
+      "named_areas": 35,
+      "named_ways": 897,
+      "relation": 21588024
+    }
+  ],
+  "holdout": {
+    "cities": {
+      "Алматы": {
+        "accuracy": 0.988,
+        "addresses": 12858,
+        "coverage": 0.879,
+        "restored": 11300,
+        "right": 11165
+      },
+      "Астана": {
+        "accuracy": 0.992,
+        "addresses": 2998,
+        "coverage": 0.932,
+        "restored": 2794,
+        "right": 2771
+      },
+      "Шымкент": {
+        "accuracy": 0.982,
+        "addresses": 9215,
+        "coverage": 0.812,
+        "restored": 7478,
+        "right": 7347
+      }
+    },
+    "method": "every tenth building (by hash) is left out of the votes, then its district is restored from the street alone"
+  },
+  "license": "ODbL 1.0, © OpenStreetMap contributors",
+  "min_street_share": 0.75,
+  "rows": {
+    "areas": 915,
+    "houses": 189592,
+    "streets": 17606
+  },
+  "sha256": {
+    "areas.tsv.gz": "f63a4f1537517eb327705a8e5de6a800d2c4710d465a3f28a277fb0bcc149cc9",
+    "houses.tsv.gz": "1fb947dd48f22e5567b0448ba9587df29cf4f7a2861682077e6e1fe0ee8566fa",
+    "streets.tsv.gz": "f1ad7eba8991f30085a44bce453f3e93d9fadcd3ced22046f93fccfe1b584b89"
+  },
+  "source": "OpenStreetMap, Overpass API (https://overpass-api.de/api/interpreter)",
+  "timestamp_osm_base": "2026-10-17T22:08:20Z"
+}

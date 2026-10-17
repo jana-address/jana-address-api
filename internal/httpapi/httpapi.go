@@ -7,7 +7,10 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
+
+	"github.com/jana-address/jana-address-api/internal/parser/dict"
 )
 
 // Pinger is the part of the DB pool the handlers need.
@@ -71,14 +74,35 @@ func (a *api) readyz(w http.ResponseWriter, _ *http.Request) {
 }
 
 type healthResponse struct {
-	Status    string `json:"status"`
-	Version   string `json:"version"`
-	DB        string `json:"db"`
-	Directory any    `json:"directory,omitempty"`
+	Status    string          `json:"status"`
+	Version   string          `json:"version"`
+	DB        string          `json:"db"`
+	Directory any             `json:"directory,omitempty"`
+	Streets   json.RawMessage `json:"streets,omitempty"`
 }
 
+// streetsSummary is the part of the OSM street directory manifest worth showing: source, date, rows
+// and the holdout check.
+var streetsSummary = sync.OnceValue(func() json.RawMessage {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(dict.OSMManifest(), &m) != nil {
+		return nil
+	}
+	out := map[string]json.RawMessage{}
+	for _, k := range []string{"source", "license", "timestamp_osm_base", "rows", "min_street_share", "holdout"} {
+		if v, ok := m[k]; ok {
+			out[k] = v
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(out)
+	return b
+})
+
 func (a *api) health(w http.ResponseWriter, r *http.Request) {
-	resp := healthResponse{Status: "ok", Version: a.version, DB: "ok"}
+	resp := healthResponse{Status: "ok", Version: a.version, DB: "ok", Streets: streetsSummary()}
 	if a.directory != nil {
 		resp.Directory = a.directory()
 	}
