@@ -1,211 +1,155 @@
 package main
 
 import (
-	"embed"
+	_ "embed"
 	"encoding/json"
-	"html/template"
-	"io/fs"
+	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strings"
 )
 
-//go:embed templates/*.html
-var tplFS embed.FS
+//go:embed web/index.html
+var indexHTML []byte
 
-//go:embed static
-var staticFS embed.FS
+const (
+	maxRecords = 10000
+	maxBody    = 32 << 20 // 32 МБ
+)
 
-// ---------- Модель данных страницы ----------
-
-type Link struct {
-	Title string
-	URL   string
+// Record — одна запись входного файла. Адрес берётся из raw, address или text.
+type Record struct {
+	ID      string `json:"id"`
+	Raw     string `json:"raw"`
+	Address string `json:"address"`
+	Text    string `json:"text"`
 }
 
-type Stat struct {
-	Value string
-	Label string
-}
-
-type Step struct {
-	Title string
-	Text  string
-}
-
-type Tab struct {
-	ID       string
-	Title    string
-	Heading  string
-	Subtitle string
-	Points   []string
-	LinkURL  string
-}
-
-type Contact struct {
-	Label string
-	Email string
-}
-
-type Page struct {
-	Title      string
-	Lang       string
-	Langs      []string
-	Nav        []Link
-	LoginURL   string
-	HeroTitle  string
-	HeroText   string
-	Stats      []Stat
-	Partners   []string
-	StepsTitle string
-	Steps      []Step
-	AppTitle   string
-	AppText    string
-	HelpTitle  string
-	Tabs       []Tab
-	Contacts   []Contact
-	Address    string
-	Socials    []Link
-	Legal      []Link
-	Copyright  string
-}
-
-func newPage() Page {
-	return Page{
-		Title:    "Jańa Post",
-		Lang:     "Русский",
-		Langs:    []string{"Қазақша", "Русский", "English", "中文"},
-		LoginURL: "https://janapost.kz/web/lite/#/pages/login/login",
-		Nav: []Link{
-			{"Клиенту", "/ru/home"},
-			{"Бизнесу", "/ru/v2/business"},
-			{"Партнерам", "/ru/partners"},
-			{"О нас", "/ru/v2/about"},
-			{"Карьера", "/ru/v2/careers"},
-			{"Уроки", "/ru/v2/lessons"},
-			{"Тарифы", "/ru/home/tariffs"},
-		},
-		HeroTitle: "Мы доставляем возможности",
-		HeroText:  "Принимаем и доставляем все отправления с маркетплейсов",
-		Stats: []Stat{
-			{"10+ лет", "Опыт на рынке"},
-			{"1000+ филиалов", "По Центральной Азии"},
-			{"3+ млн", "Пользователей в приложении"},
-			{"5 стран", "Международная доставка"},
-		},
-		// Названия партнёров на странице подгружаются картинками,
-		// поэтому здесь заглушки — замените на свои логотипы.
-		Partners:   []string{"Partner 1", "Partner 2", "Partner 3", "Partner 4", "Partner 5"},
-		StepsTitle: "Инструкция по оформлению заказа",
-		Steps: []Step{
-			{"Скачать приложение", "Скачайте Jańa Post в App Store или Play Market"},
-			{"Оформить заказ", "Оформите заказ с маркетплейсов за несколько минут"},
-			{"Отслеживать заказ", "Мы отслеживаем все заказы, вы всегда знаете статус"},
-			{"Получить заказ", "Заберите в отделении или дождитесь курьера"},
-		},
-		AppTitle:  "Мобильное приложение Jańa Post",
-		AppText:   "Доступ к статусу заказа и информации о доставке через мобильное приложение",
-		HelpTitle: "Как Jańa Post может вам помочь?",
-		Tabs: []Tab{
-			{
-				ID: "business", Title: "Бизнесу",
-				Heading:  "Доставка для бизнеса",
-				Subtitle: "Доставка, способствующая развитию вашего бизнеса",
-				Points: []string{
-					"Доставка по Казахстану",
-					"Выгодные тарифы",
-					"Стабильная доступность",
-					"Сеть складов и пунктов выдачи",
-				},
-				LinkURL: "/ru/v2/business",
-			},
-			{
-				// Текст вкладки «Партнёрам» на странице не отдаётся в HTML — это заглушка.
-				ID: "partners", Title: "Партнёрам",
-				Heading:  "Партнёрская программа",
-				Subtitle: "Развивайте сеть пунктов выдачи вместе с нами",
-				Points: []string{
-					"Прозрачные условия сотрудничества",
-					"Поддержка на каждом этапе",
-					"Рост за счёт потока клиентов",
-				},
-				LinkURL: "/ru/partners",
-			},
-		},
-		Contacts: []Contact{
-			{"Общие вопросы", "feedback@janapost.kz"},
-			{"Жалобы и обратная связь", "info@janapost.kz"},
-			{"Партнёрство", "commercial@janapost.kz"},
-		},
-		Address: "Қалқаман-2 шағын ауданы, Қарақұлов көш., 40 үй, 4 этаж. 050006",
-		Socials: []Link{
-			{"Instagram", "https://www.instagram.com/janapost.kazakhstan/"},
-			{"YouTube", "https://youtube.com/@janapost.kazakhstan"},
-			{"Telegram", "https://t.me/janapostt"},
-			{"LinkedIn", "https://www.linkedin.com/company/jana-post-llp/"},
-			{"TikTok", "https://www.tiktok.com/@janapost.app"},
-			{"Facebook", "https://www.facebook.com/profile.php?id=61551861065461"},
-		},
-		Legal: []Link{
-			{"Договор", "/ru/home/public-document/2"},
-			{"Публичный договор", "/ru/home/public-document/1"},
-			{"Запрещенные товары", "/ru/prohibited"},
-		},
-		Copyright: "© 2023–2026 Jańa Post. БИН 230340044188. Все права защищены.",
+func (r Record) line() string {
+	for _, v := range []string{r.Raw, r.Address, r.Text} {
+		if v != "" {
+			return v
+		}
 	}
+	return ""
 }
 
-// ---------- Обработчики ----------
+type Item struct {
+	ID  string `json:"id"`
+	Raw string `json:"raw"`
+	Result
+}
+
+type Summary struct {
+	Total     int     `json:"total"`
+	Confident int     `json:"confident"`
+	Review    int     `json:"review"`
+	Unparsed  int     `json:"unparsed"`
+	Avg       float64 `json:"avg"`
+}
 
 func main() {
-	tpl := template.Must(template.New("").Funcs(template.FuncMap{
-		"inc": func(i int) int { return i + 1 },
-	}).ParseFS(tplFS, "templates/*.html"))
-
 	mux := http.NewServeMux()
 
-	sub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		log.Fatal(err)
-	}
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
-
-	home := func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" && r.URL.Path != "/ru/home" {
-			http.NotFound(w, r)
-			return
-		}
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := tpl.ExecuteTemplate(w, "index.html", newPage()); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	}
-	mux.HandleFunc("/", home)
-	mux.HandleFunc("/ru/home", home)
-
-	// Поле «Поиск» в hero: отслеживание по трек-номеру (демо-заглушка).
-	mux.HandleFunc("/api/track", func(w http.ResponseWriter, r *http.Request) {
-		code := strings.TrimSpace(r.URL.Query().Get("q"))
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		if code == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Введите трек-номер"})
-			return
-		}
-		json.NewEncoder(w).Encode(map[string]string{
-			"code":   code,
-			"status": "Заказ не найден в демо-режиме. Подключите реальный API.",
-		})
+		w.Write(indexHTML)
 	})
+	mux.HandleFunc("GET /api/v1/health", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": "0.1.0"})
+	})
+	mux.HandleFunc("POST /api/v1/parse", handleParse)
+	mux.HandleFunc("POST /api/v1/parse/batch", handleBatch)
 
 	addr := ":" + envOr("PORT", "8080")
-	log.Println("Jańa Post на http://localhost" + addr)
+	log.Println("Jana Address: http://localhost" + addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }
 
+func handleParse(w http.ResponseWriter, r *http.Request) {
+	body, err := readBody(w, r)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "не удалось прочитать тело запроса")
+		return
+	}
+	var in Record
+	if err := json.Unmarshal(body, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "ожидается JSON вида {\"raw\": \"...\"}")
+		return
+	}
+	writeJSON(w, http.StatusOK, Parse(in.line()))
+}
+
+func handleBatch(w http.ResponseWriter, r *http.Request) {
+	body, err := readBody(w, r)
+	if err != nil {
+		writeErr(w, http.StatusRequestEntityTooLarge, "файл слишком большой (максимум 32 МБ)")
+		return
+	}
+	// допускаем и массив [...], и объект {"records": [...]}
+	var recs []Record
+	if err := json.Unmarshal(body, &recs); err != nil {
+		var obj struct {
+			Records []Record `json:"records"`
+		}
+		if err := json.Unmarshal(body, &obj); err != nil {
+			writeErr(w, http.StatusBadRequest, "неверный JSON: ожидается массив записей или {\"records\": [...]}")
+			return
+		}
+		recs = obj.Records
+	}
+	if len(recs) == 0 {
+		writeErr(w, http.StatusBadRequest, "нет записей")
+		return
+	}
+	if len(recs) > maxRecords {
+		writeErr(w, http.StatusRequestEntityTooLarge, "максимум 10 000 записей за один запрос")
+		return
+	}
+
+	items := make([]Item, 0, len(recs))
+	sum := Summary{Total: len(recs)}
+	var total float64
+	for i, rec := range recs {
+		id := rec.ID
+		if id == "" {
+			id = idFor(i)
+		}
+		res := Parse(rec.line())
+		items = append(items, Item{ID: id, Raw: rec.line(), Result: res})
+		total += res.Confidence
+		switch res.Status {
+		case "confident":
+			sum.Confident++
+		case "unparsed":
+			sum.Unparsed++
+		default:
+			sum.Review++
+		}
+	}
+	sum.Avg = math.Round(total/float64(len(recs))*100) / 100
+	writeJSON(w, http.StatusOK, map[string]any{"results": items, "summary": sum})
+}
+
+func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	return io.ReadAll(r.Body)
+}
+
+func writeJSON(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(v)
+}
+
+func writeErr(w http.ResponseWriter, code int, msg string) {
+	writeJSON(w, code, map[string]string{"error": msg})
+}
+
 func envOr(k, def string) string {
-	if v := os.Getenv(k); v != "" {
+	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
 		return v
 	}
 	return def
