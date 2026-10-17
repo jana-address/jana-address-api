@@ -205,6 +205,10 @@ func TestParseExamples(t *testing.T) {
 		{"Тараз бульв. Толе би 12", map[Field]string{StreetType: "бульвар", StreetName: "Толе би", House: "12"}},
 		{"Абая 5 кв 7 этпж 3", map[Field]string{House: "5", Apartment: "7", Floor: "3"}},
 		{"Абая 5 офси 12", map[Field]string{House: "5", Apartment: "12"}},
+		// a house after a comma; a block takes the number before it when none follows
+		{"Шолохова, 21 кв 40", map[Field]string{StreetName: "Шолохова", House: "21", Apartment: "40"}},
+		{"Сейфуллина 31 дом 2 блок кв 9", map[Field]string{StreetName: "Сейфуллина", House: "31", Apartment: "9"}},
+		{"Абая 12 корпус", map[Field]string{StreetName: "Абая", House: "12"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

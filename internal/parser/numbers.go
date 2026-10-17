@@ -50,10 +50,11 @@ func (st *state) units() {
 			before++
 		}
 	}
-	// houseOnLeft: the number at l follows a street name, so it is the house ("Абая 10 кв 5", "абая10кв5")
+	// houseOnLeft: the number at l follows a street name, so it is the house ("Абая 10 кв 5", "абая10кв5",
+	// "ахмирово, 49 кв 149")
 	houseOnLeft := func(l int) bool {
 		p := l - 1
-		for st.isPunct(p, ".") {
+		for st.isPunct(p, ".,") {
 			p--
 		}
 		if st.isPunct(p, "-") && p == l-1 && glued(st.toks[p], st.toks[l]) && p > 0 && st.toks[p-1].kind == tWord {
@@ -108,21 +109,23 @@ func (st *state) units() {
 		}
 	}
 	after, before = 0, 0 // "4подъезд 12этаж" says nothing about "25 кв 300"
+	// A block takes the number on its left only when none follows it and that number is not the house
+	// after a street: "206 дом 4 блок кв 48" is block 4, in "Абая 12 корпус" 12 stays the house.
 	neighbors := func(m int) (l, r int) {
 		l, r = -1, -1
-		i := m - 1
-		for i >= 0 && st.isPunct(i, ".:№#") {
-			i--
-		}
-		if st.availNum(i) && st.toks[m].mk.Class != dict.Block {
-			l = i
-		}
-		i = m + 1
+		i := m + 1
 		for i < len(st.toks) && st.isPunct(i, ".:№#") {
 			i++
 		}
 		if st.availNum(i) {
 			r = i
+		}
+		i = m - 1
+		for i >= 0 && st.isPunct(i, ".:№#") {
+			i--
+		}
+		if st.availNum(i) && (st.toks[m].mk.Class != dict.Block || r < 0 && !houseOnLeft(i)) {
+			l = i
 		}
 		return
 	}
