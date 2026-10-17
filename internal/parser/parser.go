@@ -293,7 +293,7 @@ func (st *state) segRange(seg int) (int, int) {
 var postfixAdmin = map[string]bool{}
 
 func init() {
-	for _, w := range []string{"қаласы", "қалас", "ауданы", "аудан", "облысы", "район", "р-н", "рн", "область", "обл", "обл-ть", "ауылы", "ауыл", "ауд", "қ"} {
+	for _, w := range []string{"қаласы", "қалас", "ауданы", "аудан", "облысы", "район", "р-н", "рн", "область", "обл", "обл-ть", "ауылы", "ауыл", "ауд", "қ", "қала"} {
 		postfixAdmin[fold(w)] = true
 	}
 }
@@ -351,7 +351,8 @@ func (st *state) adminName(m int) (int, int) {
 	class := st.toks[m].mk.class
 	fa, fb := st.wordRun(m, +1)
 	ba, bb := st.wordRun(m, -1)
-	backward := ba >= 0 && (postfixAdmin[st.toks[m].fold] || fa < 0)
+	gluedAfter := m > 0 && st.toks[m-1].kind == tWord && glued(st.toks[m-1], st.toks[m])
+	backward := ba >= 0 && (postfixAdmin[st.toks[m].fold] || fa < 0 || gluedAfter)
 	fwdKnown := func() bool {
 		for b := fb; fa >= 0 && b >= fa; b-- {
 			if adminKnown(class, st.keyOf(fa, b)) {
@@ -464,7 +465,8 @@ func (st *state) admin() {
 				}
 				// a close spelling counts only before another word: "алматыы абая 10" is a city,
 				// "Сатпаева 22" is a street (one letter from the town Сатпаев)
-				if _, exact := cities[t.fold]; !exact && i+1 <= b && st.toks[i+1].kind != tWord {
+				areaNext := i+2 <= b && st.toks[i+1].kind == tNum && st.toks[i+2].mk != nil && numberedAreaTypes[st.toks[i+2].mk.canon]
+				if _, exact := cities[t.fold]; !exact && i+1 <= b && st.toks[i+1].kind != tWord && !areaNext {
 					continue
 				}
 				p := i - 1
@@ -567,15 +569,40 @@ func (st *state) units() {
 		// a postfix street type after its name: "Естай көшесі 38 кв. 37"
 		return st.toks[p].mk.class == mStreet && p > 0 && st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil
 	}
+	// attachedRight returns the number written right after the marker, also across a dot: "кв5", "кв.5"
+	attachedRight := func(m int) int {
+		j := m + 1
+		if st.isPunct(j, ".") && glued(st.toks[m], st.toks[j]) {
+			j++
+		}
+		if st.availNum(j) && glued(st.toks[j-1], st.toks[j]) {
+			return j
+		}
+		return -1
+	}
+	// chainEndsWithMarker: in "41д136пәтер" numbers come before markers, in "д73кв.11под6эт4" after them
+	chainEndsWithMarker := func(m int) bool {
+		last := m
+		for k := m + 1; k < len(st.toks) && glued(st.toks[k-1], st.toks[k]); k++ {
+			t := st.toks[k]
+			if t.kind != tNum && !st.isPunct(k, ".") && !(t.kind == tWord && t.mk.isUnit()) {
+				break
+			}
+			last = k
+		}
+		return st.toks[last].kind == tWord
+	}
 	// 1. glued: "11дом", "4подьезд", "кв12"
 	for _, m := range ms {
 		left := m > 0 && st.availNum(m-1) && glued(st.toks[m-1], st.toks[m])
-		right := st.availNum(m+1) && glued(st.toks[m], st.toks[m+1])
+		right := attachedRight(m)
 		switch {
-		case left && !(right && houseOnLeft(m-1)):
+		case left && right >= 0 && !chainEndsWithMarker(m):
+			bind(m, right)
+		case left:
 			bind(m, m-1)
-		case right:
-			bind(m, m+1)
+		case right >= 0:
+			bind(m, right)
 		}
 	}
 	after, before = 0, 0 // "4подъезд 12этаж" says nothing about "25 кв 300"

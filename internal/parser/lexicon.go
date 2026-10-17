@@ -54,7 +54,7 @@ func init() {
 
 	addMarkers(mStreet, "улица", "ул", "улица", "улца", "улиц", "уица", "ulitsa", "ulica", "көшесі", "көш", "street", "st", "ul", "ulica")
 	addMarkers(mStreet, "проспект", "пр", "пр-т", "просп", "проспект", "даңғылы", "даңғ", "avenue", "ave", "pr", "prospekt", "prosp", "pr-t", "пр-кт", "dangyly", "даң")
-	addMarkers(mStreet, "микрорайон", "мкр", "мкп", "мкрн", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "mkrn", "mikrorayon", "mikroraion", "microdistrict")
+	addMarkers(mStreet, "микрорайон", "мкр", "мкп", "мкрн", "шағынаудан", "ықшамаудан", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "mkrn", "mikrorayon", "mikroraion", "microdistrict")
 	addMarkers(mStreet, "квартал", "квартал", "кв-л", "квл", "kvartal")
 	addMarkers(mStreet, "переулок", "пер", "переулок", "пер-к", "тұйық", "pereulok", "per")
 	addMarkers(mStreet, "бульвар", "б-р", "бульвар", "бул", "bulvar", "bul")
@@ -62,7 +62,7 @@ func init() {
 	addMarkers(mStreet, "трасса", "трасса")
 	addMarkers(mLiving, "жилой комплекс", "жк", "zhk", "jk")
 
-	addMarkers(mCity, "", "г", "город", "гор", "қаласы", "қ", "kalasy")
+	addMarkers(mCity, "", "г", "город", "гор", "горд", "қаласы", "қалас", "қала", "қ", "kalasy")
 	addMarkers(mSettlement, "", "пос", "поселок", "пгт", "село", "ауыл", "аул", "ауылы")
 	addMarkers(mDistrict, "", "район", "р-н", "рн", "ауданы", "аудан", "ауд")
 	addMarkers(mRegion, "", "область", "обл", "облысы", "обл-ть")
@@ -122,13 +122,16 @@ func fuzzyLimit(n int) int {
 }
 
 // lookupCity finds a settlement by its exact key or, failing that, by a unique close spelling ("алматыы").
-func lookupCity(k string) (place, bool) {
+func lookupCity(k string) (place, bool) { return lookupCityWithin(k, 2) }
+
+// lookupCityWithin is lookupCity with at most maxTypos edits.
+func lookupCityWithin(k string, maxTypos int) (place, bool) {
 	if p, ok := cities[k]; ok {
 		return p, true
 	}
 	var buf [maxFuzzyLen]rune
 	r := toRunes(k, buf[:0])
-	limit := fuzzyLimit(len(r))
+	limit := min(fuzzyLimit(len(r)), maxTypos)
 	if limit == 0 || len(r) >= maxFuzzyLen {
 		return place{}, false
 	}
