@@ -1,0 +1,180 @@
+openapi: 3.1.0
+info:
+  title: Jana Address API
+  version: 0.1.0
+  description: |
+    Разбор адреса доставки из одной строки на поля: область, город, район, жилой массив,
+    тип и название улицы, дом, квартира, подъезд, этаж, ориентир.
+    Работает без сети: справочник КАТО вшит в образ.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/parse/batch:
+    post:
+      summary: Пакетный разбор (метод для жюри)
+      description: |
+        Массив записей на входе, массив той же длины и в том же порядке на выходе.
+        Пропусков нет: запись, которую не удалось разобрать, получает null в полях и confidence 0.
+        Принимает также объект с массивом в items/records/data/addresses, NDJSON и
+        multipart/form-data с полем file. BOM UTF-8 допускается. Тело не больше 64 МиБ.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '#/components/schemas/Input' }
+            example:
+              - id: rec_00417
+                raw_address: город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200':
+          description: Результаты в порядке входа
+          headers:
+            X-Records:
+              description: Число записей
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Result' }
+              example:
+                - id: rec_00417
+                  raw_address: город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70
+                  province: Алматы
+                  city: Алматы
+                  district: Ауэзовский
+                  living_area: null
+                  street_type: микрорайон
+                  street_name: Аксай 3а
+                  house: '59'
+                  apartment: '70'
+                  entrance: null
+                  floor: null
+                  landmark: null
+                  confidence: 0.95
+        '400':
+          description: Тело не является JSON (или пустое)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/parse:
+    post:
+      summary: Разбор одной строки для интерфейса
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [raw_address]
+              properties:
+                raw_address: { type: string }
+            example:
+              raw_address: Астанамангликел55
+      responses:
+        '200':
+          description: Поля, подсветка, источники и подсказка
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result: { $ref: '#/components/schemas/Result' }
+                  spans:
+                    type: array
+                    description: Фрагменты исходной строки по полям, смещения в UTF-16
+                    items:
+                      type: object
+                      properties:
+                        field: { type: string }
+                        start: { type: integer }
+                        end: { type: integer }
+                  sources:
+                    type: object
+                    description: Откуда взято поле
+                    additionalProperties:
+                      type: string
+                      enum: [string, directory, absent]
+                  status:
+                    type: string
+                    enum: [confident, review, unparsed]
+                  suggestion:
+                    type: string
+                    description: Адрес в чистом виде для подсказки под полем ввода
+        '400':
+          description: Нет raw_address
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/health:
+    get:
+      summary: Состояние сервиса и версия справочника КАТО
+      responses:
+        '200':
+          description: ok или degraded (база недоступна)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  version: { type: string }
+                  db: { type: string, enum: [ok, down] }
+                  directory:
+                    type: object
+                    properties:
+                      origin: { type: string, enum: [embedded, stat.gov.kz] }
+                      source_date: { type: string, format: date }
+                      sha256: { type: string }
+                      rows: { type: integer }
+                      offline: { type: boolean }
+                      last_check: { type: string, format: date-time }
+                      last_error: { type: string }
+  /livez:
+    get:
+      summary: Процесс жив
+      responses:
+        '200': { description: ok }
+  /readyz:
+    get:
+      summary: База отвечает
+      responses:
+        '200': { description: ok }
+        '503': { description: база недоступна }
+components:
+  schemas:
+    Input:
+      type: object
+      properties:
+        id: { description: 'Любое JSON-значение, возвращается как есть' }
+        raw_address: { type: string }
+    Result:
+      type: object
+      description: Ровно 14 ключей в этом порядке. Неизвестное поле — null.
+      required: [id, raw_address, province, city, district, living_area, street_type, street_name, house, apartment, entrance, floor, landmark, confidence]
+      properties:
+        id: { description: Как во входе }
+        raw_address: { description: Как во входе, байт в байт }
+        province: { type: [string, 'null'], description: 'Область в прямом порядке или город респ. значения: «Актюбинская область», «Алматы»' }
+        city: { type: [string, 'null'], description: 'Только название: «Актобе», «Боралдай»' }
+        district: { type: [string, 'null'], description: 'Без слова «район»: «Илийский», «Ауэзовский»' }
+        living_area: { type: [string, 'null'], description: 'Микрорайон или ЖК, когда улица указана отдельно' }
+        street_type: { type: [string, 'null'], enum: [улица, проспект, микрорайон, переулок, квартал, бульвар, шоссе, жилой комплекс, null] }
+        street_name: { type: [string, 'null'], description: Без типа, ровно как в строке }
+        house: { type: [string, 'null'], description: 'С дробью и литерой: «1/2», «12а»' }
+        apartment: { type: [string, 'null'] }
+        entrance: { type: [string, 'null'] }
+        floor: { type: [string, 'null'] }
+        landmark: { type: [string, 'null'] }
+        confidence: { type: number, minimum: 0, maximum: 1, description: '≥ 0,8 уверенно, 0,5–0,8 проверить, < 0,5 не разобрано' }
+    Error:
+      type: object
+      properties:
+        error: { type: string }

@@ -3,6 +3,7 @@ package httpapi
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -42,8 +43,17 @@ func New(db Pinger, version string, log *slog.Logger, opts ...Option) http.Handl
 	mux.HandleFunc("GET /api/v1/health", a.health)
 	mux.HandleFunc("POST /api/v1/parse/batch", a.parseBatch)
 	mux.HandleFunc("POST /api/v1/parse", a.parseOne)
+	mux.HandleFunc("GET /api/v1/openapi.yaml", openAPI)
 
 	return a.recoverer(mux)
+}
+
+//go:embed openapi.yaml
+var openAPISpec []byte
+
+func openAPI(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+	_, _ = w.Write(openAPISpec)
 }
 
 // livez: the process is alive.

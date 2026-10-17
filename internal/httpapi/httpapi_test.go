@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -83,5 +84,14 @@ func TestRecoverer(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/health", nil))
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("code = %d, want 500", rec.Code)
+	}
+}
+
+func TestOpenAPI(t *testing.T) {
+	h := New(fakeDB{}, "test", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/openapi.yaml", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "/api/v1/parse/batch") {
+		t.Fatalf("status %d, body %.80q", rec.Code, rec.Body.String())
 	}
 }
