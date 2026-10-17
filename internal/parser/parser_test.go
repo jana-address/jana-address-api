@@ -48,6 +48,13 @@ func TestParseExamples(t *testing.T) {
 		{"Карагандинская обл г. Темиртау ул. Мира 4", map[Field]string{Province: "Карагандинская область", City: "Темиртау", StreetName: "Мира", House: "4"}},
 		{"Алматы, ул. Г. Потанина 3", map[Field]string{City: "Алматы", StreetType: "улица", StreetName: "Г. Потанина", House: "3"}},
 		{"ул. Д. Кунаева 12, кв 5", map[Field]string{StreetType: "улица", StreetName: "Д. Кунаева", House: "12", Apartment: "5"}},
+		// initials without a street type: a capital letter before a name that is not a place
+		{"Алматы, С. Сейфуллина 45", map[Field]string{City: "Алматы", StreetName: "С. Сейфуллина", House: "45"}},
+		{"Г. Мурата 5", map[Field]string{StreetName: "Г. Мурата", House: "5", City: "-"}},
+		{"Д. Кунаева 12", map[Field]string{StreetName: "Д. Кунаева", House: "12"}},
+		{"Г. Шымкнт, Тауке хана 20", map[Field]string{City: "Шымкент", StreetName: "Тауке хана", House: "20"}},
+		{"Астана Ш. Коргалжынское 39", map[Field]string{StreetType: "шоссе", StreetName: "Коргалжынское", House: "39"}},
+		{"КАРАГАНДЫ К. Мұстафин үй 20", map[Field]string{City: "Караганда", StreetName: "Мұстафин", House: "20"}},
 		{"160000, г. Шымкент, ул. Байтурсынова 12", map[Field]string{City: "Шымкент", House: "12", Apartment: "-"}},
 		{"050000 Алматы ул Абая 10", map[Field]string{City: "Алматы", Province: "Алматы", StreetName: "Абая", House: "10"}},
 		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", House: "33", Apartment: "7", District: "Медеуский"}},

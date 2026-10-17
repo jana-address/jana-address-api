@@ -216,7 +216,7 @@ func (st *state) admin() {
 // a number ("Сатпаева 22" and "Сатпаева, 22" are a street one letter from the town Сатпаев).
 func (st *state) typoCityBefore(i int) bool {
 	j := i + 1
-	for j < len(st.toks) && st.toks[j].seg < 0 {
+	for st.isPunct(j, ",;()/") {
 		j++ // a comma between two parts
 	}
 	return j == len(st.toks) || st.toks[j].kind == tWord

@@ -56,13 +56,18 @@ func (st *state) classify() {
 				t.mk = markers["город"]
 			}
 		}
-		// an initial inside a street name: "ул. Д. Кунаева", "пр. С. Сейфуллина"
+		// an initial inside a street name: "ул. Д. Кунаева", "пр. С. Сейфуллина"; without the type only a capital
+		// before a capitalised word that is not a place: "Алматы, С. Сейфуллина 45", "Г. Мурата 5".
+		// A street type stays a type ("Ш. Коргалжынское" is шоссе), and so does қ. after a city ("АЛМАТЫ К.").
 		if len([]rune(t.text)) == 1 && st.isPunct(i+1, ".") && i+2 < len(st.toks) && st.toks[i+2].kind == tWord {
 			p := i - 1
 			for st.isPunct(p, ".") {
 				p--
 			}
-			if p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.class == mStreet {
+			afterType := p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.class == mStreet
+			afterCity := p == i-1 && p >= 0 && st.toks[p].kind == tWord && t.mk != nil && t.mk.class == mCity && st.d.adminKnown(mCity, st.toks[p].fold)
+			initial := capital(t.text) && capital(st.toks[i+2].text) && !st.placeAt(i+2) && !afterCity && (t.mk == nil || t.mk.class != mStreet)
+			if afterType || initial {
 				t.mk = nil
 				continue
 			}
@@ -99,6 +104,20 @@ func (st *state) knownPlaceAt(i int) bool {
 		return st.d.knownCityWord(k + " " + st.toks[i+1].fold)
 	}
 	return false
+}
+
+// placeAt reports whether a place name starts at i: a city, or a settlement or a close spelling of a city
+// that is not followed by a number. "С. Сейфуллина 45" is a street with an initial although villages
+// called Сейфуллина exist; "С. Кайнар, Новая 4" and "Г. Шымкнт, Тауке хана 20" are places.
+func (st *state) placeAt(i int) bool {
+	k := st.toks[i].fold
+	if _, ok := st.d.cities[k]; ok {
+		return true
+	}
+	if i+1 < len(st.toks) && st.toks[i+1].kind == tWord && st.d.knownCityWord(k+" "+st.toks[i+1].fold) {
+		return true // "С. Отеген батыр"
+	}
+	return (len(st.d.settlements[k]) > 0 || st.d.adminKnown(mCity, k)) && st.typoCityBefore(i)
 }
 
 // livingTail returns how many tokens after i complete a multi-token ЖК marker.

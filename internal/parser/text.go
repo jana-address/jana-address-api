@@ -3,6 +3,7 @@ package parser
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // cleaned is the normalized input with a map back to the raw string.
@@ -41,6 +42,12 @@ func mapChar(ch rune) rune {
 // maxRunes bounds the cleaned input. The longest real address is about 120 characters, and several
 // stages are quadratic in the number of tokens, so a megabyte of commas must not reach them.
 const maxRunes = 512
+
+// capital reports whether s starts with an upper-case letter.
+func capital(s string) bool {
+	r, _ := utf8.DecodeRuneInString(s)
+	return unicode.IsUpper(r)
+}
 
 // clean drops invisible characters, unifies dashes/quotes and collapses whitespace.
 // Only the first maxRunes characters are parsed.

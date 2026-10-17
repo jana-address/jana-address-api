@@ -39,6 +39,9 @@ func TestKATOSettlements(t *testing.T) {
 		{"Акмолинская обл., Есильский р-н, с. Бузулук, ул. Мира 2", map[Field]string{
 			Province: "Акмолинская область", District: "Есильский", City: "Бузулук"}},
 		{"Шымкент, Абайский район, ул. Абая 5", map[Field]string{City: "Шымкент", District: "Абайский", Province: "Шымкент"}},
+		// villages called Сейфуллина exist, but a capital initial before a house number is a street
+		{"Алматы, С. Сейфуллина 45", map[Field]string{City: "Алматы", StreetName: "С. Сейфуллина", House: "45"}},
+		{"С. Кайнар, Новая 4", map[Field]string{City: "Кайнар", StreetName: "Новая", House: "4"}},
 		// a Kazakh rayon name
 		{"Іле ауданы, Өтеген батыр ауылы, Нұрлы көшесі 17", map[Field]string{City: "Отеген батыр", District: "Илийский"}},
 		// a village next to a written rayon, without "с."
