@@ -1,0 +1,234 @@
+package parser
+
+import "strings"
+
+type mclass uint8
+
+const (
+	mHouse mclass = iota + 1
+	mApartment
+	mEntrance
+	mFloor
+	mStreet     // street type; canon is the output word (улица, проспект, ...)
+	mLiving     // residential complex (ЖК)
+	mCity       // город, қаласы
+	mSettlement // пос., село, ауыл
+	mDistrict   // район, ауданы
+	mRegion     // область, облысы
+	mLandmark   // магазин, ТЦ, напротив, ...
+)
+
+type marker struct {
+	class mclass
+	canon string
+}
+
+func (m *marker) isUnit() bool {
+	return m != nil && (m.class == mHouse || m.class == mApartment || m.class == mEntrance || m.class == mFloor)
+}
+
+func (m *marker) isAdmin() bool {
+	return m != nil && (m.class == mCity || m.class == mSettlement || m.class == mDistrict || m.class == mRegion)
+}
+
+// markers maps folded word forms to their meaning (Russian, Kazakh, Latin, common typos).
+var markers = map[string]*marker{}
+
+func addMarkers(class mclass, canon string, forms ...string) {
+	m := &marker{class: class, canon: canon}
+	for _, f := range forms {
+		markers[fold(f)] = m
+	}
+}
+
+func init() {
+	addMarkers(mHouse, "", "д", "дом", "үй", "уй", "house", "dom")
+	addMarkers(mApartment, "", "кв", "квартира", "кварт", "квартра", "кв-ра", "пәтер", "flat", "kv", "apt", "apartment", "оф", "офис")
+	addMarkers(mEntrance, "", "подъезд", "подьезд", "подезд", "падезд", "под", "пд", "кіреберіс", "entrance", "ent", "pod", "podezd", "podyezd")
+	addMarkers(mFloor, "", "этаж", "етаж", "эт", "қабат", "floor", "fl", "etazh", "etaj")
+
+	addMarkers(mStreet, "улица", "ул", "улица", "көшесі", "көш", "street", "st", "ul", "ulica")
+	addMarkers(mStreet, "проспект", "пр", "пр-т", "просп", "проспект", "даңғылы", "даңғ", "avenue", "ave", "pr")
+	addMarkers(mStreet, "микрорайон", "мкр", "мкрн", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "microdistrict")
+	addMarkers(mStreet, "квартал", "квартал", "кв-л", "квл", "kvartal")
+	addMarkers(mStreet, "переулок", "пер", "переулок", "пер-к", "тұйық")
+	addMarkers(mStreet, "бульвар", "б-р", "бульвар", "бул")
+	addMarkers(mStreet, "шоссе", "шоссе")
+	addMarkers(mStreet, "трасса", "трасса")
+	addMarkers(mLiving, "жилой комплекс", "жк")
+
+	addMarkers(mCity, "", "г", "город", "гор", "қаласы", "kalasy")
+	addMarkers(mSettlement, "", "пос", "поселок", "пгт", "село", "ауыл", "аул", "ауылы")
+	addMarkers(mDistrict, "", "район", "р-н", "рн", "ауданы", "аудан")
+	addMarkers(mRegion, "", "область", "обл", "облысы", "обл-ть")
+
+	addMarkers(mLandmark, "", "магазин", "маг", "тц", "трц", "тд", "рынок", "базар", "школа", "мектеп", "садик",
+		"напротив", "возле", "около", "рядом", "остановка", "аялдама", "qazpost", "казпочта", "аптека", "кафе",
+		"азс", "бц", "супермаркет", "маркет")
+
+	initPlaces()
+}
+
+// realStreetTypes are street types that can coexist with a microdistrict (which then becomes living_area).
+var realStreetTypes = map[string]bool{"улица": true, "проспект": true, "переулок": true, "бульвар": true, "шоссе": true, "трасса": true}
+
+// numberedAreaTypes may carry a number inside the name: "Аксай 3а", "Нурсити 2", "66 квартал".
+var numberedAreaTypes = map[string]bool{"микрорайон": true, "квартал": true, "жилой комплекс": true}
+
+// ---------- small built-in directory (demo; the full one is built from KATO + OSM) ----------
+
+type place struct {
+	name     string
+	province string
+	district string // known rayon for small settlements
+}
+
+type districtInfo struct {
+	name     string
+	city     string // empty for rural rayons
+	province string
+}
+
+var (
+	cities    = map[string]place{}
+	regions   = map[string]string{}
+	districts = map[string]districtInfo{}
+	// microdistrict (first word, folded) -> district of Almaty
+	almatyAreas = map[string]string{}
+)
+
+func key(s string) string { return strings.Join(strings.Fields(fold(s)), " ") }
+
+func addCity(name, province string, aliases ...string) {
+	p := place{name: name, province: province}
+	cities[key(name)] = p
+	for _, a := range aliases {
+		cities[key(a)] = p
+	}
+}
+
+func addRegion(name string, keys ...string) {
+	for _, k := range keys {
+		regions[key(k)] = name
+	}
+}
+
+func addDistrict(name, city, province string, keys ...string) {
+	d := districtInfo{name: name, city: city, province: province}
+	districts[key(name)] = d
+	for _, k := range keys {
+		districts[key(k)] = d
+	}
+}
+
+func initPlaces() {
+	const (
+		akm = "Акмолинская область"
+		akt = "Актюбинская область"
+		alm = "Алматинская область"
+		atr = "Атырауская область"
+		vko = "Восточно-Казахстанская область"
+		zhm = "Жамбылская область"
+		zko = "Западно-Казахстанская область"
+		krg = "Карагандинская область"
+		kst = "Костанайская область"
+		kzo = "Кызылординская область"
+		mng = "Мангистауская область"
+		pvl = "Павлодарская область"
+		sko = "Северо-Казахстанская область"
+		trk = "Туркестанская область"
+		aba = "область Абай"
+		zht = "область Жетісу"
+		ult = "область Ұлытау"
+	)
+	addRegion(akm, "акмолинская", "ақмола")
+	addRegion(akt, "актюбинская", "ақтөбе")
+	addRegion(alm, "алматинская", "алматы")
+	addRegion(atr, "атырауская", "атырау")
+	addRegion(vko, "восточно-казахстанская", "шығыс қазақстан", "вко")
+	addRegion(zhm, "жамбылская", "жамбыл")
+	addRegion(zko, "западно-казахстанская", "батыс қазақстан", "зко")
+	addRegion(krg, "карагандинская", "қарағанды")
+	addRegion(kst, "костанайская", "қостанай")
+	addRegion(kzo, "кызылординская", "қызылорда")
+	addRegion(mng, "мангистауская", "маңғыстау")
+	addRegion(pvl, "павлодарская", "павлодар")
+	addRegion(sko, "северо-казахстанская", "солтүстік қазақстан", "ско")
+	addRegion(trk, "туркестанская", "түркістан")
+	addRegion(aba, "абай", "абайская")
+	addRegion(zht, "жетісу", "жетысу", "жетысуская")
+	addRegion(ult, "ұлытау", "улытауская")
+
+	addCity("Алматы", "Алматы", "алма-ата", "алмата")
+	addCity("Астана", "Астана", "нур-султан", "нұр-сұлтан", "нурсултан", "акмола", "целиноград")
+	addCity("Шымкент", "Шымкент", "чимкент")
+	addCity("Кокшетау", akm, "көкшетау", "кокчетав")
+	addCity("Степногорск", akm)
+	addCity("Актобе", akt, "ақтөбе", "актюбинск")
+	addCity("Конаев", alm, "қонаев", "капшагай", "қапшағай")
+	addCity("Талгар", alm)
+	addCity("Каскелен", alm, "қаскелең")
+	addCity("Есик", alm, "есік")
+	cities[key("Боралдай")] = place{name: "Боралдай", province: alm, district: "Илийский"}
+	cities[key("Бурундай")] = cities[key("Боралдай")]
+	addCity("Атырау", atr, "гурьев")
+	addCity("Усть-Каменогорск", vko, "өскемен")
+	addCity("Риддер", vko)
+	addCity("Тараз", zhm, "джамбул", "аулие-ата")
+	addCity("Уральск", zko, "орал")
+	addCity("Караганда", krg, "қарағанды")
+	addCity("Темиртау", krg, "теміртау")
+	addCity("Балхаш", krg, "балқаш")
+	addCity("Шахтинск", krg)
+	addCity("Сарань", krg)
+	addCity("Костанай", kst, "қостанай", "кустанай")
+	addCity("Рудный", kst)
+	addCity("Кызылорда", kzo, "қызылорда")
+	addCity("Актау", mng, "ақтау", "шевченко")
+	addCity("Жанаозен", mng, "жаңаөзен")
+	addCity("Павлодар", pvl)
+	addCity("Экибастуз", pvl, "екібастұз")
+	addCity("Петропавловск", sko, "петропавл")
+	addCity("Туркестан", trk, "түркістан")
+	addCity("Кентау", trk)
+	addCity("Семей", aba, "семипалатинск")
+	addCity("Талдыкорган", zht, "талдықорған", "талды-курган")
+	addCity("Жезказган", ult, "жезқазған")
+	addCity("Сатпаев", ult, "сәтбаев")
+
+	// city districts
+	for _, d := range [][]string{
+		{"Алатауский", "алатау"}, {"Алмалинский", "алмалы"}, {"Ауэзовский", "әуезов", "ауэзов"},
+		{"Бостандыкский", "бостандық"}, {"Жетысуский", "жетісу"}, {"Медеуский", "медеу"},
+		{"Наурызбайский", "наурызбай"}, {"Турксибский", "түрксіб", "турксиб"},
+	} {
+		addDistrict(d[0], "Алматы", "Алматы", d[1:]...)
+	}
+	for _, d := range [][]string{
+		{"Алматинский", "алматы"}, {"Байконурский", "байқоңыр"}, {"Есильский", "есіл"},
+		{"Сарыаркинский", "сарыарқа"}, {"Нура", "нұра"}, {"Сарайшык", "сарайшық"},
+	} {
+		addDistrict(d[0], "Астана", "Астана", d[1:]...)
+	}
+	for _, d := range [][]string{
+		{"Абайский", "абай"}, {"Аль-Фарабийский", "әл-фараби", "аль-фараби"}, {"Енбекшинский", "еңбекші"},
+		{"Каратауский", "қаратау"}, {"Туранский", "тұран"},
+	} {
+		addDistrict(d[0], "Шымкент", "Шымкент", d[1:]...)
+	}
+	// rural rayons (province only)
+	addDistrict("Илийский", "", alm, "іле")
+	addDistrict("Карасайский", "", alm, "қарасай")
+	addDistrict("Талгарский", "", alm)
+	addDistrict("Енбекшиказахский", "", alm, "еңбекшіқазақ")
+	addDistrict("Целиноградский", "", akm)
+
+	for name, d := range map[string]string{
+		"аксай": "Ауэзовский", "мамыр": "Ауэзовский", "таугуль": "Ауэзовский", "жетысу": "Ауэзовский", "сайран": "Ауэзовский",
+		"самал": "Медеуский", "орбита": "Бостандыкский", "коктем": "Бостандыкский", "алмагуль": "Бостандыкский",
+		"казахфильм": "Бостандыкский", "баганашыл": "Бостандыкский", "шанырак": "Алатауский", "айгерим": "Алатауский",
+		"калкаман": "Наурызбайский", "жулдыз": "Турксибский", "кулагер": "Жетысуский", "айнабулак": "Жетысуский",
+	} {
+		almatyAreas[key(name)] = d
+	}
+}

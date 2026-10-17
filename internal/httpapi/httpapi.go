@@ -28,6 +28,8 @@ func New(db Pinger, version string, log *slog.Logger) http.Handler {
 	mux.HandleFunc("GET /livez", a.livez)
 	mux.HandleFunc("GET /readyz", a.readyz)
 	mux.HandleFunc("GET /api/v1/health", a.health)
+	mux.HandleFunc("POST /api/v1/parse/batch", a.parseBatch)
+	mux.HandleFunc("POST /api/v1/parse", a.parseOne)
 
 	return a.recoverer(mux)
 }
