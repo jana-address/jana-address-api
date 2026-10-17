@@ -185,6 +185,11 @@ func TestParseExamples(t *testing.T) {
 		{"Сатпаевская 3", map[Field]string{StreetName: "Сатпаевская", House: "3"}},
 		{"Алматы Жолдасбекова 97", map[Field]string{City: "Алматы", StreetName: "Жолдасбекова", House: "97"}},
 		{"Алматы мкр Самал-2 ул Жолдасбекова 97 кв 14", map[Field]string{LivingArea: "Самал-2", StreetType: "улица", StreetName: "Жолдасбекова", House: "97"}},
+		// a ЖК name ends before the type word of the street that follows
+		{"Almaty жк Нурлы Тау ул. Толе би д22 под 4 квартира 92", map[Field]string{LivingArea: "Нурлы Тау", StreetType: "улица", StreetName: "Толе би", House: "22"}},
+		{"астана жк green quarter ул. жанибек хандар 21", map[Field]string{LivingArea: "green quarter", StreetName: "жанибек хандар", House: "21"}},
+		{"г. Шымкент жк Мирас ул.джангельдина д.30 кв 117", map[Field]string{LivingArea: "Мирас", StreetName: "джангельдина", House: "30"}},
+		{"г алматы жк. нурлы тау просп. абылай хана д55", map[Field]string{LivingArea: "нурлы тау", StreetType: "проспект", StreetName: "абылай хана", House: "55"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

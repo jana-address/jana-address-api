@@ -40,9 +40,8 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 		}
 		switch t.kind {
 		case tWord:
-			if t.mk != nil && typ == "жилой комплекс" && a >= 0 && t.mk.Class == dict.Street &&
-				!(k+1 < len(st.toks) && st.toks[k+1].kind == tWord && st.toks[k+1].mk == nil && !st.toks[k+1].used) {
-				break
+			if t.mk != nil && typ == "жилой комплекс" && a >= 0 && t.mk.Class == dict.Street && !st.opensName(k) {
+				break // a type word inside the name: "ЖК Green Quarter"; "ЖК Нурлы Тау ул. Толе би" ends before "ул."
 			}
 			if t.mk != nil {
 				return a, b
@@ -121,18 +120,23 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 	return a, b
 }
 
+// opensName reports whether the marker word at i, after its dots, is followed by a plain word that it
+// names: "ул. Толе би", "ул.садовая".
+func (st *state) opensName(i int) bool {
+	j := i + 1 + st.toks[i].tail
+	for st.isPunct(j, ".") {
+		j++
+	}
+	return j < len(st.toks) && st.toks[j].kind == tWord && st.toks[j].mk == nil && !st.toks[j].used
+}
+
 // postfixStreetAt reports whether a real street type word starts at i: "көшесі", "көш.", "ул.".
 func (st *state) postfixStreetAt(i int) bool {
 	if !(i < len(st.toks) && st.toks[i].kind == tWord && !st.toks[i].used && st.toks[i].mk != nil &&
 		st.toks[i].mk.Class == dict.Street && dict.RealStreetTypes[st.toks[i].mk.Canon]) {
 		return false
 	}
-	// "ул.садовая" opens a new name, so it is a prefix, not a postfix
-	j := i + 1 + st.toks[i].tail
-	for st.isPunct(j, ".") {
-		j++
-	}
-	return !(j < len(st.toks) && st.toks[j].kind == tWord && st.toks[j].mk == nil && !st.toks[j].used)
+	return !st.opensName(i) // "ул.садовая" opens a new name, so it is a prefix, not a postfix
 }
 
 func (st *state) street() {
