@@ -161,6 +161,11 @@ func (st *state) admin() {
 		case clean && (st.d.Cities[k] != dict.Place{} || (seg == 0 && st.d.AdminKnown(dict.City, k) && st.typoCityBefore(b))): // close spelling only in the first segment
 			st.setCity(k, st.text(a, b), a, b, false)
 			st.markUsed(a, b)
+		// 2b. a town of the classifier as a part of its own before more words: "Жаркент, ул. Абая 5".
+		// Only towns: thousands of villages are called like streets ("Абай", "Достык").
+		case clean && st.vals[City] == "" && st.townBefore(k, b):
+			st.setCity(k, st.text(a, b), a, b, false)
+			st.markUsed(a, b)
 		case clean && st.d.Regions[k] != "" && (len([]rune(k)) == 3 || strings.HasSuffix(k, "ская")):
 			st.set(Province, st.d.Regions[k], SourceString, a, b)
 			st.markUsed(a, b)
@@ -175,12 +180,15 @@ func (st *state) admin() {
 			// 3. a known city inside a street segment: "Алматы Сатпаева 5", "050000 Алматы ул Абая 10"
 			for i := a; i <= b; i++ {
 				t := st.toks[i]
-				if t.kind != tWord || t.used || t.mk != nil || !st.d.AdminKnown(dict.City, t.fold) {
+				if t.kind != tWord || t.used || t.mk != nil || (!st.d.AdminKnown(dict.City, t.fold) && i != 0) {
 					continue
 				}
 				areaNext := i+2 <= b && st.toks[i+1].kind == tNum && st.toks[i+2].mk != nil && dict.NumberedAreaTypes[st.toks[i+2].mk.Canon]
 				if _, exact := st.d.Cities[t.fold]; !exact && !areaNext && !st.typoCityBefore(i) {
 					continue
+				}
+				if !st.d.AdminKnown(dict.City, t.fold) && (i != 0 || !st.townBefore(t.fold, i)) {
+					continue // a town of the classifier only opens the line: "Жаркент ул. Абая 5"
 				}
 				p := i - 1
 				for st.isPunct(p, ".") {
@@ -201,6 +209,24 @@ func (st *state) admin() {
 			}
 		}
 	}
+}
+
+// townBefore reports whether k, ending at token i, is a town of the classifier followed by a word, not by
+// a house number, a street type or a house marker: "Жаркент, ул. Абая 5" is the town, "Абай, 12",
+// "Абай даңғылы 10" and "Абай д 44" stay streets.
+// A town named like a city district ("Алатау") is left to the district and living-area rules.
+func (st *state) townBefore(k string, i int) bool {
+	if _, ok := st.d.Town(k); !ok || i+1 >= len(st.toks) || !st.typoCityBefore(i) || st.postfixStreetAt(i+1) {
+		return false
+	}
+	if d, ok := st.d.Districts[k]; ok && d.City != "" {
+		return false
+	}
+	j := i + 1
+	for st.isPunct(j, ",;()/") {
+		j++
+	}
+	return !st.toks[j].mk.IsUnit()
 }
 
 // typoCityBefore reports whether a close spelling of a city may end at token i: only before another word
@@ -240,6 +266,10 @@ func (st *state) setCity(k, name string, a, b int, village bool) {
 	}
 	ps := st.d.Settlements[k]
 	if p, ok := st.settlement(k); ok {
+		use(p)
+		return
+	}
+	if p, ok := st.d.Town(k); ok && !village && consistent(p) { // "г. Шу": the town, not the village namesake
 		use(p)
 		return
 	}

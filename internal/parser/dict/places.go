@@ -9,6 +9,7 @@ type Place struct {
 	Name     string
 	Province string
 	District string // known rayon for small settlements
+	Town     bool   // a town ("г."), not a village
 }
 
 // DistrictInfo is a city district or a rural rayon.
@@ -29,7 +30,7 @@ var (
 )
 
 func addCity(name, province string, aliases ...string) {
-	p := Place{Name: name, Province: province}
+	p := Place{Name: name, Province: province, Town: true}
 	baseCities[text.Key(name)] = p
 	for _, a := range aliases {
 		baseCities[text.Key(a)] = p

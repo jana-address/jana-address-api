@@ -40,6 +40,20 @@ func (d *Directory) KnownCityWord(k string) bool {
 	return len(d.Settlements[k]) > 0
 }
 
+// Town returns the only town (not a village) of the classifier called k: "Шу" is a town in Жамбылская
+// область and a village in Туркестанская, "Шалкар" a town and nine villages.
+func (d *Directory) Town(k string) (Place, bool) {
+	var town Place
+	n := 0
+	for _, p := range d.Settlements[k] {
+		if p.Town {
+			town = p
+			n++
+		}
+	}
+	return town, n == 1
+}
+
 // newDirectory copies the hand-written base tables and applies extra entries without overriding them.
 func newDirectory(extend func(d *Directory)) *Directory {
 	d := &Directory{

@@ -77,3 +77,72 @@ func TestKATOSettlements(t *testing.T) {
 		})
 	}
 }
+
+// TestKATOTowns: a town of the classifier written alone before the street is the city, with its region.
+func TestKATOTowns(t *testing.T) {
+	recs, _, err := kato.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := dict.Current()
+	defer dict.SetCurrent(old)
+	UseKATO(recs)
+	cases := []struct {
+		raw  string
+		want map[Field]string // "-" means must be absent
+	}{
+		{"Жаркент, ул. Абая 5", map[Field]string{City: "Жаркент", Province: "область Жетісу", StreetName: "Абая", House: "5"}},
+		{"Кульсары, ул Абая 12, кв 3", map[Field]string{City: "Кульсары", Province: "Атырауская область", Apartment: "3"}},
+		{"Сарыагаш Абая 5", map[Field]string{City: "Сарыагаш", Province: "Туркестанская область", StreetName: "Абая"}},
+		{"Аягоз, Абая 5", map[Field]string{City: "Аягоз", Province: "область Абай", StreetName: "Абая"}},
+		// a town and villages of the same name: "г." and a bare name mean the town
+		{"г. Шу, ул. Абая 5", map[Field]string{City: "Шу", Province: "Жамбылская область"}},
+		{"г. Шалкар, ул. Абая 5", map[Field]string{City: "Шалкар", Province: "Актюбинская область"}},
+		{"г. Кандыагаш, ул. Абая 5", map[Field]string{City: "Кандыагаш", Province: "Актюбинская область"}},
+		{"Шалкар, Абая 5", map[Field]string{City: "Шалкар", Province: "Актюбинская область"}},
+		// "с." still picks a village, and a written region its own one
+		{"Целиноградский район, с. Шалкар, ул. Абая 5", map[Field]string{City: "Шалкар", Province: "Акмолинская область"}},
+		// streets named like towns stay streets
+		{"Абай, 12", map[Field]string{StreetName: "Абай", House: "12", City: "-"}},
+		{"Абай даңғылы 10", map[Field]string{StreetName: "Абай", House: "10", City: "-"}},
+		{"Абай д 44 кв. 19 конаев", map[Field]string{StreetName: "Абай", House: "44", City: "Конаев"}},
+		{"Абай, дом 126Д", map[Field]string{StreetName: "Абай", House: "126Д", City: "-"}},
+		{"алатау сити жк ул.пушкина 111, 79 кв", map[Field]string{City: "-", StreetName: "пушкина"}},
+		{"лисаков сейфуллин кошеси 283", map[Field]string{City: "Лисаковск", StreetName: "сейфуллин"}},
+		{"Алматы, Есиль 5", map[Field]string{City: "Алматы", StreetName: "Есиль", House: "5"}},
+		{"Алтай 2 мкр 5", map[Field]string{City: "-"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.raw, func(t *testing.T) {
+			o := Parse(tc.raw)
+			for f, want := range tc.want {
+				got, ok := o.Values[f]
+				if want == "-" {
+					if ok {
+						t.Errorf("%s = %q, want empty (all: %v)", f, got, o.Values)
+					}
+					continue
+				}
+				if got != want {
+					t.Errorf("%s = %q, want %q (all: %v)", f, got, want, o.Values)
+				}
+			}
+		})
+	}
+
+	// every town of the classifier: after "г." always, written alone unless it is named like a city
+	// district ("Есиль" is also a district of Астана, "Абай" of Шымкент)
+	likeDistrict := map[string]bool{"Есиль": true, "Алатау": true, "Каратау": true, "Абай": true, "Байконыр": true}
+	for _, r := range recs {
+		if r.Kind != kato.City {
+			continue
+		}
+		if o := Parse("г. " + r.NameRUClean + ", ул. Абая 5"); o.Values[City] == "" || o.Values[Province] == "" {
+			t.Errorf("г. %s: %v", r.NameRUClean, o.Values)
+		}
+		o := Parse(r.NameRUClean + ", ул. Абая 5")
+		if got := o.Values[City] != "" && o.Values[Province] != ""; got == likeDistrict[r.NameRUClean] {
+			t.Errorf("%s alone: %v", r.NameRUClean, o.Values)
+		}
+	}
+}

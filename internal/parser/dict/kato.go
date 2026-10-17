@@ -62,7 +62,7 @@ func (d *Directory) addKATO(recs []kato.Record) KATOStats {
 		r := &recs[i]
 		switch r.Kind {
 		case kato.City, kato.Village:
-			p := Place{Name: r.NameRUClean, Province: regionName(ancestor(r, isRegion))}
+			p := Place{Name: r.NameRUClean, Province: regionName(ancestor(r, isRegion)), Town: r.Kind == kato.City}
 			if ry := ancestor(r, isRayon); ry != nil {
 				p.District = ry.NameRUClean
 			}
