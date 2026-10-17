@@ -2,9 +2,13 @@
 //
 // Subcommands:
 //
-//	serve        start the HTTP server (default)
+//	serve        start the HTTP server (default); migrates the database and loads KATO in the background
+//	migrate      apply the database migrations and seed the KATO snapshot, then exit
 //	healthcheck  probe /readyz of a running server; used by the Docker HEALTHCHECK (distroless has no shell)
 //	version      print the build version
+//
+// Environment: HTTP_ADDR, DATABASE_URL, OFFLINE (default true: never call stat.gov.kz),
+// KATO_REFRESH_INTERVAL (default 168h), KATO_PAGE_URL.
 package main
 
 import (
@@ -16,11 +20,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/jana-address/jana-address-api/internal/db"
 	"github.com/jana-address/jana-address-api/internal/httpapi"
+	"github.com/jana-address/jana-address-api/internal/katosync"
 )
 
 // version is set at build time: -ldflags "-X main.version=..."
@@ -36,12 +42,14 @@ func main() {
 	switch cmd {
 	case "serve":
 		err = serve()
+	case "migrate":
+		err = migrate()
 	case "healthcheck":
 		err = healthcheck()
 	case "version":
 		fmt.Println(version)
 	default:
-		err = fmt.Errorf("unknown command %q (want serve, healthcheck or version)", cmd)
+		err = fmt.Errorf("unknown command %q (want serve, migrate, healthcheck or version)", cmd)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -65,9 +73,19 @@ func serve() error {
 	}
 	defer pool.Close()
 
+	cfg, err := syncConfig()
+	if err != nil {
+		return err
+	}
+	syncer, err := katosync.New(pool, log, cfg)
+	if err != nil {
+		return err
+	}
+	go syncer.Run(ctx)
+
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           httpapi.New(pool, version, log),
+		Handler:           httpapi.New(pool, version, log, httpapi.WithDirectory(func() any { return syncer.Status() })),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -94,6 +112,30 @@ func serve() error {
 		}
 	}
 	return nil
+}
+
+func migrate() error {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	pool, err := db.Open(ctx, env("DATABASE_URL", "postgres://jana:jana_local_only@localhost:5432/jana?sslmode=disable"))
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	return katosync.Migrate(ctx, pool, log)
+}
+
+func syncConfig() (katosync.Config, error) {
+	offline, err := strconv.ParseBool(env("OFFLINE", "true"))
+	if err != nil {
+		return katosync.Config{}, fmt.Errorf("OFFLINE: %w", err)
+	}
+	interval, err := time.ParseDuration(env("KATO_REFRESH_INTERVAL", "168h"))
+	if err != nil || interval < time.Hour {
+		return katosync.Config{}, fmt.Errorf("KATO_REFRESH_INTERVAL must be a duration of at least 1h, got %q", os.Getenv("KATO_REFRESH_INTERVAL"))
+	}
+	return katosync.Config{Offline: offline, Interval: interval, PageURL: env("KATO_PAGE_URL", katosync.DefaultPage)}, nil
 }
 
 func healthcheck() error {

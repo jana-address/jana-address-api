@@ -15,14 +15,26 @@ type Pinger interface {
 }
 
 type api struct {
-	db      Pinger
-	version string
-	log     *slog.Logger
+	db        Pinger
+	version   string
+	log       *slog.Logger
+	directory func() any
+}
+
+// Option configures the handler.
+type Option func(*api)
+
+// WithDirectory adds the status of the place directory (classifier version) to /api/v1/health.
+func WithDirectory(status func() any) Option {
+	return func(a *api) { a.directory = status }
 }
 
 // New returns the root handler.
-func New(db Pinger, version string, log *slog.Logger) http.Handler {
+func New(db Pinger, version string, log *slog.Logger, opts ...Option) http.Handler {
 	a := &api{db: db, version: version, log: log}
+	for _, o := range opts {
+		o(a)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /livez", a.livez)
@@ -51,13 +63,17 @@ func (a *api) readyz(w http.ResponseWriter, r *http.Request) {
 }
 
 type healthResponse struct {
-	Status  string `json:"status"`
-	Version string `json:"version"`
-	DB      string `json:"db"`
+	Status    string `json:"status"`
+	Version   string `json:"version"`
+	DB        string `json:"db"`
+	Directory any    `json:"directory,omitempty"`
 }
 
 func (a *api) health(w http.ResponseWriter, r *http.Request) {
 	resp := healthResponse{Status: "ok", Version: a.version, DB: "ok"}
+	if a.directory != nil {
+		resp.Directory = a.directory()
+	}
 	if !a.dbOK(r.Context()) {
 		resp.Status, resp.DB = "degraded", "down"
 	}
