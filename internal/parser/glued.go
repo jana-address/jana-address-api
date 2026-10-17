@@ -22,17 +22,17 @@ func init() {
 // adjectiveStart marks a rest that continues the city name as an adjective: "Таразская", "Шымкентский".
 var adjectiveStart = []string{"ск", "цк", "ин", "ов", "ев", "ая", "ий", "ый", "ой", "ое", "ие"}
 
-func knownWord(f string) bool {
+func (d *directory) knownWord(f string) bool {
 	if _, ok := markers[f]; ok {
 		return true
 	}
-	if _, ok := regions[f]; ok {
+	if _, ok := d.regions[f]; ok {
 		return true
 	}
-	if _, ok := districts[f]; ok {
+	if _, ok := d.districts[f]; ok {
 		return true
 	}
-	_, ok := lookupCityWithin(f, 1)
+	_, ok := d.lookupCityWithin(f, 1)
 	return ok
 }
 
@@ -53,14 +53,14 @@ func wordToken(r []rune, s, e int) token {
 	return token{kind: tWord, text: text, fold: fold(text), s: s, e: e}
 }
 
-func splitGlued(r []rune, toks []token) []token {
+func (d *directory) splitGlued(r []rune, toks []token) []token {
 	out := make([]token, 0, len(toks))
 	for _, t := range toks {
 		if t.kind != tWord {
 			out = append(out, t)
 			continue
 		}
-		out = append(out, splitWord(r, t.s, t.e, false)...)
+		out = append(out, d.splitWord(r, t.s, t.e, false)...)
 	}
 	return out
 }
@@ -113,29 +113,29 @@ func restOK(f string) bool {
 }
 
 // splitWord splits one glued word; afterCity allows short type words right after a city name.
-func splitWord(r []rune, s, e int, afterCity bool) []token {
+func (d *directory) splitWord(r []rune, s, e int, afterCity bool) []token {
 	// 1. a case change: "ТаукеХана", "АлматыАбая"
 	for i := s + 1; i < e; i++ {
 		lowerUpper := unicode.IsLower(r[i-1]) && unicode.IsUpper(r[i])
 		acronym := i-s >= 2 && unicode.IsUpper(r[i-1]) && unicode.IsUpper(r[i]) && i+1 < e && unicode.IsLower(r[i+1]) // "ЖКХайвил"
 		if lowerUpper || acronym {
-			left := splitWord(r, s, i, afterCity)
-			_, city := lookupCity(left[len(left)-1].fold)
-			return append(left, splitWord(r, i, e, city)...)
+			left := d.splitWord(r, s, i, afterCity)
+			_, city := d.lookupCity(left[len(left)-1].fold)
+			return append(left, d.splitWord(r, i, e, city)...)
 		}
 	}
 	w := wordToken(r, s, e)
-	if e-s < 3 || knownWord(w.fold) {
+	if e-s < 3 || d.knownWord(w.fold) {
 		return []token{w}
 	}
 	split := func(p int, leftIsCity bool) []token {
-		return append([]token{wordToken(r, s, p)}, splitWord(r, p, e, leftIsCity)...)
+		return append([]token{wordToken(r, s, p)}, d.splitWord(r, p, e, leftIsCity)...)
 	}
 	// 2. a city at the start, the longest first: "алматыабая", "шымкентабй", "оралқала…"
 	exactCity := false
 	for p := e - 1; p >= s+4; p-- {
 		left, rest := fold(string(r[s:p])), fold(string(r[p:e]))
-		_, city := cities[left]
+		_, city := d.cities[left]
 		if !city {
 			continue
 		}
@@ -145,7 +145,6 @@ func splitWord(r []rune, s, e int, afterCity bool) []token {
 		}
 	}
 	// 3. a city with one typo at the start: "асстанаакжол", "шпмалғанул"; not for adjectives like "Алматинская"
-	fuzzyIndex.Do(buildFuzzyIndex)
 	for p := e - 1; p >= s+5 && !exactCity && !afterCity; p-- {
 		left, rest := fold(string(r[s:p])), fold(string(r[p:e]))
 		var buf [maxFuzzyLen]rune
@@ -157,7 +156,7 @@ func splitWord(r []rune, s, e int, afterCity bool) []token {
 			if n < 0 || n >= maxFuzzyLen {
 				continue
 			}
-			for _, c := range cityByLen[n] {
+			for _, c := range d.cityByLen[n] {
 				if osaDistanceLimit(lr, c.r, 1) <= 1 {
 					return split(p, true)
 				}
@@ -175,7 +174,7 @@ func splitWord(r []rune, s, e int, afterCity bool) []token {
 	for p := s + 3; p <= e-2; p++ {
 		right := fold(string(r[p:e]))
 		if glueMarkers[right] || right == fold("көш") {
-			return append(splitWord(r, s, p, afterCity), wordToken(r, p, e))
+			return append(d.splitWord(r, s, p, afterCity), wordToken(r, p, e))
 		}
 	}
 	return []token{w}

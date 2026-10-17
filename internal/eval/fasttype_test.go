@@ -7,8 +7,22 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jana-address/jana-address-api/internal/kato"
 	"github.com/jana-address/jana-address-api/internal/parser"
 )
+
+// TestMain scores the parser the way the server runs it: with the embedded KATO snapshot.
+// EVAL_NO_KATO=1 measures the hand tables alone.
+func TestMain(m *testing.M) {
+	if os.Getenv("EVAL_NO_KATO") == "" {
+		recs, _, err := kato.Embedded()
+		if err != nil {
+			panic(err)
+		}
+		parser.UseKATO(recs)
+	}
+	os.Exit(m.Run())
+}
 
 func predict(raw string) map[string]string {
 	out := map[string]string{}

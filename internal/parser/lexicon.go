@@ -74,6 +74,7 @@ func init() {
 		"азс", "бц", "супермаркет", "маркет")
 
 	initPlaces()
+	current.Store(newDirectory(nil))
 }
 
 // fuzzyForms are long marker words that are often mistyped ("подлъезд", "кваритра", "микрорайно").
@@ -122,11 +123,11 @@ func fuzzyLimit(n int) int {
 }
 
 // lookupCity finds a settlement by its exact key or, failing that, by a unique close spelling ("алматыы").
-func lookupCity(k string) (place, bool) { return lookupCityWithin(k, 2) }
+func (d *directory) lookupCity(k string) (place, bool) { return d.lookupCityWithin(k, 2) }
 
 // lookupCityWithin is lookupCity with at most maxTypos edits.
-func lookupCityWithin(k string, maxTypos int) (place, bool) {
-	if p, ok := cities[k]; ok {
+func (d *directory) lookupCityWithin(k string, maxTypos int) (place, bool) {
+	if p, ok := d.cities[k]; ok {
 		return p, true
 	}
 	var buf [maxFuzzyLen]rune
@@ -135,19 +136,18 @@ func lookupCityWithin(k string, maxTypos int) (place, bool) {
 	if limit == 0 || len(r) >= maxFuzzyLen {
 		return place{}, false
 	}
-	fuzzyIndex.Do(buildFuzzyIndex)
 	var best place
 	bestD, ambiguous := limit+1, false
 	for n := len(r) - limit; n <= len(r)+limit; n++ {
 		if n < 0 || n >= maxFuzzyLen {
 			continue
 		}
-		for _, c := range cityByLen[n] {
-			d := osaDistanceLimit(r, c.r, limit)
+		for _, c := range d.cityByLen[n] {
+			dist := osaDistanceLimit(r, c.r, limit)
 			switch {
-			case d < bestD:
-				best, bestD, ambiguous = c.p, d, false
-			case d == bestD && c.p.name != best.name:
+			case dist < bestD:
+				best, bestD, ambiguous = c.p, dist, false
+			case dist == bestD && c.p.name != best.name:
 				ambiguous = true
 			}
 		}
@@ -173,17 +173,11 @@ type markerForm struct {
 
 var (
 	fuzzyIndex       sync.Once
-	cityByLen        [maxFuzzyLen][]cityEntry // directory keys bucketed by length in runes
 	fuzzyMarkerForms []markerForm
 )
 
-// buildFuzzyIndex prepares the directory for edit-distance search once, after all tables are filled.
+// buildFuzzyIndex prepares the marker forms for edit-distance search once.
 func buildFuzzyIndex() {
-	for k, p := range cities {
-		if r := []rune(k); len(r) < maxFuzzyLen {
-			cityByLen[len(r)] = append(cityByLen[len(r)], cityEntry{r, p})
-		}
-	}
 	for _, f := range fuzzyForms {
 		ff := fold(f)
 		fuzzyMarkerForms = append(fuzzyMarkerForms, markerForm{[]rune(ff), markers[ff]})
@@ -268,10 +262,12 @@ type districtInfo struct {
 	province string
 }
 
+// Hand-written base tables: aliases, Latin and old names, city districts. The directory used by
+// the parser starts from them and adds the official classifier on top (directory.go).
 var (
-	cities    = map[string]place{}
-	regions   = map[string]string{}
-	districts = map[string]districtInfo{}
+	baseCities    = map[string]place{}
+	baseRegions   = map[string]string{}
+	baseDistricts = map[string]districtInfo{}
 	// microdistrict (first word, folded) -> district of Almaty
 	almatyAreas = map[string]string{}
 )
@@ -280,23 +276,23 @@ func key(s string) string { return strings.Join(strings.Fields(fold(s)), " ") }
 
 func addCity(name, province string, aliases ...string) {
 	p := place{name: name, province: province}
-	cities[key(name)] = p
+	baseCities[key(name)] = p
 	for _, a := range aliases {
-		cities[key(a)] = p
+		baseCities[key(a)] = p
 	}
 }
 
 func addRegion(name string, keys ...string) {
 	for _, k := range keys {
-		regions[key(k)] = name
+		baseRegions[key(k)] = name
 	}
 }
 
 func addDistrict(name, city, province string, keys ...string) {
 	d := districtInfo{name: name, city: city, province: province}
-	districts[key(name)] = d
+	baseDistricts[key(name)] = d
 	for _, k := range keys {
-		districts[key(k)] = d
+		baseDistricts[key(k)] = d
 	}
 }
 
@@ -360,8 +356,8 @@ func initPlaces() {
 	addCity("Отеген батыр", alm, "өтеген батыр", "otegen batyr")
 	addCity("Кордай", zhm, "қордай", "korday")
 	addCity("Аксукент", trk, "ақсукент", "aksukent")
-	cities[key("Боралдай")] = place{name: "Боралдай", province: alm, district: "Илийский"}
-	cities[key("Бурундай")] = cities[key("Боралдай")]
+	baseCities[key("Боралдай")] = place{name: "Боралдай", province: alm, district: "Илийский"}
+	baseCities[key("Бурундай")] = baseCities[key("Боралдай")]
 	addCity("Атырау", atr, "гурьев")
 	addCity("Усть-Каменогорск", vko, "өскемен")
 	addCity("Риддер", vko)
@@ -399,7 +395,7 @@ func initPlaces() {
 		"Экибастуз":        {"ekibastuz"}, "Темиртау": {"temirtau"}, "Конаев": {"konaev", "qonaev"}, "Жезказган": {"zhezkazgan"},
 	} {
 		for _, a := range aliases {
-			cities[key(a)] = cities[key(name)]
+			baseCities[key(a)] = baseCities[key(name)]
 		}
 	}
 
@@ -410,7 +406,7 @@ func initPlaces() {
 		"Каскелен": {"kaskelen", "qaskelen"},
 	} {
 		for _, a := range aliases {
-			cities[key(a)] = cities[key(name)]
+			baseCities[key(a)] = baseCities[key(name)]
 		}
 	}
 

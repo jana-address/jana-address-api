@@ -86,6 +86,7 @@ func (o Output) Fill(r *addr.Result) {
 }
 
 type state struct {
+	d        *directory // one directory version for the whole record
 	c        cleaned
 	toks     []token
 	vals     map[Field]string
@@ -98,7 +99,8 @@ type state struct {
 // Parse parses one raw address string.
 func Parse(raw string) Output {
 	c := clean(raw)
-	st := &state{c: c, toks: splitGlued(c.r, tokenize(c.r)), vals: map[Field]string{}, src: map[Field]string{}, streetE: -1}
+	d := current.Load()
+	st := &state{d: d, c: c, toks: d.splitGlued(c.r, tokenize(c.r)), vals: map[Field]string{}, src: map[Field]string{}, streetE: -1}
 	st.classify()
 	st.segment()
 	st.admin()
@@ -198,10 +200,10 @@ func (st *state) classify() {
 			}
 		}
 		// typo in a long marker word: "подлъезд", "кваритра"; a typo right before a known city: "гролд актобе"
-		if t.mk == nil && !adminKnown(mCity, t.fold) {
+		if t.mk == nil && !st.d.adminKnown(mCity, t.fold) {
 			if m := fuzzyMarker(t.fold); m != nil {
 				t.mk = m
-			} else if i+1 < len(st.toks) && adminKnown(mCity, st.toks[i+1].fold) &&
+			} else if i+1 < len(st.toks) && st.d.adminKnown(mCity, st.toks[i+1].fold) &&
 				osaDistanceLimit([]rune(t.fold), []rune("город"), 2) <= 2 {
 				t.mk = markers["город"]
 			}
@@ -308,16 +310,16 @@ func (st *state) keyOf(a, b int) string {
 	return strings.Join(parts, " ")
 }
 
-func adminKnown(class mclass, k string) bool {
+func (d *directory) adminKnown(class mclass, k string) bool {
 	switch class {
 	case mRegion:
-		_, ok := regions[k]
+		_, ok := d.regions[k]
 		return ok
 	case mDistrict:
-		_, ok := districts[k]
+		_, ok := d.districts[k]
 		return ok
 	}
-	_, ok := lookupCity(k)
+	_, ok := d.lookupCity(k)
 	return ok
 }
 
@@ -355,7 +357,7 @@ func (st *state) adminName(m int) (int, int) {
 	backward := ba >= 0 && (postfixAdmin[st.toks[m].fold] || fa < 0 || gluedAfter)
 	fwdKnown := func() bool {
 		for b := fb; fa >= 0 && b >= fa; b-- {
-			if adminKnown(class, st.keyOf(fa, b)) {
+			if st.d.adminKnown(class, st.keyOf(fa, b)) {
 				return true
 			}
 		}
@@ -364,17 +366,17 @@ func (st *state) adminName(m int) (int, int) {
 	if backward {
 		for a := ba; a <= bb; a++ {
 			k := st.keyOf(a, bb)
-			if _, city := cities[k]; city && class == mDistrict && fwdKnown() {
+			if _, city := st.d.cities[k]; city && class == mDistrict && fwdKnown() {
 				break
 			}
-			if adminKnown(class, k) {
+			if st.d.adminKnown(class, k) {
 				return a, bb
 			}
 		}
 	}
 	if fa >= 0 { // a known name after the marker wins over an unknown one before it: "Астана р-н Нура"
 		for b := fb; b >= fa; b-- {
-			if adminKnown(class, st.keyOf(fa, b)) {
+			if st.d.adminKnown(class, st.keyOf(fa, b)) {
 				return fa, b
 			}
 		}
@@ -408,7 +410,7 @@ func (st *state) admin() {
 		k, name := st.keyOf(a, b), st.text(a, b)
 		switch t.mk.class {
 		case mRegion:
-			if r, ok := regions[k]; ok {
+			if r, ok := st.d.regions[k]; ok {
 				st.set(Province, r, SourceString, a, b)
 			} else {
 				st.set(Province, name, SourceString, a, b)
@@ -416,7 +418,7 @@ func (st *state) admin() {
 		case mDistrict:
 			st.setDistrict(k, name, a, b)
 		default:
-			st.setCity(k, name, a, b)
+			st.setCity(k, name, a, b, t.mk.class == mSettlement)
 		}
 		st.markUsed(min(i, a), max(i, b))
 	}
@@ -447,26 +449,30 @@ func (st *state) admin() {
 		k := st.keyOf(a, b)
 		switch {
 		// 2. a segment that is just a known name: "Алматы", "Турксибский"
-		case clean && (cities[k] != place{} || (seg == 0 && adminKnown(mCity, k))): // close spelling only in the first segment
-			st.setCity(k, st.text(a, b), a, b)
+		case clean && (st.d.cities[k] != place{} || (seg == 0 && st.d.adminKnown(mCity, k))): // close spelling only in the first segment
+			st.setCity(k, st.text(a, b), a, b, false)
 			st.markUsed(a, b)
-		case clean && regions[k] != "" && (len([]rune(k)) == 3 || strings.HasSuffix(k, "ская")):
-			st.set(Province, regions[k], SourceString, a, b)
+		case clean && st.d.regions[k] != "" && (len([]rune(k)) == 3 || strings.HasSuffix(k, "ская")):
+			st.set(Province, st.d.regions[k], SourceString, a, b)
 			st.markUsed(a, b)
-		case clean && strings.HasSuffix(k, "ий") && adminKnown(mDistrict, k):
+		case clean && st.vals[City] == "" && len(st.d.settlements[k]) > 0 &&
+			(st.writtenValue(Province) != "" || st.writtenValue(District) != ""):
+			st.setCity(k, st.text(a, b), a, b, true)
+			st.markUsed(a, b)
+		case clean && strings.HasSuffix(k, "ий") && st.d.adminKnown(mDistrict, k):
 			st.setDistrict(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
 		default:
 			// 3. a known city inside a street segment: "Алматы Сатпаева 5", "050000 Алматы ул Абая 10"
 			for i := a; i <= b; i++ {
 				t := st.toks[i]
-				if t.kind != tWord || t.used || t.mk != nil || !adminKnown(mCity, t.fold) {
+				if t.kind != tWord || t.used || t.mk != nil || !st.d.adminKnown(mCity, t.fold) {
 					continue
 				}
 				// a close spelling counts only before another word: "алматыы абая 10" is a city,
 				// "Сатпаева 22" is a street (one letter from the town Сатпаев)
 				areaNext := i+2 <= b && st.toks[i+1].kind == tNum && st.toks[i+2].mk != nil && numberedAreaTypes[st.toks[i+2].mk.canon]
-				if _, exact := cities[t.fold]; !exact && i+1 <= b && st.toks[i+1].kind != tWord && !areaNext {
+				if _, exact := st.d.cities[t.fold]; !exact && i+1 <= b && st.toks[i+1].kind != tWord && !areaNext {
 					continue
 				}
 				p := i - 1
@@ -478,30 +484,65 @@ func (st *state) admin() {
 				}
 				if cur, set := st.vals[City]; set {
 					// the city written twice: "алматы алматы жандосова 58"
-					if pl, _ := lookupCity(t.fold); pl.name == cur && i < b && st.toks[i+1].kind == tWord {
+					if pl, _ := st.d.lookupCity(t.fold); pl.name == cur && i < b && st.toks[i+1].kind == tWord {
 						st.toks[i].used = true
 					}
 					break
 				}
-				st.setCity(t.fold, t.text, i, i)
+				st.setCity(t.fold, t.text, i, i, false)
 				st.toks[i].used = true
 			}
 		}
 	}
 }
 
-func (st *state) setCity(k, name string, a, b int) {
-	if p, ok := lookupCity(k); ok {
+// setCity stores a city or village. The hand table of large places goes first unless the line names
+// another region or rayon; then the classifier's settlements, with the written rayon or region choosing
+// among namesakes; a typo match comes last and, after "с.", "п.", "ауылы", only for names the
+// classifier does not know ("с. Алмалы" must not become Алматы).
+func (st *state) setCity(k, name string, a, b int, village bool) {
+	use := func(p place) {
 		st.set(City, p.name, SourceString, a, b)
 		st.setDir(Province, p.province)
 		st.setDir(District, p.district)
+	}
+	consistent := func(p place) bool {
+		prov, dist := st.writtenValue(Province), st.writtenValue(District)
+		return (prov == "" || p.province == prov) && (dist == "" || p.district == "" || p.district == dist)
+	}
+	if p, ok := st.d.cities[k]; ok && consistent(p) {
+		use(p)
+		return
+	}
+	ps := st.d.settlements[k]
+	if p, ok := st.settlement(k); ok {
+		use(p)
+		return
+	}
+	if len(ps) == 0 || !village {
+		if p, ok := st.d.lookupCity(k); ok {
+			use(p)
+			return
+		}
+	}
+	if len(ps) > 0 && sameName(ps) { // namesakes in several regions: the name is certain, the region is not
+		st.set(City, ps[0].name, SourceString, a, b)
 		return
 	}
 	st.set(City, ruSpelling(name), SourceString, a, b)
 }
 
+func sameName(ps []place) bool {
+	for _, p := range ps[1:] {
+		if p.name != ps[0].name {
+			return false
+		}
+	}
+	return true
+}
+
 func (st *state) setDistrict(k, name string, a, b int) {
-	if d, ok := districts[k]; ok {
+	if d, ok := st.d.districts[k]; ok {
 		st.set(District, d.name, SourceString, a, b)
 		st.setDir(City, d.city)
 		st.setDir(Province, d.province)
@@ -785,7 +826,7 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 			}
 			// "ул. 8 Марта": a number right after the type followed by a word
 			if a < 0 && k+1 < len(st.toks) && st.toks[k+1].kind == tWord && st.toks[k+1].mk == nil && !st.toks[k+1].used &&
-				!adminKnown(mCity, st.toks[k+1].fold) {
+				!st.d.adminKnown(mCity, st.toks[k+1].fold) {
 				break
 			}
 			return a, b
@@ -1030,7 +1071,10 @@ func (st *state) house() {
 // restore fills missing reference fields from the built-in directory.
 func (st *state) restore() {
 	if city, ok := st.vals[City]; ok {
-		if p, ok := cities[key(city)]; ok {
+		if p, ok := st.d.cities[key(city)]; ok {
+			st.setDir(Province, p.province)
+			st.setDir(District, p.district)
+		} else if p, ok := st.settlement(key(city)); ok {
 			st.setDir(Province, p.province)
 			st.setDir(District, p.district)
 		}
