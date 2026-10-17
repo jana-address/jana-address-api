@@ -179,6 +179,15 @@ func (st *state) classify() {
 		if m, ok := markers[t.fold]; ok && t.mk == nil {
 			t.mk = m
 		}
+		// typo in a long marker word: "подлъезд", "кваритра"; a typo right before a known city: "гролд актобе"
+		if t.mk == nil && !adminKnown(mCity, t.fold) {
+			if m := fuzzyMarker(t.fold); m != nil {
+				t.mk = m
+			} else if i+1 < len(st.toks) && adminKnown(mCity, st.toks[i+1].fold) &&
+				osaDistance([]rune(t.fold), []rune("город")) <= 2 {
+				t.mk = markers["город"]
+			}
+		}
 		// an initial inside a street name: "ул. Д. Кунаева", "пр. С. Сейфуллина"
 		if len([]rune(t.text)) == 1 && st.isPunct(i+1, ".") && i+2 < len(st.toks) && st.toks[i+2].kind == tWord {
 			p := i - 1
@@ -367,10 +376,26 @@ func (st *state) admin() {
 		case clean && strings.HasSuffix(k, "ий") && adminKnown(mDistrict, k):
 			st.setDistrict(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
-		// 3. a known city at the start of a street segment: "Алматы Сатпаева 5"
-		case a < b && st.toks[a].mk == nil && adminKnown(mCity, st.toks[a].fold):
-			st.setCity(st.toks[a].fold, st.toks[a].text, a, a)
-			st.toks[a].used = true
+		default:
+			// 3. a known city inside a street segment: "Алматы Сатпаева 5", "050000 Алматы ул Абая 10"
+			for i := a; i <= b; i++ {
+				t := st.toks[i]
+				if _, set := st.vals[City]; set {
+					break
+				}
+				if t.kind != tWord || t.used || t.mk != nil || !adminKnown(mCity, t.fold) {
+					continue
+				}
+				p := i - 1
+				for st.isPunct(p, ".") {
+					p--
+				}
+				if p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.class == mStreet {
+					continue // "ул. Астана" is a street, not the city
+				}
+				st.setCity(t.fold, t.text, i, i)
+				st.toks[i].used = true
+			}
 		}
 	}
 }

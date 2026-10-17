@@ -69,6 +69,61 @@ func init() {
 	initPlaces()
 }
 
+// fuzzyForms are long marker words that are often mistyped ("подлъезд", "кваритра", "микрорайно").
+var fuzzyForms = []string{"подъезд", "квартира", "микрорайон", "проспект", "переулок", "улица", "квартал",
+	"город", "район", "область", "облысы", "қаласы", "ауданы", "көшесі", "даңғылы", "этаж", "магазин", "поселок"}
+
+// fuzzyMarker finds a marker within a small edit distance: 1 for words of 5–7 letters, 2 for longer ones.
+func fuzzyMarker(f string) *marker {
+	r := []rune(f)
+	if len(r) < 5 {
+		return nil
+	}
+	limit := 1
+	if len(r) >= 8 {
+		limit = 2
+	}
+	var best *marker
+	bestD := limit + 1
+	for _, form := range fuzzyForms {
+		ff := fold(form)
+		if d := osaDistance(r, []rune(ff)); d < bestD {
+			best, bestD = markers[ff], d
+		} else if d == bestD && best != nil && markers[ff] != best {
+			best = nil // ambiguous between two markers
+		}
+	}
+	return best
+}
+
+// osaDistance is the optimal string alignment (Damerau-Levenshtein with adjacent transpositions).
+func osaDistance(a, b []rune) int {
+	if d := len(a) - len(b); d > 2 || d < -2 {
+		return 3
+	}
+	prev2 := make([]int, len(b)+1)
+	prev := make([]int, len(b)+1)
+	cur := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur[0] = i
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+			if i > 1 && j > 1 && a[i-1] == b[j-2] && a[i-2] == b[j-1] {
+				cur[j] = min(cur[j], prev2[j-2]+1)
+			}
+		}
+		prev2, prev, cur = prev, cur, prev2
+	}
+	return prev[len(b)]
+}
+
 // realStreetTypes are street types that can coexist with a microdistrict (which then becomes living_area).
 var realStreetTypes = map[string]bool{"улица": true, "проспект": true, "переулок": true, "бульвар": true, "шоссе": true, "трасса": true}
 

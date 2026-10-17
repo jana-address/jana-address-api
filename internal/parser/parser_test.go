@@ -51,6 +51,17 @@ func TestParseExamples(t *testing.T) {
 		{"050000 Алматы ул Абая 10", map[Field]string{City: "Алматы", Province: "Алматы", StreetName: "Абая", House: "10"}},
 		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", House: "33", Apartment: "7", District: "Медеуский"}},
 		{"Алматы, мкр Самал-2", map[Field]string{StreetName: "Самал-2", House: "-"}},
+		// fast typing: typos in markers, no commas
+		{"гролд актобе дом5 6 кв 55 подлъезд 5", map[Field]string{
+			City: "Актобе", Province: "Актюбинская область", House: "5", Apartment: "55", Entrance: "5"}},
+		{"алматы абая 15 кваритра 3", map[Field]string{City: "Алматы", StreetName: "абая", House: "15", Apartment: "3"}},
+		{"Астана, проспкт Республики 24, этж 3", map[Field]string{City: "Астана", StreetType: "проспект", StreetName: "Республики", House: "24"}},
+		// real street names close to marker words must stay names
+		{"Райымбек 160", map[Field]string{StreetName: "Райымбек", House: "160"}},
+		{"Гоголя 5", map[Field]string{StreetName: "Гоголя", House: "5"}},
+		{"Магжана 7", map[Field]string{StreetName: "Магжана", House: "7"}},
+		{"Ауэзова 12", map[Field]string{StreetName: "Ауэзова", House: "12"}},
+		{"ул. Сейфуллина 498", map[Field]string{StreetType: "улица", StreetName: "Сейфуллина", House: "498"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
