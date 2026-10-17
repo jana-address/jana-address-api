@@ -59,19 +59,28 @@ func (a *api) parseBatch(w http.ResponseWriter, r *http.Request) {
 
 	// Workers take chunks of records by a shared counter, parse them and encode each chunk to JSON;
 	// the handler writes the chunks strictly in input order as soon as the next one is ready.
+	// A worker takes a chunk only when fewer than two per worker wait for the writer, so a client that
+	// reads slowly does not make the whole response pile up in memory.
 	nchunks := (len(items) + batchChunk - 1) / batchChunk
 	parts := make([][]byte, nchunks)
 	ready := make([]chan struct{}, nchunks)
 	for c := range ready {
 		ready[c] = make(chan struct{})
 	}
+	workers := min(runtime.GOMAXPROCS(0), nchunks)
+	ahead := make(chan struct{}, 2*workers)
 	var next atomic.Int64
-	for range min(runtime.GOMAXPROCS(0), nchunks) {
+	for range workers {
 		go func() {
 			var tmp bytes.Buffer
 			enc := json.NewEncoder(&tmp)
 			enc.SetEscapeHTML(false)
 			for {
+				select {
+				case ahead <- struct{}{}:
+				case <-ctx.Done():
+					return
+				}
 				c := int(next.Add(1) - 1)
 				if c >= nchunks {
 					return
@@ -105,6 +114,7 @@ func (a *api) parseBatch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		parts[c] = nil
+		<-ahead
 	}
 	_, _ = bw.WriteString("]\n")
 	_ = bw.Flush()

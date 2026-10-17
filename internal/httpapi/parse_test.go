@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jana-address/jana-address-api/internal/synth"
 )
 
 var wantKeys = []string{"id", "raw_address", "province", "city", "district", "living_area", "street_type",
@@ -120,6 +122,29 @@ func TestParseBatchInputErrors(t *testing.T) {
 	// "[{},{},…]" must not expand into millions of results
 	if rec := post("[" + strings.Repeat("{},", maxRecords) + "{}]"); rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("too many records: code = %d", rec.Code)
+	}
+}
+
+// Many chunks through a few workers that wait for the writer: every record comes back, in input order.
+func TestParseBatchOrder(t *testing.T) {
+	gold := synth.Generate(5000, 3)
+	var in bytes.Buffer
+	if err := synth.WriteJury(&in, gold); err != nil {
+		t.Fatal(err)
+	}
+	h := New(fakeDB{}, "test", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/parse/batch", &in))
+	var res []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil || len(res) != len(gold) {
+		t.Fatalf("code %d, %d records, %v", rec.Code, len(res), err)
+	}
+	for i, r := range res {
+		if r.ID != gold[i].ID {
+			t.Fatalf("record %d: id %q, want %q", i, r.ID, gold[i].ID)
+		}
 	}
 }
 
