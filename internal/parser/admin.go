@@ -236,8 +236,14 @@ func (st *state) setCity(k, name string, a, b int, village bool) {
 		prov, dist := st.writtenValue(Province), st.writtenValue(District)
 		return (prov == "" || p.province == prov) && (dist == "" || p.district == "" || p.district == dist)
 	}
-	if p, ok := st.d.cities[k]; ok && consistent(p) {
-		use(p)
+	if hand, ok := st.d.cities[k]; ok && consistent(hand) {
+		// a written rayon picks its own village over a town of another region: "Мамлютский район, Щучье"
+		// is a village there, not Щучинск; in the same region the hand table keeps its spelling
+		if p, own := st.settlement(k); own && hand.district == "" && st.writtenValue(District) != "" && p.province != hand.province {
+			use(p)
+		} else {
+			use(hand)
+		}
 		return
 	}
 	ps := st.d.settlements[k]
