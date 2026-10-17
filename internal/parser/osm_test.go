@@ -24,6 +24,8 @@ func TestOSMDistricts(t *testing.T) {
 		{"Алматы, ул. Розыбакиева 247, БЦ Нурлы Тау", map[Field]string{District: "Бостандыкский"}, LevelHouse},
 		// not in the map, between 237 and 247 of the same side
 		{"Алматы, улица Розыбакиева, 241", map[Field]string{District: "Бостандыкский"}, LevelNeighbors},
+		// 33 is Алмалинский, two of three buildings of 37 too (37а is across the border)
+		{"алматы розыбакиева 35", map[Field]string{District: "Алмалинский"}, LevelNeighbors},
 		{"Алматы, ул. Тимирязева 42", map[Field]string{District: "Бостандыкский"}, ""},
 		{"Астана, пр. Мангилик Ел 55", map[Field]string{District: "Есиль"}, ""},
 		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{District: "Ауэзовский"}, ""},

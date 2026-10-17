@@ -35,35 +35,49 @@ func SortNumbered(list []Numbered) {
 }
 
 // NeighborDistrict is the district of house n from the known buildings of its street, sorted by
-// number: every building of the nearest number below and of the nearest number above it on the same
+// number: most buildings of the nearest number below and of the nearest number above it on the same
 // side of the street (same parity) must lie in one district. A street is often itself the border, so
-// the other side does not count; a house past the last known number, or between numbers that two
-// streets of one name share ("Жандосова" of Ауэзовский and of Наурызбайский), gets nothing.
+// the other side does not count, and a house past the last known number gets nothing. A building deep
+// in the block may lie across the border ("Розыбакиева 37а" of three 37s), hence the majority.
 func NeighborDistrict(list []Numbered, n int) (string, bool) {
+	var below, above []string // districts of the buildings of the nearest number on each side
 	belowN, aboveN := -1, -1
-	below, above := "", ""
-	belowOK, aboveOK := true, true
 	for _, x := range list {
 		if x.N%2 != n%2 {
 			continue
 		}
 		if x.N <= n { // the list is sorted: the last number at or below n is the nearest
 			if x.N != belowN {
-				belowN, below, belowOK = x.N, x.District, true
-			} else if x.District != below {
-				belowOK = false
+				belowN, below = x.N, nil
 			}
+			below = append(below, x.District)
 		}
-		if x.N >= n {
-			if aboveN < 0 {
-				aboveN, above = x.N, x.District
-			} else if x.N == aboveN && x.District != above {
-				aboveOK = false
-			}
+		if x.N >= n && (aboveN < 0 || x.N == aboveN) {
+			aboveN = x.N
+			above = append(above, x.District)
 		}
 	}
-	if belowN < 0 || aboveN < 0 || !belowOK || !aboveOK || below != above {
+	b, okB := majority(below)
+	a, okA := majority(above)
+	if !okB || !okA || a != b {
 		return "", false
 	}
-	return below, true
+	return a, true
+}
+
+// majority is the district of more than half of the buildings.
+func majority(ds []string) (string, bool) {
+	n := map[string]int{}
+	for _, d := range ds {
+		n[d]++
+		if n[d]*2 > len(ds) {
+			return d, true
+		}
+	}
+	for d, k := range n {
+		if k*2 > len(ds) {
+			return d, true
+		}
+	}
+	return "", false
 }

@@ -20,11 +20,13 @@ func TestNeighborDistrict(t *testing.T) {
 		}
 	}
 
-	// buildings of the nearest number in two districts: no answer
-	mixed := []Numbered{{17, "Б"}, {17, "Н"}, {17, "Б"}, {23, "Н"}}
+	// the nearest numbers in two districts: no answer; most of the buildings of one number decide it
+	mixed := []Numbered{{17, "Б"}, {17, "Н"}, {17, "Б"}, {23, "Н"}, {33, "А"}, {33, "А"}, {37, "Б"}, {37, "А"}, {37, "А"}, {41, "Н"}, {41, "А"}}
 	SortNumbered(mixed)
-	if d, ok := NeighborDistrict(mixed, 19); ok {
-		t.Errorf("house 19 between mixed 17 and 23: %q", d)
+	for n, want := range map[int]string{19: "", 35: "А", 39: ""} {
+		if got, _ := NeighborDistrict(mixed, n); got != want {
+			t.Errorf("house %d: %q, want %q", n, got, want)
+		}
 	}
 
 	for h, want := range map[string]int{"241": 241, "17/13": 17, "5а": 5} {
