@@ -245,6 +245,15 @@ func TestGarbageIsLowConfidence(t *testing.T) {
 	}
 }
 
+// A record with no parsed field gets confidence 0, as the output contract says.
+func TestNothingParsedIsZeroConfidence(t *testing.T) {
+	for _, raw := range []string{"", "   ", "???", "привет"} {
+		if o := Parse(raw); len(o.Values) != 0 || o.Confidence != 0 {
+			t.Errorf("%q: values %v, confidence %.2f", raw, o.Values, o.Confidence)
+		}
+	}
+}
+
 func BenchmarkParse(b *testing.B) {
 	for b.Loop() {
 		Parse("город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70")

@@ -165,6 +165,9 @@ func (st *state) availNum(i int) bool {
 }
 
 func (st *state) confidence() float64 {
+	if len(st.vals) == 0 {
+		return 0 // nothing parsed: null fields and confidence 0, as the contract says
+	}
 	has := func(f Field) bool { _, ok := st.vals[f]; return ok }
 	s := 0.2
 	if has(StreetName) {
