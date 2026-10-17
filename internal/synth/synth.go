@@ -841,7 +841,8 @@ func (b *builder) house(markerMode int) (string, string, bool) {
 	switch x := b.r.Float64(); {
 	case x < 0.08:
 		b.tag("letter")
-		letters := list("а", "а", "б", "б", "в", "г", "А", "Б", "Д")
+		// no "Д": "12д" would read as the glued marker "12 дом"
+		letters := list("а", "а", "б", "б", "в", "г", "А", "Б")
 		if b.mode == modeLat {
 			letters = list("a", "b", "v", "A", "B")
 		}
