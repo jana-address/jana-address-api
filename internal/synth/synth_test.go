@@ -118,6 +118,23 @@ func TestLabels(t *testing.T) {
 		if city != "" {
 			cityCount[city]++
 		}
+		if banned(g.Raw) {
+			fail("contains a banned string")
+		}
+		if slices.Contains(g.Tags, "superglued") {
+			if city == "" {
+				fail("superglued without city")
+			}
+			if strings.Contains(val("street_name"), " ") {
+				fail("superglued street_name has a space")
+			}
+			if n := strings.Count(g.Raw, " "); n > 3 {
+				fail("superglued with %d spaces", n)
+			}
+		}
+	}
+	if tags["superglued"] < 400 {
+		t.Errorf("superglued in %d of 10000 records, want >= 4%%", tags["superglued"])
 	}
 	for _, tg := range []string{"fast", "careful", "typo", "no-commas", "lowercase", "glued", "camel", "latin",
 		"kazakh", "bilingual", "landmark", "mkr", "zhk", "living-area", "district", "oblast", "no-city",
@@ -154,5 +171,19 @@ func TestHelpers(t *testing.T) {
 	}
 	if got := deKaz("Қабанбай батыр көшесі"); got != "Кабанбай батыр кошеси" {
 		t.Errorf("deKaz = %q", got)
+	}
+	for range 50 {
+		got, ok := b.dropVowel("ерубаева")
+		if !ok || len([]rune(got)) != 7 || !strings.HasPrefix(got, "е") {
+			t.Fatalf("dropVowel = %q", got)
+		}
+	}
+	for _, s := range []string{"Астанамангликел55", "астана қалас13мкр55д", "Алматы Мәңгілік Ел 55"} {
+		if !banned(s) {
+			t.Errorf("%q not banned", s)
+		}
+	}
+	if banned("шымкенттолеби12") {
+		t.Error("ordinary address banned")
 	}
 }

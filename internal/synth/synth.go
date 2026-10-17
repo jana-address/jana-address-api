@@ -26,7 +26,7 @@ var StreetTypes = []string{"улица", "проспект", "микрорайо
 var Tags = []string{"fast", "careful", "typo", "no-commas", "lowercase", "glued", "camel", "latin", "kazakh",
 	"bilingual", "landmark", "mkr", "zhk", "living-area", "district", "oblast", "no-city", "dup-city",
 	"old-name", "fraction", "letter", "postcode", "country", "extra-spaces", "abbreviations",
-	"reversed-order", "block", "office", "village"}
+	"reversed-order", "block", "office", "village", "superglued"}
 
 const (
 	mkrType = "микрорайон"
@@ -55,8 +55,13 @@ func Generate(n int, seed uint64) []eval.Gold {
 	r := rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
 	out := make([]eval.Gold, 0, n)
 	for i := range n {
-		b := &builder{r: r, tags: map[string]bool{}, exp: map[string]*string{}, in: map[string]bool{}}
-		raw := b.record()
+		var b *builder
+		var raw string
+		// Redraw the rare record that happens to contain a reserved string.
+		for b == nil || banned(raw) {
+			b = &builder{r: r, tags: map[string]bool{}, exp: map[string]*string{}, in: map[string]bool{}}
+			raw = b.record()
+		}
 		g := eval.Gold{ID: fmt.Sprintf("syn_%05d", i+1), Raw: raw, Expected: map[string]*string{},
 			InString: []string{}, Tags: []string{}}
 		for _, f := range Fields {
@@ -155,6 +160,9 @@ func (b *builder) word(s string, k byte) string {
 }
 
 func (b *builder) record() string {
+	if b.p(0.05) {
+		return b.superglued()
+	}
 	b.fast = b.p(0.8)
 	if b.fast {
 		b.tag("fast")
@@ -210,7 +218,7 @@ func (b *builder) record() string {
 	plainCity := !noCity && !cityEnd && !detailsFirst && !withDistrict && k == kindStreet && b.mode != modeLat
 	b.camel = plainCity && b.fast && !b.lower && b.mode == modeRu && b.p(0.14)
 	glueCity := plainCity && !b.camel && b.fast && b.p(0.06)
-	dup := !noCity && !b.camel && !glueCity && b.fast && b.p(0.03)
+	dup := !noCity && !b.camel && !glueCity && b.fast && b.p(0.035)
 	if cityEnd || detailsFirst {
 		b.tag("reversed-order")
 	}
