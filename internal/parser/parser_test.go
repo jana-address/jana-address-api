@@ -209,6 +209,9 @@ func TestParseExamples(t *testing.T) {
 		{"Шолохова, 21 кв 40", map[Field]string{StreetName: "Шолохова", House: "21", Apartment: "40"}},
 		{"Сейфуллина 31 дом 2 блок кв 9", map[Field]string{StreetName: "Сейфуллина", House: "31", Apartment: "9"}},
 		{"Абая 12 корпус", map[Field]string{StreetName: "Абая", House: "12"}},
+		// a glued "д" after a fraction is the house marker, as after a whole number
+		{"шымкенттауке хана12/3д45кв", map[Field]string{StreetName: "тауке хана", House: "12/3", Apartment: "45"}},
+		{"Тауке хана д 12/3д", map[Field]string{House: "12/3д"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

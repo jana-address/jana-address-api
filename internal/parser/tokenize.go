@@ -78,7 +78,7 @@ func tokenize(r []rune) []token {
 					for m < n && isDigit(r[m]) {
 						m++
 					}
-					if singleLetterAt(r, m) {
+					if singleLetterAt(r, m) && (r[m] != 'д' || afterHouseMarker(r, i)) { // "68/12д" is "68/12 дом" too
 						m++
 					}
 					j = m
