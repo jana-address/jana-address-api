@@ -179,6 +179,17 @@ func (st *state) classify() {
 		if m, ok := markers[t.fold]; ok && t.mk == nil {
 			t.mk = m
 		}
+		// an initial inside a street name: "ул. Д. Кунаева", "пр. С. Сейфуллина"
+		if len([]rune(t.text)) == 1 && st.isPunct(i+1, ".") && i+2 < len(st.toks) && st.toks[i+2].kind == tWord {
+			p := i - 1
+			for st.isPunct(p, ".") {
+				p--
+			}
+			if p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.class == mStreet {
+				t.mk = nil
+				continue
+			}
+		}
 		// "с." before a name is a village, otherwise a preposition
 		if t.fold == "с" && st.isPunct(i+1, ".") {
 			t.mk = &marker{class: mSettlement}
@@ -219,76 +230,147 @@ func (st *state) segRange(seg int) (int, int) {
 	return a, b
 }
 
+// postfixAdmin markers usually follow the name: "Алматы қаласы", "Тұран ауданы", "Турксибский район".
+var postfixAdmin = map[string]bool{"каласы": true, "ауданы": true, "аудан": true, "облысы": true, "район": true, "область": true, "обл": true}
+
+func (st *state) keyOf(a, b int) string {
+	var parts []string
+	for i := a; i <= b; i++ {
+		if st.toks[i].kind == tWord {
+			parts = append(parts, st.toks[i].fold)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func adminKnown(class mclass, k string) bool {
+	switch class {
+	case mRegion:
+		_, ok := regions[k]
+		return ok
+	case mDistrict:
+		_, ok := districts[k]
+		return ok
+	}
+	_, ok := cities[k]
+	return ok
+}
+
+// wordRun returns consecutive unmarked words next to the marker m in direction dir (+1/-1).
+func (st *state) wordRun(m, dir int) (int, int) {
+	j := m + dir
+	for dir > 0 && st.isPunct(j, ".") {
+		j++
+	}
+	a, b := -1, -1
+	for k := j; k >= 0 && k < len(st.toks); k += dir {
+		t := st.toks[k]
+		if t.kind != tWord || t.used || t.mk != nil || t.seg != st.toks[m].seg {
+			break
+		}
+		if a < 0 {
+			a, b = k, k
+		}
+		if dir > 0 {
+			b = k
+		} else {
+			a = k
+		}
+	}
+	return a, b
+}
+
+// adminName picks the name of an admin marker: the longest directory match next to it,
+// otherwise a single word when more text follows ("г. Арысь Абая 10" -> "Арысь").
+func (st *state) adminName(m int) (int, int) {
+	class := st.toks[m].mk.class
+	fa, fb := st.wordRun(m, +1)
+	ba, bb := st.wordRun(m, -1)
+	if ba >= 0 && (postfixAdmin[st.toks[m].fold] || fa < 0) {
+		for a := ba; a <= bb; a++ {
+			if adminKnown(class, st.keyOf(a, bb)) {
+				return a, bb
+			}
+		}
+		return bb, bb
+	}
+	if fa < 0 {
+		return -1, -1
+	}
+	for b := fb; b >= fa; b-- {
+		if adminKnown(class, st.keyOf(fa, b)) {
+			return fa, b
+		}
+	}
+	if fb > fa && st.availNum(fb+1) {
+		return fa, fa
+	}
+	return fa, fb
+}
+
 func (st *state) admin() {
+	// 1. explicit markers: "г. Алматы", "Алматы қаласы", "Тұран ауданы", "Карагандинская обл"
+	for i := range st.toks {
+		t := st.toks[i]
+		if t.kind != tWord || t.used || !t.mk.isAdmin() {
+			continue
+		}
+		a, b := st.adminName(i)
+		if a < 0 {
+			continue
+		}
+		k, name := st.keyOf(a, b), st.text(a, b)
+		switch t.mk.class {
+		case mRegion:
+			if r, ok := regions[k]; ok {
+				st.set(Province, r, SourceString, a, b)
+			} else {
+				st.set(Province, name, SourceString, a, b)
+			}
+		case mDistrict:
+			st.setDistrict(k, name, a, b)
+		default:
+			st.setCity(k, name, a, b)
+		}
+		st.markUsed(min(i, a), max(i, b))
+	}
+
 	maxSeg := 0
 	for _, t := range st.toks {
-		if t.seg > maxSeg {
-			maxSeg = t.seg
-		}
+		maxSeg = max(maxSeg, t.seg)
 	}
 	for seg := 0; seg <= maxSeg; seg++ {
 		a, b := st.segRange(seg)
 		if a < 0 {
 			continue
 		}
-		var adminMk *marker
-		hasNum, hasOther := false, false
-		var names []int
-		for i := a; i <= b; i++ {
-			t := st.toks[i]
-			switch {
-			case t.kind == tNum:
-				hasNum = true
-			case t.kind == tWord && t.mk.isAdmin():
-				if adminMk == nil {
-					adminMk = t.mk
-				}
-			case t.kind == tWord && t.mk != nil:
-				hasOther = true
-			case t.kind == tWord && !t.used:
-				names = append(names, i)
-			}
+		// skip leading postcodes: "050000 Алматы ул Абая 10"
+		for a <= b && st.toks[a].kind == tNum && st.toks[a].ignore {
+			a++
 		}
-		if len(names) == 0 {
+		if a > b || st.toks[a].kind != tWord || st.toks[a].used {
 			continue
 		}
-		k := ""
-		for _, i := range names {
-			k += " " + st.toks[i].fold
+		clean := true // only unmarked words, no numbers
+		for i := a; i <= b; i++ {
+			t := st.toks[i]
+			if t.used || t.kind == tNum || (t.kind == tWord && t.mk != nil) {
+				clean = false
+			}
 		}
-		k = strings.TrimSpace(k)
-		name := st.text(names[0], names[len(names)-1])
-		na, nb := names[0], names[len(names)-1]
-
+		k := st.keyOf(a, b)
 		switch {
-		case adminMk != nil && adminMk.class == mRegion:
-			if r, ok := regions[k]; ok {
-				st.set(Province, r, SourceString, na, nb)
-			} else {
-				st.set(Province, name, SourceString, na, nb)
-			}
+		// 2. a segment that is just a known name: "Алматы", "Турксибский"
+		case clean && adminKnown(mCity, k):
+			st.setCity(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
-		case adminMk != nil && adminMk.class == mDistrict:
-			st.setDistrict(k, name, na, nb)
+		case clean && strings.HasSuffix(k, "ий") && adminKnown(mDistrict, k):
+			st.setDistrict(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
-		case adminMk != nil:
-			st.setCity(k, name, na, nb)
-			st.markUsed(a, b)
-		case !hasNum && !hasOther:
-			if _, ok := cities[k]; ok {
-				st.setCity(k, name, na, nb)
-				st.markUsed(a, b)
-			} else if d, ok := districts[k]; ok && strings.HasSuffix(k, "ий") {
-				st.setDistrict(k, d.name, na, nb)
-				st.markUsed(a, b)
-			}
-		default:
-			// a known city at the start of a street segment: "Алматы Сатпаева 5"
-			if p, ok := cities[st.toks[a].fold]; ok && st.toks[a].kind == tWord && a < b && st.toks[a].mk == nil {
-				st.set(City, p.name, SourceString, a, a)
-				st.setDir(Province, p.province)
-				st.toks[a].used = true
-			}
+		// 3. a known city at the start of a street segment: "Алматы Сатпаева 5"
+		case a < b && st.toks[a].mk == nil && adminKnown(mCity, st.toks[a].fold):
+			st.setCity(st.toks[a].fold, st.toks[a].text, a, a)
+			st.toks[a].used = true
 		}
 	}
 }
@@ -329,7 +411,9 @@ func (st *state) units() {
 		if f != House {
 			v = strings.SplitN(v, "/", 2)[0]
 		}
-		if _, ok := st.vals[f]; ok {
+		bound[m] = true
+		if _, ok := st.vals[f]; ok { // repeated marker ("кв 5 кв 6"): keep the first value
+			st.toks[m].used = true
 			return
 		}
 		st.vals[f], st.src[f] = v, SourceString
@@ -471,7 +555,8 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 				return a, b
 			}
 			if numberedAreaTypes[typ] {
-				if !(st.laterNumberExists(k) || hasLetter(t.text)) {
+				hyphened := a >= 0 && st.isPunct(k-1, "-") && glued(st.toks[k-1], t) // "Самал-2"
+				if !(hyphened || st.laterNumberExists(k) || hasLetter(t.text)) {
 					return a, b
 				}
 				if a < 0 {

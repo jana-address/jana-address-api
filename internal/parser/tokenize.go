@@ -77,8 +77,8 @@ func tokenize(r []rune) []token {
 					digits++
 				}
 			}
-			// postcodes (050006) and phone numbers are not address numbers
-			if digits >= 7 || (digits == 6 && text[0] == '0') {
+			// postcodes (050006, 100008) and phone numbers are not address numbers
+			if digits >= 6 {
 				t.ignore = true
 			}
 		}
