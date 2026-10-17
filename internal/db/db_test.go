@@ -14,6 +14,21 @@ func TestOpenRejectsBadDSN(t *testing.T) {
 	}
 }
 
+// docker-compose passes the credentials outside the URL, so any password the db accepts works.
+func TestOpenTakesCredentialsFromEnv(t *testing.T) {
+	t.Setenv("PGUSER", "jana")
+	t.Setenv("PGPASSWORD", "ab/cd#e?f%g@h:i")
+	t.Setenv("PGDATABASE", "jana")
+	pool, err := Open(context.Background(), "postgres://db:5432?sslmode=disable")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer pool.Close()
+	if c := pool.Config().ConnConfig; c.User != "jana" || c.Password != "ab/cd#e?f%g@h:i" || c.Database != "jana" {
+		t.Fatalf("user=%q password=%q database=%q", c.User, c.Password, c.Database)
+	}
+}
+
 func TestOpenIsLazy(t *testing.T) {
 	// Nothing listens on this port: Open must still succeed, only Ping fails.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -8,7 +8,8 @@
 //	synth        write the generated test set to stdout: synth -n 10000 -seed 1 [-format jury|gold]
 //	version      print the build version
 //
-// Environment: HTTP_ADDR, DATABASE_URL, OFFLINE (default true: never call stat.gov.kz),
+// Environment: HTTP_ADDR, DATABASE_URL (PGUSER, PGPASSWORD, PGDATABASE fill what it leaves out),
+// OFFLINE (default true: never call stat.gov.kz),
 // KATO_REFRESH_INTERVAL (default 168h), KATO_PAGE_URL.
 package main
 
