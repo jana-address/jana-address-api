@@ -189,4 +189,12 @@ func TestParseOne(t *testing.T) {
 		resp.Sources["house"] != "string" || resp.Sources["district"] != "absent" || resp.Status == "" {
 		t.Fatalf("resp = %+v", resp)
 	}
+	// no raw_address is a client error, as the spec says; an empty line is a valid request
+	for in, want := range map[string]int{`{}`: 400, `null`: 400, `{"rawAddress":"Абая 10"}`: 400, `{"raw_address":1}`: 400, `{"raw_address":""}`: 200} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/parse", strings.NewReader(in)))
+		if rec.Code != want {
+			t.Errorf("%s: code %d, want %d", in, rec.Code, want)
+		}
+	}
 }

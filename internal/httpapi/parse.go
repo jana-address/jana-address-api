@@ -199,14 +199,14 @@ type parseResponse struct {
 // parseOne parses a single line for the UI and also returns highlight spans and value sources.
 func (a *api) parseOne(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		RawAddress string `json:"raw_address"`
+		RawAddress *string `json:"raw_address"` // a pointer: {} and a misspelt key are an error, not an empty line
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&in); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&in); err != nil || in.RawAddress == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "expected {\"raw_address\": \"...\"}"})
 		return
 	}
-	raw, _ := json.Marshal(in.RawAddress)
-	o := parser.Parse(in.RawAddress)
+	raw, _ := json.Marshal(*in.RawAddress)
+	o := parser.Parse(*in.RawAddress)
 	resp := parseResponse{Result: addr.Result{RawAddress: raw}, Spans: o.Spans, Sources: map[string]string{}, Status: o.Status(), Suggestion: o.Suggest()}
 	o.Fill(&resp.Result)
 	if resp.Spans == nil {
