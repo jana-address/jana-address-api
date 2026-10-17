@@ -1,0 +1,158 @@
+package parser
+
+import "strings"
+
+func (st *state) classify() {
+	for i := range st.toks {
+		t := &st.toks[i]
+		if t.kind != tWord {
+			continue
+		}
+		// "шағын аудан(ы)" = микрорайон (two words)
+		if (t.fold == "шагын" || t.fold == "ыкшам") && i+1 < len(st.toks) && (st.toks[i+1].fold == "аудан" || st.toks[i+1].fold == "ауданы") {
+			t.mk = markers["мкр"]
+			st.toks[i+1].mk = t.mk
+			st.toks[i+1].used = true // second word is part of the marker
+			t.tail = 1
+			continue
+		}
+		// "тас жолы" = шоссе (two words)
+		if t.fold == "тас" && i+1 < len(st.toks) && st.toks[i+1].fold == fold("жолы") {
+			t.mk = markers["шоссе"]
+			st.toks[i+1].mk = t.mk
+			st.toks[i+1].used = true
+			t.tail = 1
+			continue
+		}
+		// ЖК written in several tokens: "ж.к.", "ж/к", "жилой комплекс", "тұрғын үй кешені"
+		if n := st.livingTail(i); n > 0 {
+			t.mk = markers["жк"]
+			t.tail = n
+			for k := i + 1; k <= i+n; k++ {
+				st.toks[k].used = true
+				st.toks[k].mk = nil
+			}
+			continue
+		}
+		if m, ok := markers[t.fold]; ok && t.mk == nil {
+			t.mk = m
+			if m.class == mNoise {
+				republic := t.fold == "республика"
+				if republic && !(i+1 < len(st.toks) && st.toks[i+1].fold == "казахстан") {
+					t.mk = nil
+				} else if i == 0 || st.toks[i-1].kind == tPunct || (st.toks[i-1].mk != nil && st.toks[i-1].mk.class == mNoise) {
+					t.used = true
+					continue
+				}
+				t.mk = nil
+			}
+		}
+		// typo in a long marker word: "подлъезд", "кваритра"; a typo right before a known city: "гролд актобе"
+		if t.mk == nil && !st.d.adminKnown(mCity, t.fold) {
+			if m := fuzzyMarker(t.fold); m != nil {
+				t.mk = m
+			} else if i+1 < len(st.toks) && st.d.adminKnown(mCity, st.toks[i+1].fold) &&
+				osaDistanceLimit([]rune(t.fold), []rune("город"), 2) <= 2 {
+				t.mk = markers["город"]
+			}
+		}
+		// an initial inside a street name: "ул. Д. Кунаева", "пр. С. Сейфуллина"
+		if len([]rune(t.text)) == 1 && st.isPunct(i+1, ".") && i+2 < len(st.toks) && st.toks[i+2].kind == tWord {
+			p := i - 1
+			for st.isPunct(p, ".") {
+				p--
+			}
+			if p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.class == mStreet {
+				t.mk = nil
+				continue
+			}
+		}
+		// "с." before a name is a village, otherwise a preposition; "с Отеген батыр" without a dot only before a known place
+		if t.fold == "с" && (st.isPunct(i+1, ".") || st.knownPlaceAt(i+1)) {
+			t.mk = &marker{class: mSettlement}
+		}
+		if t.fold == "кала" && t.mk != nil && !(i > 0 && st.toks[i-1].kind == tWord && st.d.knownCityWord(st.toks[i-1].fold)) {
+			t.mk = nil // "Жана кала" is a name
+		}
+		if t.fold == "п" {
+			j := i + 1
+			for st.isPunct(j, ".") {
+				j++
+			}
+			if j < len(st.toks) && st.toks[j].kind == tWord && markers[st.toks[j].fold] == nil {
+				t.mk = markers["пос"]
+			}
+		}
+	}
+}
+
+// knownPlaceAt reports whether a city or a classifier settlement of one or two words starts at i.
+func (st *state) knownPlaceAt(i int) bool {
+	if i >= len(st.toks) || st.toks[i].kind != tWord {
+		return false
+	}
+	k := st.toks[i].fold
+	if st.d.knownCityWord(k) {
+		return true
+	}
+	if i+1 < len(st.toks) && st.toks[i+1].kind == tWord {
+		return st.d.knownCityWord(k + " " + st.toks[i+1].fold)
+	}
+	return false
+}
+
+// livingTail returns how many tokens after i complete a multi-token ЖК marker.
+func (st *state) livingTail(i int) int {
+	at := func(k int, w string) bool { return k < len(st.toks) && st.toks[k].fold == fold(w) }
+	switch {
+	case at(i, "ж"):
+		if (st.isPunct(i+1, ".") || st.isPunct(i+1, "/")) && at(i+2, "к") {
+			if st.isPunct(i+3, ".") {
+				return 3
+			}
+			return 2
+		}
+	case at(i, "жилой"):
+		if i+1 < len(st.toks) && osaDistanceLimit([]rune(st.toks[i+1].fold), []rune("комплекс"), 2) <= 2 {
+			return 1
+		}
+	case at(i, "тұрғын"):
+		if at(i+1, "үй") && at(i+2, "кешені") {
+			return 2
+		}
+	}
+	return 0
+}
+
+// segment numbers tokens by ',', ';', brackets and a '/' between two words (bilingual pairs).
+func (st *state) segment() {
+	seg := 0
+	for i := range st.toks {
+		t := &st.toks[i]
+		if t.kind == tPunct {
+			sep := strings.Contains(",;()", t.text)
+			if t.text == "/" && !t.used && i > 0 && i+1 < len(st.toks) && st.toks[i-1].kind == tWord && st.toks[i+1].kind == tWord {
+				sep = true
+			}
+			if sep {
+				seg++
+				t.seg = -1
+				continue
+			}
+		}
+		t.seg = seg
+	}
+}
+
+func (st *state) segRange(seg int) (int, int) {
+	a, b := -1, -1
+	for i, t := range st.toks {
+		if t.seg == seg {
+			if a < 0 {
+				a = i
+			}
+			b = i
+		}
+	}
+	return a, b
+}

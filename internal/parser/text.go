@@ -88,3 +88,21 @@ func fold(s string) string {
 	}
 	return b.String()
 }
+
+func isLatin(s string) bool {
+	for _, r := range s {
+		if isLetter(r) {
+			return r < 0x250
+		}
+	}
+	return false
+}
+
+func hasLetter(s string) bool {
+	for _, r := range s {
+		if isLetter(r) {
+			return true
+		}
+	}
+	return false
+}
