@@ -56,10 +56,19 @@ func TestParseExamples(t *testing.T) {
 			City: "Актобе", Province: "Актюбинская область", House: "5", Apartment: "55", Entrance: "5"}},
 		{"алматы абая 15 кваритра 3", map[Field]string{City: "Алматы", StreetName: "абая", House: "15", Apartment: "3"}},
 		{"Астана, проспкт Республики 24, этж 3", map[Field]string{City: "Астана", StreetType: "проспект", StreetName: "Республики", House: "24", Floor: "3", Apartment: "-"}},
+		// typos in city names: canonical city + province
+		{"г. алматыы, ул. Абая 10", map[Field]string{City: "Алматы", Province: "Алматы", StreetName: "Абая", House: "10"}},
+		{"алматыы абая 10 кв 5", map[Field]string{City: "Алматы", Province: "Алматы", StreetName: "абая", House: "10", Apartment: "5"}},
+		{"город Караганды, ул. Ерубаева 5", map[Field]string{City: "Караганда", Province: "Карагандинская область"}},
+		{"г. Шымкнт, Тауке хана 20", map[Field]string{City: "Шымкент", Province: "Шымкент", StreetName: "Тауке хана", House: "20"}},
 		// real street names close to marker words must stay names
 		{"Райымбек 160", map[Field]string{StreetName: "Райымбек", House: "160"}},
 		{"Гоголя 5", map[Field]string{StreetName: "Гоголя", House: "5"}},
 		{"Магжана 7", map[Field]string{StreetName: "Магжана", House: "7"}},
+		{"Сатпаева 22", map[Field]string{StreetName: "Сатпаева", House: "22", City: "-"}},
+		{"Алматы, Сатпаева 22", map[Field]string{City: "Алматы", StreetName: "Сатпаева", House: "22"}},
+		{"Алматы, Сатпаева, 22", map[Field]string{City: "Алматы", House: "22"}},
+		{"алматыы, абая 10", map[Field]string{City: "Алматы", Province: "Алматы", StreetName: "абая", House: "10"}},
 		{"Ауэзова 12", map[Field]string{StreetName: "Ауэзова", House: "12"}},
 		{"ул. Сейфуллина 498", map[Field]string{StreetType: "улица", StreetName: "Сейфуллина", House: "498"}},
 	}

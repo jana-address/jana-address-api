@@ -261,7 +261,7 @@ func adminKnown(class mclass, k string) bool {
 		_, ok := districts[k]
 		return ok
 	}
-	_, ok := cities[k]
+	_, ok := lookupCity(k)
 	return ok
 }
 
@@ -370,7 +370,7 @@ func (st *state) admin() {
 		k := st.keyOf(a, b)
 		switch {
 		// 2. a segment that is just a known name: "Алматы", "Турксибский"
-		case clean && adminKnown(mCity, k):
+		case clean && (cities[k] != place{} || (seg == 0 && adminKnown(mCity, k))): // close spelling only in the first segment
 			st.setCity(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
 		case clean && strings.HasSuffix(k, "ий") && adminKnown(mDistrict, k):
@@ -384,6 +384,11 @@ func (st *state) admin() {
 					break
 				}
 				if t.kind != tWord || t.used || t.mk != nil || !adminKnown(mCity, t.fold) {
+					continue
+				}
+				// a close spelling counts only before another word: "алматыы абая 10" is a city,
+				// "Сатпаева 22" is a street (one letter from the town Сатпаев)
+				if _, exact := cities[t.fold]; !exact && (i+1 > b || st.toks[i+1].kind != tWord) {
 					continue
 				}
 				p := i - 1
@@ -401,7 +406,7 @@ func (st *state) admin() {
 }
 
 func (st *state) setCity(k, name string, a, b int) {
-	if p, ok := cities[k]; ok {
+	if p, ok := lookupCity(k); ok {
 		st.set(City, p.name, SourceString, a, b)
 		st.setDir(Province, p.province)
 		st.setDir(District, p.district)

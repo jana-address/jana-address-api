@@ -96,6 +96,44 @@ func fuzzyMarker(f string) *marker {
 	return best
 }
 
+// fuzzyLimit is the allowed number of typos for a word of n letters.
+func fuzzyLimit(n int) int {
+	switch {
+	case n < 5:
+		return 0
+	case n < 8:
+		return 1
+	}
+	return 2
+}
+
+// lookupCity finds a settlement by its exact key or, failing that, by a unique close spelling ("алматыы").
+func lookupCity(k string) (place, bool) {
+	if p, ok := cities[k]; ok {
+		return p, true
+	}
+	r := []rune(k)
+	limit := fuzzyLimit(len(r))
+	if limit == 0 {
+		return place{}, false
+	}
+	var best place
+	bestD, ambiguous := limit+1, false
+	for ck, p := range cities {
+		d := osaDistance(r, []rune(ck))
+		switch {
+		case d < bestD:
+			best, bestD, ambiguous = p, d, false
+		case d == bestD && p.name != best.name:
+			ambiguous = true
+		}
+	}
+	if bestD <= limit && !ambiguous {
+		return best, true
+	}
+	return place{}, false
+}
+
 // osaDistance is the optimal string alignment (Damerau-Levenshtein with adjacent transpositions).
 func osaDistance(a, b []rune) int {
 	if d := len(a) - len(b); d > 2 || d < -2 {
