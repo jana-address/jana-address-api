@@ -116,7 +116,7 @@ func initPlaces() {
 	addCity("Косшы", akm, "қосшы", "kosshy")
 	addCity("Бурабай", akm, "boravoe", "боровое", "burabay")
 	addCity("Шортанды", akm, "shortandy")
-	addCity("Аксу", pvl, "ақсу", "aksu")
+	addCity("Аксу", pvl, "ақсу", "aksu", "aqsu", "ермак") // Ермак until 1993
 	addCity("Лисаковск", kst, "lisakovsk")
 	addCity("Шамалган", alm, "шамалған", "shamalgan")
 	addCity("Иргели", alm, "іргелі", "irgeli")
@@ -126,6 +126,9 @@ func initPlaces() {
 	addCity("Аксукент", trk, "ақсукент", "aksukent")
 	baseCities[text.Key("Боралдай")] = Place{Name: "Боралдай", Province: alm, District: "Илийский"}
 	baseCities[text.Key("Бурундай")] = baseCities[text.Key("Боралдай")]
+	for _, a := range []string{"boralday", "boraldai", "burunday"} {
+		baseCities[text.Key(a)] = baseCities[text.Key("Боралдай")]
+	}
 	addCity("Атырау", atr, "гурьев")
 	addCity("Усть-Каменогорск", vko, "өскемен")
 	addCity("Риддер", vko, "лениногорск")
@@ -154,7 +157,7 @@ func initPlaces() {
 	// Latin and colloquial spellings
 	for name, aliases := range map[string][]string{
 		"Алматы": {"almaty", "alma-ata"}, "Астана": {"astana", "nur-sultan"}, "Шымкент": {"shymkent", "chimkent"},
-		"Актобе": {"aktobe", "aqtobe"}, "Караганда": {"karaganda", "karagandy", "qaragandy"}, "Атырау": {"atyrau"},
+		"Актобе": {"aktobe", "aqtobe", "aktyubinsk", "aktiubinsk"}, "Караганда": {"karaganda", "karagandy", "qaragandy"}, "Атырау": {"atyrau"},
 		"Актау": {"aktau", "aqtau"}, "Павлодар": {"pavlodar"}, "Костанай": {"kostanay", "kostanai", "qostanay"},
 		"Тараз": {"taraz"}, "Семей": {"semey", "semei"}, "Уральск": {"uralsk", "oral"}, "Кокшетау": {"kokshetau"},
 		"Туркестан": {"turkestan", "turkistan"}, "Кызылорда": {"kyzylorda", "qyzylorda"},

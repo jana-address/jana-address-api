@@ -186,6 +186,7 @@ func (st *state) admin() {
 			st.markUsed(a, b)
 		default:
 			// 3. a known city inside a street segment: "Алматы Сатпаева 5", "050000 Алматы ул Абая 10"
+			st.cityPair(a, b)
 			for i := a; i <= b; i++ {
 				t := st.toks[i]
 				if t.kind != tWord || t.used || t.mk != nil || (!st.d.AdminKnown(dict.City, t.fold) && i != 0) {
@@ -216,6 +217,32 @@ func (st *state) admin() {
 				st.toks[i].used = true
 			}
 		}
+	}
+}
+
+// cityPair reads a city of two words that opens part a..b of the line before more words:
+// "Отеген батыр ул. Центральная 105", "новый узень абая 5", but not before a postfix street type.
+// A close spelling counts only at the start of the line ("отеген баатыр"), and the name written twice
+// is read once ("Отеген батыр Отеген батыр …").
+func (st *state) cityPair(a, b int) {
+	if st.vals[City] != "" || a+2 > b || !st.typoCityBefore(a+1) || st.postfixStreetAt(a+2) {
+		return // "Өтеген батыр көшесі 25" is a street
+	}
+	for i := a; i <= a+1; i++ {
+		if t := st.toks[i]; t.kind != tWord || t.used || t.mk != nil {
+			return
+		}
+	}
+	k := st.keyOf(a, a+1)
+	if st.d.Cities[k] == (dict.Place{}) {
+		if _, ok := st.d.LookupCity(k); !ok || a != 0 {
+			return
+		}
+	}
+	st.setCity(k, st.text(a, a+1), a, a+1, false)
+	st.markUsed(a, a+1)
+	if a+3 <= b && st.toks[a+2].kind == tWord && st.toks[a+3].kind == tWord && st.keyOf(a+2, a+3) == k {
+		st.markUsed(a+2, a+3)
 	}
 }
 

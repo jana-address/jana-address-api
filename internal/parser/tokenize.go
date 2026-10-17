@@ -259,11 +259,15 @@ func splitWord(d *dict.Directory, r []rune, s, e int, afterCity bool) []token {
 		}
 	}
 	// 3. a city with one typo at the start: "асстанаакжол", "шпмалғанул"; not for adjectives like "Алматинская"
+	// and not before a preposition: "Ермекво" is a name, not "Ермак во"
 	for p := e - 1; p >= s+5 && !exactCity && !afterCity; p-- {
 		left, rest := text.Fold(string(r[s:p])), text.Fold(string(r[p:e]))
 		var buf [text.MaxFuzzyLen]rune
 		lr := text.ToRunes(left, buf[:0])
 		if len(lr) >= text.MaxFuzzyLen || !restOK(rest) || adjectiveWord(rest) && !startsWithCityWord(rest) {
+			continue
+		}
+		if m := dict.Markers[rest]; m != nil && m.Class == dict.Landmark && len([]rune(rest)) <= 2 {
 			continue
 		}
 		if d.NearCity(lr) {

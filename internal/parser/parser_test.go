@@ -190,6 +190,14 @@ func TestParseExamples(t *testing.T) {
 		{"астана жк green quarter ул. жанибек хандар 21", map[Field]string{LivingArea: "green quarter", StreetName: "жанибек хандар", House: "21"}},
 		{"г. Шымкент жк Мирас ул.джангельдина д.30 кв 117", map[Field]string{LivingArea: "Мирас", StreetName: "джангельдина", House: "30"}},
 		{"г алматы жк. нурлы тау просп. абылай хана д55", map[Field]string{LivingArea: "нурлы тау", StreetType: "проспект", StreetName: "абылай хана", House: "55"}},
+		// old and Latin names; a city of two words without "г."; a street named like a town stays a street
+		{"aktyubinsk, ул. Маресьева 12", map[Field]string{City: "Актобе", Province: "Актюбинская область", StreetName: "Маресьева"}},
+		{"Ермак ул. Ленина 3 кв 7", map[Field]string{City: "Аксу", Province: "Павлодарская область", StreetName: "Ленина"}},
+		{"boralday Аймауытова 15", map[Field]string{City: "Боралдай", StreetName: "Аймауытова", House: "15"}},
+		{"Отеген батыр ул. Сейфуллина 8", map[Field]string{City: "Отеген батыр", StreetName: "Сейфуллина", House: "8"}},
+		{"новый узень Сатпаева 5 кв 3", map[Field]string{City: "Жанаозен", StreetName: "Сатпаева", House: "5"}},
+		{"Өтеген батыр көшесі 14", map[Field]string{City: "-", StreetType: "улица", StreetName: "Өтеген батыр", House: "14"}},
+		{"Ермекво 12 кв 5", map[Field]string{City: "-", StreetName: "Ермекво", House: "12"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
