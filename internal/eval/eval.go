@@ -60,6 +60,7 @@ type Failure struct{ ID, Raw, Field, Want, Got string }
 type Report struct {
 	Fields   map[string]*Counter
 	Groups   map[string]*Counter
+	Tags     map[string]*Counter // records with all scored fields right, per tag
 	Score    float64
 	Failures []Failure
 	Records  int
@@ -91,7 +92,7 @@ func Load(path string) ([]Gold, error) {
 
 // Score runs predict on every gold record and scores it.
 func Score(gold []Gold, predict func(raw string) map[string]string) Report {
-	rep := Report{Fields: map[string]*Counter{}, Groups: map[string]*Counter{}, Records: len(gold)}
+	rep := Report{Fields: map[string]*Counter{}, Groups: map[string]*Counter{}, Tags: map[string]*Counter{}, Records: len(gold)}
 	for _, g := range [][]string{AddrFields, DetailFields, RefFields, InfoFields} {
 		for _, f := range g {
 			rep.Fields[f] = &Counter{}
@@ -102,6 +103,7 @@ func Score(gold []Gold, predict func(raw string) map[string]string) Report {
 	}
 	for _, g := range gold {
 		pred := predict(g.Raw)
+		before := len(rep.Failures)
 		inStr := map[string]bool{}
 		for _, f := range g.InString {
 			inStr[f] = true
@@ -144,6 +146,23 @@ func Score(gold []Gold, predict func(raw string) map[string]string) Report {
 		for _, f := range InfoFields {
 			check("", f)
 		}
+		ok := true
+		for _, f := range rep.Failures[before:] {
+			if f.Field != "street_type" && f.Field != "landmark" {
+				ok = false
+			}
+		}
+		for _, tag := range g.Tags {
+			c := rep.Tags[tag]
+			if c == nil {
+				c = &Counter{}
+				rep.Tags[tag] = c
+			}
+			c.Total++
+			if ok {
+				c.Correct++
+			}
+		}
 	}
 	rep.Score = 0.60*rep.Groups["addr"].Acc() + 0.25*rep.Groups["detail"].Acc() + 0.15*rep.Groups["ref"].Acc()
 	return rep
@@ -161,7 +180,19 @@ func (r Report) String() string {
 	sort.Strings(names)
 	for _, f := range names {
 		c := r.Fields[f]
-		fmt.Fprintf(&b, "  %-12s %3d/%-3d %.3f\n", f, c.Correct, c.Total, c.Acc())
+		fmt.Fprintf(&b, "  %-12s %5d/%-5d %.3f\n", f, c.Correct, c.Total, c.Acc())
+	}
+	if len(r.Tags) > 0 {
+		tags := make([]string, 0, len(r.Tags))
+		for t := range r.Tags {
+			tags = append(tags, t)
+		}
+		sort.Slice(tags, func(i, j int) bool { return r.Tags[tags[i]].Acc() < r.Tags[tags[j]].Acc() })
+		b.WriteString("  records fully right, by tag (worst first):\n")
+		for _, t := range tags {
+			c := r.Tags[t]
+			fmt.Fprintf(&b, "    %-15s %5d/%-5d %.3f\n", t, c.Correct, c.Total, c.Acc())
+		}
 	}
 	return b.String()
 }

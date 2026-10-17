@@ -174,6 +174,17 @@ func (st *state) classify() {
 			t.mk = markers["мкр"]
 			st.toks[i+1].mk = t.mk
 			st.toks[i+1].used = true // second word is part of the marker
+			t.tail = 1
+			continue
+		}
+		// ЖК written in several tokens: "ж.к.", "ж/к", "жилой комплекс", "тұрғын үй кешені"
+		if n := st.livingTail(i); n > 0 {
+			t.mk = markers["жк"]
+			t.tail = n
+			for k := i + 1; k <= i+n; k++ {
+				st.toks[k].used = true
+				st.toks[k].mk = nil
+			}
 			continue
 		}
 		if m, ok := markers[t.fold]; ok && t.mk == nil {
@@ -222,6 +233,29 @@ func (st *state) classify() {
 	}
 }
 
+// livingTail returns how many tokens after i complete a multi-token ЖК marker.
+func (st *state) livingTail(i int) int {
+	at := func(k int, w string) bool { return k < len(st.toks) && st.toks[k].fold == fold(w) }
+	switch {
+	case at(i, "ж"):
+		if (st.isPunct(i+1, ".") || st.isPunct(i+1, "/")) && at(i+2, "к") {
+			if st.isPunct(i+3, ".") {
+				return 3
+			}
+			return 2
+		}
+	case at(i, "жилой"):
+		if i+1 < len(st.toks) && osaDistance([]rune(st.toks[i+1].fold), []rune("комплекс")) <= 2 {
+			return 1
+		}
+	case at(i, "тұрғын"):
+		if at(i+1, "үй") && at(i+2, "кешені") {
+			return 2
+		}
+	}
+	return 0
+}
+
 // segment numbers tokens by ',', ';', brackets and a '/' between two words (bilingual pairs).
 func (st *state) segment() {
 	seg := 0
@@ -229,7 +263,7 @@ func (st *state) segment() {
 		t := &st.toks[i]
 		if t.kind == tPunct {
 			sep := strings.Contains(",;()", t.text)
-			if t.text == "/" && i > 0 && i+1 < len(st.toks) && st.toks[i-1].kind == tWord && st.toks[i+1].kind == tWord {
+			if t.text == "/" && !t.used && i > 0 && i+1 < len(st.toks) && st.toks[i-1].kind == tWord && st.toks[i+1].kind == tWord {
 				sep = true
 			}
 			if sep {
@@ -259,7 +293,7 @@ func (st *state) segRange(seg int) (int, int) {
 var postfixAdmin = map[string]bool{}
 
 func init() {
-	for _, w := range []string{"қаласы", "қалас", "ауданы", "аудан", "облысы", "район", "р-н", "рн", "область", "обл", "обл-ть", "ауылы", "ауыл"} {
+	for _, w := range []string{"қаласы", "қалас", "ауданы", "аудан", "облысы", "район", "р-н", "рн", "область", "обл", "обл-ть", "ауылы", "ауыл", "ауд", "қ"} {
 		postfixAdmin[fold(w)] = true
 	}
 }
@@ -318,9 +352,21 @@ func (st *state) adminName(m int) (int, int) {
 	fa, fb := st.wordRun(m, +1)
 	ba, bb := st.wordRun(m, -1)
 	backward := ba >= 0 && (postfixAdmin[st.toks[m].fold] || fa < 0)
+	fwdKnown := func() bool {
+		for b := fb; fa >= 0 && b >= fa; b-- {
+			if adminKnown(class, st.keyOf(fa, b)) {
+				return true
+			}
+		}
+		return false
+	}
 	if backward {
 		for a := ba; a <= bb; a++ {
-			if adminKnown(class, st.keyOf(a, bb)) {
+			k := st.keyOf(a, bb)
+			if _, city := cities[k]; city && class == mDistrict && fwdKnown() {
+				break
+			}
+			if adminKnown(class, k) {
 				return a, bb
 			}
 		}
@@ -387,10 +433,10 @@ func (st *state) admin() {
 		for a <= b && (st.toks[a].used || (st.toks[a].kind == tNum && st.toks[a].ignore) || st.isPunct(a, ".")) {
 			a++
 		}
-		if a > b || st.toks[a].kind != tWord {
+		if a > b {
 			continue
 		}
-		clean := true // only unmarked words, no numbers
+		clean := st.toks[a].kind == tWord // only unmarked words, no numbers
 		for i := a; i <= b; i++ {
 			t := st.toks[i]
 			if t.used || t.kind == tNum || (t.kind == tWord && t.mk != nil) {
@@ -418,7 +464,7 @@ func (st *state) admin() {
 				}
 				// a close spelling counts only before another word: "алматыы абая 10" is a city,
 				// "Сатпаева 22" is a street (one letter from the town Сатпаев)
-				if _, exact := cities[t.fold]; !exact && (i+1 > b || st.toks[i+1].kind != tWord) {
+				if _, exact := cities[t.fold]; !exact && i+1 <= b && st.toks[i+1].kind != tWord {
 					continue
 				}
 				p := i - 1
@@ -512,7 +558,14 @@ func (st *state) units() {
 		for st.isPunct(p, ".") {
 			p--
 		}
-		return p >= 0 && st.toks[p].kind == tWord && st.toks[p].mk == nil
+		if p < 0 || st.toks[p].kind != tWord {
+			return false
+		}
+		if st.toks[p].mk == nil {
+			return true
+		}
+		// a postfix street type after its name: "Естай көшесі 38 кв. 37"
+		return st.toks[p].mk.class == mStreet && p > 0 && st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil
 	}
 	// 1. glued: "11дом", "4подьезд", "кв12"
 	for _, m := range ms {
@@ -664,7 +717,7 @@ func (st *state) laterNumberExists(i int) bool {
 
 // collectForward reads a street name after a type marker: "ул. Курильская", "Мкр Аксай 3а".
 func (st *state) collectForward(m int, typ string) (int, int) {
-	j := m + 1
+	j := m + 1 + st.toks[m].tail
 	for st.isPunct(j, ".\"") {
 		j++
 	}
@@ -686,13 +739,16 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 			if typ == "жилой комплекс" && a >= 0 && isLatin(st.toks[b].text) != isLatin(t.text) {
 				return a, b
 			}
+			if !realStreetTypes[typ] && a >= 0 && st.postfixStreetAt(k+1) {
+				return a, b
+			}
 		case tNum:
 			if t.ignore {
 				return a, b
 			}
 			if numberedAreaTypes[typ] {
 				hyphened := a >= 0 && st.isPunct(k-1, "-") && glued(st.toks[k-1], t) // "Самал-2"
-				if !(hyphened || st.laterNumberExists(k) || hasLetter(t.text)) {
+				if !(hyphened || st.laterNumberExists(k)) {
 					return a, b
 				}
 				if a < 0 {
@@ -701,7 +757,8 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 				return a, k
 			}
 			// "ул. 8 Марта": a number right after the type followed by a word
-			if a < 0 && k+1 < len(st.toks) && st.toks[k+1].kind == tWord && st.toks[k+1].mk == nil {
+			if a < 0 && k+1 < len(st.toks) && st.toks[k+1].kind == tWord && st.toks[k+1].mk == nil && !st.toks[k+1].used &&
+				!adminKnown(mCity, st.toks[k+1].fold) {
 				break
 			}
 			return a, b
@@ -737,10 +794,13 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 		case tNum:
 			ok = numberedAreaTypes[typ] && !t.ignore
 		case tPunct:
-			ok = t.text == "-" && a >= 0
+			ok = t.text == "-" && a >= 0 || strings.Contains("\"«»", t.text)
 		}
 		if !ok {
 			break
+		}
+		if t.kind == tPunct && t.text != "-" {
+			continue // a quote around the name
 		}
 		if b < 0 {
 			b = k
@@ -748,6 +808,12 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 		a = k
 	}
 	return a, b
+}
+
+// postfixStreetAt reports whether a real street type word starts at i: "көшесі", "көш.", "ул.".
+func (st *state) postfixStreetAt(i int) bool {
+	return i < len(st.toks) && st.toks[i].kind == tWord && !st.toks[i].used && st.toks[i].mk != nil &&
+		st.toks[i].mk.class == mStreet && realStreetTypes[st.toks[i].mk.canon]
 }
 
 func isLatin(s string) bool {
@@ -778,6 +844,9 @@ func (st *state) street() {
 		typ := t.mk.canon
 		c := cand{typ: typ, mk: i, isLiving: t.mk.class == mLiving}
 		c.a, c.b = st.collectForward(i, typ)
+		if numberedAreaTypes[typ] && st.availNum(i-1) && c.a >= 0 && c.a == c.b && st.toks[c.a].kind == tNum {
+			c.a = -1 // "6 шағын ауданы 10": 6 is the area, 10 the house
+		}
 		if c.a < 0 {
 			c.a, c.b = st.collectBackward(i, typ)
 		}
@@ -841,7 +910,7 @@ func (st *state) street() {
 	}
 }
 
-// untypedStreet finds words followed by a house number ("Кулманова 133", "Назарбаева8").
+// untypedStreet finds words followed by a house number ("Кулманова 133", "Назарбаева8", "майлин д 10", "саина, 84").
 func (st *state) untypedStreet() bool {
 	for i := 0; i < len(st.toks); i++ {
 		t := st.toks[i]
@@ -865,7 +934,11 @@ func (st *state) untypedStreet() bool {
 		for st.isPunct(h, ".") {
 			h++
 		}
-		if st.availNum(h) {
+		// a whole part of the line may be the street: "алматы, саина, 84"
+		if st.isPunct(h, ",") && (i == 0 || st.toks[i-1].kind == tPunct || st.toks[i-1].used) {
+			h++
+		}
+		if st.availNum(h) || st.houseAt(h) {
 			st.set(StreetName, st.text(i, j), SourceString, i, j)
 			st.markUsed(i, j)
 			st.streetE = j + 1
@@ -874,6 +947,19 @@ func (st *state) untypedStreet() bool {
 		i = j
 	}
 	return false
+}
+
+// houseAt reports whether a house marker or the bound house number starts at i: "д 10", "д72", "41үй".
+func (st *state) houseAt(i int) bool {
+	if i < 0 || i >= len(st.toks) {
+		return false
+	}
+	t := st.toks[i]
+	if t.kind == tWord && t.mk != nil && t.mk.class == mHouse {
+		return true
+	}
+	h, ok := st.vals[House]
+	return ok && t.kind == tNum && t.used && compactNum(t.text) == h
 }
 
 func (st *state) house() {

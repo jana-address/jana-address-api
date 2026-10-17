@@ -22,6 +22,7 @@ type token struct {
 	mk     *marker
 	used   bool
 	seg    int
+	tail   int // following tokens that belong to this marker
 }
 
 func isLetter(r rune) bool { return unicode.IsLetter(r) }
@@ -52,10 +53,11 @@ func tokenize(r []rune) []token {
 			for j < n && isDigit(r[j]) {
 				j++
 			}
-			if singleLetterAt(r, j) && !strings.ContainsRune("дД", r[j]) { // "55д" is "55 дом"
+			if singleLetterAt(r, j) && (r[j] != 'д' || afterHouseMarker(r, i)) { // "55д" is "55 дом", "11Д" and "д 11д" keep the letter
 				j++
-			} else if j+1 < n && r[j] == ' ' && singleLetterAt(r, j+1) && unicode.Is(unicode.Cyrillic, r[j+1]) &&
-				(j+2 == n || r[j+2] == ',' || (r[j+2] == ' ' && (strings.ContainsRune("аАбБ", r[j+1]) || (!strings.ContainsRune("иИ", r[j+1]) && markerAt(r, j+3))))) {
+			} else if j+1 < n && r[j] == ' ' && singleLetterAt(r, j+1) &&
+				(j+2 == n || r[j+2] == ',' || (j+3 < n && r[j+2] == ' ' && r[j+3] == ',') ||
+					(r[j+2] == ' ' && (strings.ContainsRune("аАбБ", r[j+1]) || (!strings.ContainsRune("иИ", r[j+1]) && markerAt(r, j+3))))) {
 				j += 2 // "10 а", "162 ж кв 15" -> "10а", "162ж" ("10 в подъезде" keeps the preposition)
 			}
 			// fraction: "55/6", "208 / 2"
@@ -103,6 +105,23 @@ func tokenize(r []rune) []token {
 		i = j
 	}
 	return toks
+}
+
+// afterHouseMarker reports whether the number starting at r[i] follows "д", "дом", "үй" or "d".
+func afterHouseMarker(r []rune, i int) bool {
+	j := i
+	for j > 0 && (r[j-1] == ' ' || r[j-1] == '.') {
+		j--
+	}
+	k := j
+	for k > 0 && isLetter(r[k-1]) {
+		k--
+	}
+	if k == j {
+		return false
+	}
+	m, ok := markers[fold(string(r[k:j]))]
+	return ok && m.class == mHouse
 }
 
 // markerAt reports whether a marker word starts at r[i]: "кв", "подъезд", "эт".

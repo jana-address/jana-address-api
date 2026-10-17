@@ -44,27 +44,27 @@ func addMarkers(class mclass, canon string, forms ...string) {
 }
 
 func init() {
-	addMarkers(mHouse, "", "д", "дом", "үй", "уй", "house", "dom", "d")
-	addMarkers(mApartment, "", "кв", "квартира", "кварт", "квартра", "кв-ра", "пәтер", "flat", "kv", "apt", "apartment", "оф", "офис")
+	addMarkers(mHouse, "", "д", "дом", "домм", "дм", "үй", "уй", "house", "dom", "d")
+	addMarkers(mApartment, "", "кв", "квартира", "кварт", "квартра", "кв-ра", "пәтер", "flat", "kv", "квю", "apt", "apartment", "оф", "офис", "office", "ofis")
 	addMarkers(mEntrance, "", "подъезд", "подьезд", "подезд", "падезд", "под", "пд", "кіреберіс", "entrance", "ent", "pod", "podezd", "podyezd")
-	addMarkers(mFloor, "", "этаж", "етаж", "этж", "етж", "эт", "қабат", "floor", "fl", "etazh", "etaj")
+	addMarkers(mFloor, "", "этаж", "етаж", "этж", "етж", "эт", "қабат", "floor", "fl", "etazh", "etaj", "et")
 
 	addMarkers(mStreet, "улица", "ул", "улица", "улца", "улиц", "уица", "ulitsa", "ulica", "көшесі", "көш", "street", "st", "ul", "ulica")
-	addMarkers(mStreet, "проспект", "пр", "пр-т", "просп", "проспект", "даңғылы", "даңғ", "avenue", "ave", "pr", "prospekt", "prosp", "dangyly")
-	addMarkers(mStreet, "микрорайон", "мкр", "мкрн", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "mkrn", "mikrorayon", "mikroraion", "microdistrict")
+	addMarkers(mStreet, "проспект", "пр", "пр-т", "просп", "проспект", "даңғылы", "даңғ", "avenue", "ave", "pr", "prospekt", "prosp", "pr-t", "пр-кт", "dangyly", "даң")
+	addMarkers(mStreet, "микрорайон", "мкр", "мкп", "мкрн", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "mkrn", "mikrorayon", "mikroraion", "microdistrict")
 	addMarkers(mStreet, "квартал", "квартал", "кв-л", "квл", "kvartal")
 	addMarkers(mStreet, "переулок", "пер", "переулок", "пер-к", "тұйық", "pereulok", "per")
-	addMarkers(mStreet, "бульвар", "б-р", "бульвар", "бул")
-	addMarkers(mStreet, "шоссе", "шоссе")
+	addMarkers(mStreet, "бульвар", "б-р", "бульвар", "бул", "bulvar", "bul")
+	addMarkers(mStreet, "шоссе", "шоссе", "ш", "shosse")
 	addMarkers(mStreet, "трасса", "трасса")
 	addMarkers(mLiving, "жилой комплекс", "жк", "zhk", "jk")
 
-	addMarkers(mCity, "", "г", "город", "гор", "қаласы", "kalasy")
+	addMarkers(mCity, "", "г", "город", "гор", "қаласы", "қ", "kalasy")
 	addMarkers(mSettlement, "", "пос", "поселок", "пгт", "село", "ауыл", "аул", "ауылы")
-	addMarkers(mDistrict, "", "район", "р-н", "рн", "ауданы", "аудан")
+	addMarkers(mDistrict, "", "район", "р-н", "рн", "ауданы", "аудан", "ауд")
 	addMarkers(mRegion, "", "область", "обл", "облысы", "обл-ть")
 
-	addMarkers(mBlock, "", "корпус", "корп", "блок", "строение", "стр", "block")
+	addMarkers(mBlock, "", "корпус", "корп", "блок", "строение", "стр", "block", "korp", "korpus", "blok")
 	addMarkers(mNoise, "", "казахстан", "қазақстан", "рк", "республика", "kz", "kazakhstan")
 	addMarkers(mLandmark, "", "магазин", "маг", "тц", "трц", "тд", "рынок", "базар", "школа", "мектеп", "садик",
 		"напротив", "возле", "около", "рядом", "остановка", "аялдама", "qazpost", "казпочта", "аптека", "кафе",
@@ -74,7 +74,7 @@ func init() {
 }
 
 // fuzzyForms are long marker words that are often mistyped ("подлъезд", "кваритра", "микрорайно").
-var fuzzyForms = []string{"подъезд", "квартира", "микрорайон", "проспект", "переулок", "улица", "квартал",
+var fuzzyForms = []string{"подъезд", "квартира", "бульвар", "корпус", "микрорайон", "проспект", "переулок", "улица", "квартал",
 	"город", "район", "область", "облысы", "қаласы", "ауданы", "көшесі", "даңғылы", "этаж", "магазин", "поселок"}
 
 // fuzzyMarker finds a marker within a small edit distance: 1 for words of 5–7 letters, 2 for longer ones.
@@ -254,7 +254,7 @@ func initPlaces() {
 	addRegion(krg, "карагандинская", "қарағанды")
 	addRegion(kst, "костанайская", "қостанай")
 	addRegion(kzo, "кызылординская", "қызылорда")
-	addRegion(mng, "мангистауская", "маңғыстау")
+	addRegion(mng, "мангистауская", "мангыстауская", "маңғыстау")
 	addRegion(pvl, "павлодарская", "павлодар")
 	addRegion(sko, "северо-казахстанская", "солтүстік қазақстан", "ско")
 	addRegion(trk, "туркестанская", "түркістан", "юко", "южно-казахстанская")
@@ -271,7 +271,19 @@ func initPlaces() {
 	addCity("Конаев", alm, "қонаев", "капшагай", "қапшағай")
 	addCity("Талгар", alm)
 	addCity("Каскелен", alm, "қаскелең")
-	addCity("Есик", alm, "есік")
+	addCity("Есик", alm, "есік", "esik", "issyk", "yesik", "иссык")
+	addCity("Щучинск", akm, "щучье", "shchuchinsk")
+	addCity("Косшы", akm, "қосшы", "kosshy")
+	addCity("Бурабай", akm, "boravoe", "боровое", "burabay")
+	addCity("Шортанды", akm, "shortandy")
+	addCity("Аксу", pvl, "ақсу", "aksu")
+	addCity("Лисаковск", kst, "lisakovsk")
+	addCity("Шамалган", alm, "шамалған", "shamalgan")
+	addCity("Иргели", alm, "іргелі", "irgeli")
+	addCity("Узынагаш", alm, "ұзынағаш", "uzynagash")
+	addCity("Отеген батыр", alm, "өтеген батыр", "otegen batyr")
+	addCity("Кордай", zhm, "қордай", "korday")
+	addCity("Аксукент", trk, "ақсукент", "aksukent")
 	cities[key("Боралдай")] = place{name: "Боралдай", province: alm, district: "Илийский"}
 	cities[key("Бурундай")] = cities[key("Боралдай")]
 	addCity("Атырау", atr, "гурьев")
@@ -309,6 +321,17 @@ func initPlaces() {
 		"Петропавловск": {"petropavlovsk", "petropavl"}, "Талдыкорган": {"taldykorgan", "taldyqorgan"},
 		"Усть-Каменогорск": {"ust-kamenogorsk", "oskemen", "усть-каман", "устькаман", "уска"},
 		"Экибастуз":        {"ekibastuz"}, "Темиртау": {"temirtau"}, "Конаев": {"konaev", "qonaev"}, "Жезказган": {"zhezkazgan"},
+	} {
+		for _, a := range aliases {
+			cities[key(a)] = cities[key(name)]
+		}
+	}
+
+	for name, aliases := range map[string][]string{
+		"Тараз": {"dzhambul", "zhambyl"}, "Атырау": {"guryev"}, "Семей": {"semipalatinsk"}, "Конаев": {"kapshagay"},
+		"Жанаозен": {"zhanaozen"}, "Сатпаев": {"satpaev", "satbayev"}, "Степногорск": {"stepnogorsk"}, "Риддер": {"ridder"},
+		"Кентау": {"kentau"}, "Рудный": {"rudny", "rudnyi", "rudnyy"}, "Балхаш": {"balkhash", "balqash"}, "Талгар": {"talgar"},
+		"Каскелен": {"kaskelen", "qaskelen"},
 	} {
 		for _, a := range aliases {
 			cities[key(a)] = cities[key(name)]
