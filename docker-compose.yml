@@ -44,7 +44,7 @@ services:
     stop_grace_period: 40s  # longer than the server's 30 s shutdown, so a running batch can finish
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started  # parsing needs no database: the KATO copy in it syncs in the background
     environment:
       HTTP_ADDR: ":8080"
       # Credentials stay out of the URL: pgx reads PGUSER/PGPASSWORD/PGDATABASE, so a password with

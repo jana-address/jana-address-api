@@ -26,7 +26,7 @@ func TestHealth(t *testing.T) {
 		wantReady  int
 	}{
 		{"db up", fakeDB{}, "ok", "ok", http.StatusOK},
-		{"db down", fakeDB{err: errors.New("down")}, "degraded", "down", http.StatusServiceUnavailable},
+		{"db down", fakeDB{err: errors.New("down")}, "degraded", "down", http.StatusOK}, // parsing needs no database
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

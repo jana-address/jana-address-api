@@ -18,3 +18,7 @@ Dockerfile
 bin
 dist
 db
+
+# generated test sets: cmd/synth recreates them, the image build does not need them
+testdata/synth/synth_*.jsonl
+testdata/synth/synth_*_input.json

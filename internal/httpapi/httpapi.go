@@ -63,12 +63,9 @@ func (a *api) livez(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte("ok\n"))
 }
 
-// readyz: the API can serve requests, i.e. the database answers.
-func (a *api) readyz(w http.ResponseWriter, r *http.Request) {
-	if !a.dbOK(r.Context()) {
-		http.Error(w, "database unavailable", http.StatusServiceUnavailable)
-		return
-	}
+// readyz: the API can parse. The directories are built into the binary and loaded before the
+// server listens, so parsing never waits for the database; its state is in /api/v1/health.
+func (a *api) readyz(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, _ = w.Write([]byte("ok\n"))
 }
