@@ -56,8 +56,8 @@ func (st *state) osmStreet(ref *dict.OSMRef, city string) (key, typ string, s di
 }
 
 // districtFromStreets restores the district of a city address from the OSM directory: the building
-// when the street crosses a district border, else the street when most of it lies in one district,
-// else the microdistrict or living area.
+// when the street crosses a district border, else its neighbours on the same side of the street, else
+// the street when most of it lies in one district, else the microdistrict or living area.
 func (st *state) districtFromStreets(ref *dict.OSMRef, city string) {
 	if ref.Streets[city] == nil {
 		return
@@ -66,6 +66,10 @@ func (st *state) districtFromStreets(ref *dict.OSMRef, city string) {
 		if h, ok := st.vals[House]; ok {
 			if d, ok := ref.House(city, k, typ, h); ok {
 				st.setDir(District, d, LevelHouse)
+				return
+			}
+			if d, ok := ref.Neighbors(city, k, typ, h); ok { // "Розыбакиева 241" between 237 and 247
+				st.setDir(District, d, LevelNeighbors)
 				return
 			}
 		}

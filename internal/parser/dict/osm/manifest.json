@@ -177,26 +177,32 @@
       "Алматы": {
         "accuracy": 0.988,
         "addresses": 12858,
-        "coverage": 0.879,
-        "restored": 11300,
-        "right": 11165
+        "by_neighbors": 11066,
+        "by_street": 1393,
+        "coverage": 0.969,
+        "restored": 12459,
+        "right": 12314
       },
       "Астана": {
-        "accuracy": 0.992,
+        "accuracy": 0.993,
         "addresses": 2998,
-        "coverage": 0.932,
-        "restored": 2794,
-        "right": 2771
+        "by_neighbors": 2332,
+        "by_street": 609,
+        "coverage": 0.981,
+        "restored": 2941,
+        "right": 2919
       },
       "Шымкент": {
-        "accuracy": 0.982,
+        "accuracy": 0.976,
         "addresses": 9215,
-        "coverage": 0.812,
-        "restored": 7478,
-        "right": 7347
+        "by_neighbors": 7720,
+        "by_street": 969,
+        "coverage": 0.943,
+        "restored": 8689,
+        "right": 8477
       }
     },
-    "method": "every tenth building (by hash) is left out of the votes, then its district is restored from the street alone"
+    "method": "every tenth building (by hash) is left out; its district is restored from the nearest numbers on its side of the street (without any building of that number), else from the street when at least min_street_share of it lies in one district"
   },
   "license": "ODbL 1.0, © OpenStreetMap contributors",
   "min_street_share": 0.75,

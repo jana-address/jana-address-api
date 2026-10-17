@@ -191,7 +191,7 @@ type parseResponse struct {
 	Result  addr.Result       `json:"result"`
 	Spans   []parser.Span     `json:"spans"`
 	Sources map[string]string `json:"sources"`
-	// Levels says how each directory value was matched: house, street, area, settlement, district.
+	// Levels says how each directory value was matched: house, neighbors, street, area, settlement, district.
 	Levels map[string]string `json:"levels"`
 	Status string            `json:"status"`
 	// Suggestion is the address in a clean form ("Астана, проспект Мәңгілік Ел, д. 55") for the hint under the input.

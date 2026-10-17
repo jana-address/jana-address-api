@@ -30,9 +30,10 @@ const AnyType = "*"
 
 // OSMRef holds the street directory, keyed by the canonical city name, StreetKey and the street type.
 type OSMRef struct {
-	Streets map[string]map[string]StreetRef // key + "\x00" + type (or AnyType)
-	Houses  map[string]map[string]string    // key + "\x00" + type + "\x00" + HouseKey -> district, streets across a border
-	Areas   map[string]map[string]StreetRef // area key
+	Streets map[string]map[string]StreetRef  // key + "\x00" + type (or AnyType)
+	Houses  map[string]map[string]string     // key + "\x00" + type + "\x00" + HouseKey -> district, streets across a border
+	Areas   map[string]map[string]StreetRef  // area key
+	Numbers map[string]map[string][]Numbered // key + "\x00" + type -> the same buildings by number
 }
 
 // Street finds a street by its key and type ("улица", "проспект" or AnyType).
@@ -45,6 +46,16 @@ func (r *OSMRef) Street(city, key, typ string) (StreetRef, bool) {
 func (r *OSMRef) House(city, key, typ, house string) (string, bool) {
 	d, ok := r.Houses[city][key+"\x00"+typ+"\x00"+HouseKey(house)]
 	return d, ok
+}
+
+// Neighbors returns the district of a house the map does not know from the nearest numbers on its
+// side of the street (NeighborDistrict).
+func (r *OSMRef) Neighbors(city, key, typ, house string) (string, bool) {
+	n, ok := HouseNumber(house)
+	if !ok {
+		return "", false
+	}
+	return NeighborDistrict(r.Numbers[city][key+"\x00"+typ], n)
 }
 
 // OSM returns the embedded street directory; it is read once, on first use.
@@ -87,6 +98,20 @@ func loadOSM() (*OSMRef, error) {
 	} {
 		if err := readTSV("osm/"+t.name+".tsv.gz", t.cols, t.add); err != nil {
 			return nil, err
+		}
+	}
+	r.Numbers = map[string]map[string][]Numbered{}
+	for city, hs := range r.Houses {
+		for k, d := range hs {
+			i := strings.LastIndexByte(k, 0)
+			if n, ok := HouseNumber(k[i+1:]); ok {
+				put(r.Numbers, city, k[:i], append(r.Numbers[city][k[:i]], Numbered{n, d}))
+			}
+		}
+	}
+	for _, streets := range r.Numbers {
+		for _, list := range streets {
+			SortNumbered(list)
 		}
 	}
 	return r, nil

@@ -39,6 +39,7 @@ const (
 // Levels of a value taken from the directory: how it was matched, from the most to the least exact.
 const (
 	LevelHouse      = "house"      // the building lies in the district (OSM)
+	LevelNeighbors  = "neighbors"  // the nearest numbers on the same side of the street lie in the district (OSM)
 	LevelStreet     = "street"     // most buildings of the street lie in one district, or its only type (OSM)
 	LevelArea       = "area"       // a microdistrict or living area of the district or city
 	LevelSettlement = "settlement" // the region and rayon of the written town or village (KATO)

@@ -22,14 +22,18 @@ func TestOSMDistricts(t *testing.T) {
 		level string           // how the district was matched
 	}{
 		{"Алматы, ул. Розыбакиева 247, БЦ Нурлы Тау", map[Field]string{District: "Бостандыкский"}, LevelHouse},
+		// not in the map, between 237 and 247 of the same side
+		{"Алматы, улица Розыбакиева, 241", map[Field]string{District: "Бостандыкский"}, LevelNeighbors},
 		{"Алматы, ул. Тимирязева 42", map[Field]string{District: "Бостандыкский"}, ""},
 		{"Астана, пр. Мангилик Ел 55", map[Field]string{District: "Есиль"}, ""},
 		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{District: "Ауэзовский"}, ""},
 		{"Алматы, мкр Самал-2, 33", map[Field]string{District: "Медеуский"}, ""},
 		// written in the line: kept as written
 		{"Алматы, Медеуский район, ул. Тимирязева 42", map[Field]string{District: "Медеуский"}, ""},
-		// a street across districts and a house the map does not know: no guess
-		{"Алматы, ул. Жандосова 140", map[Field]string{District: "-", StreetType: "улица"}, ""},
+		// 140/1 and 140/2 are in the map
+		{"Алматы, ул. Жандосова 140", map[Field]string{District: "Ауэзовский", StreetType: "улица"}, LevelNeighbors},
+		// a street across districts and neighbours in two districts (17 and 23): no guess
+		{"Алматы, ул. Жандосова 19", map[Field]string{District: "-"}, ""},
 		// no city, no district
 		{"ул. Тимирязева 42", map[Field]string{District: "-"}, ""},
 		// a microdistrict that runs into an untyped street the city knows

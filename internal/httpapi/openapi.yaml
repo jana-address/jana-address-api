@@ -112,11 +112,12 @@ paths:
                     type: object
                     description: >-
                       Как сопоставлено поле из справочника: house — дом в границах района (OSM),
+                      neighbors — ближайшие номера на этой стороне улицы в одном районе (OSM),
                       street — большая часть домов улицы в одном районе (OSM), area — микрорайон или жилой массив,
                       settlement — область и район населённого пункта (КАТО), district — город и область написанного района
                     additionalProperties:
                       type: string
-                      enum: [house, street, area, settlement, district]
+                      enum: [house, neighbors, street, area, settlement, district]
                   status:
                     type: string
                     enum: [confident, review, unparsed]

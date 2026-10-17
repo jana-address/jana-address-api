@@ -331,8 +331,22 @@ func build(args []string) error {
 		areas = append(areas, []string{k[0], k[1], dc.district, strconv.FormatFloat(dc.share, 'f', 2, 64)})
 	}
 
-	// holdout: every tenth building is left out of the votes; its district is then restored from the
-	// street alone, the way the parser does for a house the directory does not know
+	// holdout: every tenth building is left out; its district is then restored the way the parser does
+	// for a house the directory does not know: from the nearest numbers on its side of the street
+	// (without any building of the same number), else from the street when most of it lies in one district
+	numbered := func(hs map[string]counts) []dict.Numbered {
+		var out []dict.Numbered
+		for h, c := range hs {
+			if d, n, total := c.best(); n*2 > total {
+				if num, ok := dict.HouseNumber(h); ok {
+					out = append(out, dict.Numbered{N: num, District: d})
+				}
+			}
+		}
+		dict.SortNumbered(out)
+		return out
+	}
+	lists := map[string][]dict.Numbered{}
 	rep := map[string]map[string]int{}
 	for _, a := range test {
 		r := rep[a.n.city]
@@ -342,16 +356,39 @@ func build(args []string) error {
 		}
 		r["addresses"]++
 		var dc decision
+		var hs map[string]counts
+		lk := a.n.city + "\x00" + a.n.key + "\x00" + a.n.typ
 		if a.n.typ != "" {
-			dc = decide(groups[b.find(a.n)].held)
+			g := groups[b.find(a.n)]
+			dc, hs = decide(g.held), g.houses
 		} else {
-			dc, _, _ = anyKey(byKey[[2]string{a.n.city, a.n.key}], true)
+			dc, _, hs = anyKey(byKey[[2]string{a.n.city, a.n.key}], true)
 		}
-		if dc.share < dict.MinStreetShare {
+		if _, ok := lists[lk]; !ok {
+			lists[lk] = numbered(hs)
+		}
+		got := ""
+		if num, ok := dict.HouseNumber(a.house); ok {
+			var others []dict.Numbered
+			for _, x := range lists[lk] {
+				if x.N != num {
+					others = append(others, x)
+				}
+			}
+			if d, ok := dict.NeighborDistrict(others, num); ok {
+				got = d
+				r["by_neighbors"]++
+			}
+		}
+		if got == "" && dc.share >= dict.MinStreetShare {
+			got = dc.district
+			r["by_street"]++
+		}
+		if got == "" {
 			continue
 		}
 		r["restored"]++
-		if dc.district == a.district {
+		if got == a.district {
 			r["right"]++
 		}
 	}
@@ -365,7 +402,7 @@ func build(args []string) error {
 			acc = float64(r["right"]) / float64(r["restored"])
 		}
 		holdoutReport[city] = map[string]any{"addresses": r["addresses"], "restored": r["restored"], "right": r["right"],
-			"coverage": round3(cov), "accuracy": round3(acc)}
+			"coverage": round3(cov), "accuracy": round3(acc), "by_neighbors": r["by_neighbors"], "by_street": r["by_street"]}
 	}
 
 	if err := os.MkdirAll(*out, 0o755); err != nil {
@@ -388,7 +425,7 @@ func build(args []string) error {
 		"rows":               map[string]int{"streets": len(streets), "houses": len(houses), "areas": len(areas)},
 		"sha256":             files,
 		"holdout": map[string]any{
-			"method": "every tenth building (by hash) is left out of the votes, then its district is restored from the street alone",
+			"method": "every tenth building (by hash) is left out; its district is restored from the nearest numbers on its side of the street (without any building of that number), else from the street when at least min_street_share of it lies in one district",
 			"cities": holdoutReport,
 		},
 	}
