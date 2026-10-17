@@ -41,6 +41,7 @@ services:
         VERSION: ${APP_VERSION:-0.1.0}
     image: jana-address/api:local
     restart: unless-stopped
+    stop_grace_period: 40s  # longer than the server's 30 s shutdown, so a running batch can finish
     depends_on:
       db:
         condition: service_healthy

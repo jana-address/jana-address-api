@@ -111,7 +111,8 @@ func serve() error {
 		}
 	case <-ctx.Done():
 		log.Info("shutting down")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		// a batch in flight gets time to finish; docker-compose waits 40 s (stop_grace_period) before SIGKILL
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			return err
