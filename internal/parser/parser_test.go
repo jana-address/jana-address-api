@@ -246,6 +246,7 @@ func TestParseExamples(t *testing.T) {
 		{"Алматы Парк Бульвар тұрғын үй кешені Сатпаева 30", map[Field]string{LivingArea: "Парк Бульвар", StreetName: "Сатпаева", House: "30"}},
 		{"Шымкент жк Самал Бульвар Тауке хана ул 8", map[Field]string{LivingArea: "Самал Бульвар", StreetType: "улица", StreetName: "Тауке хана", House: "8"}},
 		{"Астана Абая пр. ЖК Хайвил 5", map[Field]string{LivingArea: "Хайвил", StreetType: "проспект", StreetName: "Абая", House: "5"}},
+		{"Алматы Баганашыл мкр. Сейфуллина 44", map[Field]string{LivingArea: "Баганашыл", StreetName: "Сейфуллина", House: "44"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

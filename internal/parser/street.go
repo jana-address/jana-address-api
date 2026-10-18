@@ -149,6 +149,9 @@ func (st *state) nameBefore(i int, typ string, fa, fb, ba, bb int) bool {
 	if fa < 0 || postfixAreaMarkers[st.toks[i].fold] {
 		return true
 	}
+	if st.vals[City] == "" && st.placeName(ba, bb) {
+		return false // "Абай мкр Самал 5": with no city in the line, a town before the marker is the place
+	}
 	if st.toks[bb].kind == tNum {
 		if ba < bb && !(st.isPunct(bb-1, "-") && glued(st.toks[bb-1], st.toks[bb])) {
 			return false // "Абая 10 мкр Самал 5"; "Самал-2 мкр" is a name
@@ -179,6 +182,21 @@ func (st *state) nameBefore(i int, typ string, fa, fb, ba, bb int) bool {
 	}
 	city := st.vals[City]
 	return !st.knownArea(city, fa, fb) || st.knownArea(city, ba, bb) || st.streetVotes(city, fa, fb) >= 3
+}
+
+// placeName reports whether the words a..b name a city of the hand table or a town of the classifier.
+func (st *state) placeName(a, b int) bool {
+	for k := a; k <= b; k++ {
+		if st.toks[k].kind != tWord {
+			return false
+		}
+	}
+	k := st.keyOf(a, b)
+	if st.d.Cities[k] != (dict.Place{}) {
+		return true
+	}
+	_, town := st.d.Town(k)
+	return town
 }
 
 // knownArea reports whether the words a..b name a living area of the city in the map or the hand tables.
