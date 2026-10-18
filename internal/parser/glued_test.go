@@ -42,6 +42,7 @@ func TestGluedBorders(t *testing.T) {
 		{"павлодар улкутузвоа 3", map[Field]string{City: "Павлодар", StreetType: "улица", StreetName: "кутузвоа", House: "3"}},
 		{"кокшетау пркенесарыы 4", map[Field]string{City: "Кокшетау", StreetType: "проспект", StreetName: "кенесарыы", House: "4"}},
 		{"павлодар б-рмирра 6", map[Field]string{City: "Павлодар", StreetType: "бульвар", StreetName: "мирра", House: "6"}},
+		{"алматы пр-тсейфуллина 10", map[Field]string{City: "Алматы", StreetType: "проспект", StreetName: "сейфуллина", House: "10"}},
 		// a mistyped type word and a street one letter from a known one stay whole
 		{"алматы прспект абая 5", map[Field]string{City: "Алматы", StreetName: "абая", House: "5"}},
 		{"актобе улиханова 7", map[Field]string{City: "Актобе", StreetName: "улиханова", House: "7"}},

@@ -218,7 +218,10 @@ func splitGlued(d *dict.Directory, r []rune, toks []token) []token {
 // street it knows well, keeps its letters: "пригородный", "пермтина".
 func typeBeforeStreet(r []rune, s, e int, city string, words []token) []token {
 	whole := lookupKey(string(r[s:e]))
-	if gluedStreet(city, text.Fold(string(r[s:e]))) || bySurname(city, whole) || closeStreet(city, whole) {
+	f := text.Fold(string(r[s:e]))
+	// the key of "пр-тсарыарка" reads "тсарыарка", one letter from Сарыарка: a hyphenated type is no part of a name
+	hyphen := strings.HasPrefix(f, "пр-т") || strings.HasPrefix(f, "б-р")
+	if gluedStreet(city, f) || !hyphen && (bySurname(city, whole) || closeStreet(city, whole)) {
 		return words
 	}
 	for p := s + 2; p <= min(s+4, e-4); p++ {
