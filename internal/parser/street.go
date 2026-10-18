@@ -230,11 +230,20 @@ func (st *state) areaThenStreet(c *cand) int {
 	for _, j := range splits {
 		// both halves must be known: map names are noisy ("Алтын" is an area, "Тау" a street), and
 		// "ЖК Алтын Булак" or "ЖК Асыл Тау" must stay whole
-		if k := key(j, c.b); len([]rune(k)) >= 5 && knownStreet(k) && knownArea(c.a, j-1) && !strings.ContainsAny(k, "0123456789") {
+		if k := key(j, c.b); st.strongStreet(city, k) && knownArea(c.a, j-1) && !strings.ContainsAny(k, "0123456789") {
 			return j
 		}
 	}
 	return -1
+}
+
+// strongStreet reports whether the city's map knows the street key well enough to cut it off a living
+// area name: a key of five letters or more with at least three segments and buildings, a long key such as
+// "саттарханова" with any, a short one such as "абая" only with many.
+func (st *state) strongStreet(city, k string) bool {
+	s, ok := dict.OSM().Street(city, k, dict.AnyType)
+	n := len([]rune(k))
+	return ok && (n >= 8 || n >= 5 && s.Votes >= 3 || n == 4 && s.Votes >= 20)
 }
 
 // splitShared sets the border between a microdistrict or ЖК and a street that both read the same words:

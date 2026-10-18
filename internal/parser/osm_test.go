@@ -45,6 +45,10 @@ func TestOSMDistricts(t *testing.T) {
 		{"алматы жк алтын булак 31 квартира 93", map[Field]string{StreetName: "алтын булак", LivingArea: "-"}, ""},
 		{"алматы жк. асыл тау 92а 59 кв", map[Field]string{StreetName: "асыл тау", LivingArea: "-"}, ""},
 		{"Шымкент каласы микрорайон Асар Республики д.52 этаж 8 кв 2", map[Field]string{LivingArea: "Асар", StreetName: "Республики", House: "52"}, ""},
+		// a short street key the map knows well, a long one it knows at all
+		{"Павлодар мкр Усолка Абая 15", map[Field]string{LivingArea: "Усолка", StreetName: "Абая", House: "15"}, ""},
+		{"Тараз мкр. Карасу Абая 101", map[Field]string{LivingArea: "Карасу", StreetName: "Абая", House: "101"}, ""},
+		{"Талдыкорган мкр Мушелтой Тауелсиздик 12", map[Field]string{LivingArea: "Мушелтой", StreetName: "Тауелсиздик", House: "12"}, ""},
 		// known whole, or a number in the name: not split
 		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", LivingArea: "-"}, ""},
 		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{StreetName: "Аксай 3а", LivingArea: "-"}, ""},
