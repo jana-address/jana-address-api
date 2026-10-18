@@ -47,12 +47,38 @@ func (st *state) osmStreet(ref *dict.OSMRef, city string) (key, typ string, s di
 	}
 	key, _ = dict.StreetKey(name)
 	all, okAll := ref.Street(city, key, dict.AnyType)
+	if !okAll {
+		if alias, ok := streetAlias(ref, city, key); ok {
+			key = alias
+			all, okAll = ref.Street(city, key, dict.AnyType)
+		}
+	}
 	if st.src[StreetType] == SourceString {
 		if t, okT := ref.Street(city, key, st.vals[StreetType]); okT && (!okAll || t.Votes*2 >= all.Votes) {
 			return key, st.vals[StreetType], t, true
 		}
 	}
 	return key, dict.AnyType, all, okAll
+}
+
+// streetAlias finds the map name of a street written shorter or longer than the map has it, when only one
+// street fits: "габдуллина" is Малика Габдуллина in Астана, "Малика Габдуллина" is Габдуллина in Алматы.
+func streetAlias(ref *dict.OSMRef, city, key string) (string, bool) {
+	if bySurname(city, key) {
+		return surnames()[city][key][0], true
+	}
+	i := strings.LastIndexByte(key, ' ')
+	if i < 0 {
+		return "", false
+	}
+	last := key[i+1:]
+	if len([]rune(last)) < 5 || len(surnames()[city][last]) > 0 {
+		return "", false // "Кабанбай батыра" is not a street "батыра"
+	}
+	if _, ok := ref.Street(city, last, dict.AnyType); ok {
+		return last, true
+	}
+	return "", false
 }
 
 // districtFromStreets restores the district of a city address from the OSM directory: the building
