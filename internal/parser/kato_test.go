@@ -193,6 +193,10 @@ func TestAreaBeforeStreet(t *testing.T) {
 		{"Алматы ЖК Алтын Булак 2", map[Field]string{LivingArea: "-", StreetName: "Алтын Булак"}},
 		{"Алматы мкр Жас Канат 5", map[Field]string{LivingArea: "-", StreetName: "Жас Канат", House: "5"}},
 		{"павлодар мкр достык академика маргулана 47 кв 9", map[Field]string{LivingArea: "достык", StreetName: "академика маргулана"}},
+		// an area the city knows, then a street its map lacks or a mistyped one
+		{"Астана ЖК Арнау Шокпаровская 12", map[Field]string{LivingArea: "Арнау", StreetName: "Шокпаровская", House: "12"}},
+		{"Туркестан мкр Бекзат Тауасарова 7", map[Field]string{LivingArea: "Бекзат", StreetName: "Тауасарова", House: "7"}},
+		{`Астана ЖК "Арнау Шокпаровская" 12`, map[Field]string{LivingArea: "-", StreetName: "Арнау Шокпаровская"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

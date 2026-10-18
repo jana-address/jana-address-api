@@ -290,7 +290,39 @@ func (st *state) areaThenStreet(c *cand) int {
 			return j
 		}
 	}
+	if j := st.knownAreaHead(city, c, splits); j > 0 {
+		return j
+	}
 	return st.areaThenStreetSomewhere(c)
+}
+
+// knownAreaHead splits a name that starts with a living area of the city and goes on with words the map
+// does not know, the street missing from it or mistyped: "мкр Коктем Абылайханова 5", "ЖК Нурсая
+// Желтоксанова 3". A microdistrict may start with an area one letter off; a ЖК starts with one the city
+// knows and its street has a long last word, so "ЖК Алтын Булак" and "ЖК Тау Самал" stay whole. A quoted
+// name is never cut.
+func (st *state) knownAreaHead(city string, c *cand, splits []int) int {
+	for j := max(c.a-1, 0); j <= c.b+1 && j < len(st.toks); j++ {
+		if st.isPunct(j, "\"«»") {
+			return -1 // a quoted name is never cut
+		}
+	}
+	for _, j := range splits {
+		k := lookupKey(st.text(j, c.b))
+		last := k[strings.LastIndexByte(k, ' ')+1:]
+		if strings.ContainsAny(k, "0123456789") || utf8.RuneCountInString(last) < 5 || streetTitles[st.toks[j].fold] {
+			continue
+		}
+		head := lookupKey(st.text(c.a, j-1))
+		if c.isLiving {
+			if utf8.RuneCountInString(last) >= 7 && st.knownArea(city, c.a, j-1) {
+				return j
+			}
+		} else if st.knownArea(city, c.a, j-1) || closeArea(city, head) {
+			return j
+		}
+	}
+	return -1
 }
 
 // areaThenStreetSomewhere splits the name in a line without a city when one city of the map knows both
