@@ -261,7 +261,7 @@ func (b *builder) record() string {
 		case glueCity:
 			t = b.cs(c.Name)
 			if b.p(0.12) {
-				if s, ok := b.typo(t); ok {
+				if s, ok := b.typoInner(t); ok { // the city is glued to the street, see typoInner
 					t = s
 					b.tag("typo")
 				}
@@ -849,7 +849,8 @@ func (b *builder) house(markerMode int) (string, string, bool) {
 		l := b.pick(letters)
 		label = num + l
 		written = label
-		if b.p(0.3) {
+		// only а and б stand apart: "18 г туркестан" reads as г. Туркестан, "17 в ақын сара" as the preposition
+		if b.p(0.3) && strings.ContainsAny(l, "аАбБabAB") {
 			written, spaced = num+" "+l, true
 		}
 	case x < 0.15:

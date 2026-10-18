@@ -14,7 +14,9 @@
     together with the generator.
   - The generator does not produce forms whose fields cannot be read from the line itself: a
     typo at the border of two glued words (in «алматыфтолеби» the extra letter may belong to the
-    city or to the street) and a four-letter name cut to three letters («асу» for Аксу).
+    city or to the street), a four-letter name cut to three letters («асу» for Аксу) and a house
+    letter в or г set apart before a word («18 г туркестан» reads as г. Туркестан, «17 в ақын
+    сара» as the preposition в).
 
 ## Current numbers
 
