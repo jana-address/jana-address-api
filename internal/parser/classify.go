@@ -48,7 +48,8 @@ func (st *state) classify() {
 				republic := t.fold == "республика"
 				if republic && !(i+1 < len(st.toks) && st.toks[i+1].fold == "казахстан") {
 					t.mk = nil
-				} else if i == 0 || st.toks[i-1].kind == tPunct || (st.toks[i-1].mk != nil && st.toks[i-1].mk.Class == dict.Noise) {
+				} else if st.opensLine(i) || st.toks[i-1].kind == tPunct || (st.toks[i-1].mk != nil && st.toks[i-1].mk.Class == dict.Noise) {
+					// also after a postcode: "040949 Казахстан Кошкарбаева 7"
 					t.used = true
 					continue
 				}

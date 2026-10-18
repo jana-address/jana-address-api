@@ -221,6 +221,8 @@ func TestAreaBeforeStreet(t *testing.T) {
 		{"Алматинская обл Отеген ьатыр Нурлы 3", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
 		{"ул Нурлы 3 отеген батырр", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
 		{"040700 с Отеген баиыр, ул Нурлы 3", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
+		// the country after a postcode is no part of the street
+		{"040900 kazakhstan zhibek zholy 12 Kaskelen", map[Field]string{City: "Каскелен", StreetName: "zhibek zholy", House: "12"}},
 		// the city of two words after the flat and the floor, before the region
 		{"ул Нурлы 3, 2 эт Новый Узень Мангистауская обл", map[Field]string{City: "Жанаозен", StreetName: "Нурлы", Floor: "2"}},
 		{"ул. Отеген батыр 5 алматы облысы", map[Field]string{City: "-", StreetName: "Отеген батыр", House: "5"}},
