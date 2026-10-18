@@ -69,6 +69,9 @@ func TestOSMDistricts(t *testing.T) {
 		{"Уральск мкрн Шапагат Есенжанова 15", map[Field]string{LivingArea: "Шапагат", StreetName: "Есенжанова", House: "15"}, ""},
 		// one letter from a known area: Тау Самал mistyped, though Самал is also a street
 		{"Алматы ЖК Тай Самал 7", map[Field]string{StreetName: "Тай Самал", LivingArea: "-"}, ""},
+		// a numbered street of the city, typed after its name, also one letter off
+		{"Павлодар, 1 Мая көшесі 44", map[Field]string{StreetName: "1 Мая", House: "44"}, ""},
+		{"Павлодар 1 Маяя ул 12", map[Field]string{StreetName: "1 Маяя", House: "12"}, ""},
 		// known whole, or a number in the name: not split
 		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", LivingArea: "-"}, ""},
 		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{StreetName: "Аксай 3а", LivingArea: "-"}, ""},

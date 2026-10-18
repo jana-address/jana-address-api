@@ -122,6 +122,18 @@ func TestParseExamples(t *testing.T) {
 		{"Казахстан Караганда пр Абдирова 17 кв 3", map[Field]string{City: "Караганда", StreetName: "Абдирова", House: "17"}},
 		{"Ақтөбе, 12 ықшам аудан, 25 үй, 40 пәтер", map[Field]string{StreetType: "микрорайон", StreetName: "12", House: "25", Apartment: "40"}},
 		{"Ауэзов көшесі 31, мешіттің жанында", map[Field]string{StreetName: "Ауэзов", House: "31", Landmark: "мешіттің жанында"}},
+		// a street typed after the numbers, right before a Kazakh landmark: the name is the street
+		{"Атырау кв 12 д 7 ул. Сатпаева мешіттің жанында", map[Field]string{
+			StreetType: "улица", StreetName: "Сатпаева", House: "7", Apartment: "12", Landmark: "мешіттің жанында"}},
+		{"Алматы 5 кв, дом 3, пр. Абая Small дүкенінің жанында", map[Field]string{
+			StreetType: "проспект", StreetName: "Абая", House: "3", Landmark: "Small дүкенінің жанында"}},
+		{"Астана кв 5 д 12 ул. Кабанбай батыра магнумның жанында", map[Field]string{StreetName: "Кабанбай батыра", Landmark: "магнумның жанында"}},
+		// a number before a name typed after it starts a date or an anniversary name, unless a unit word takes it
+		{"8 Марта ул 5", map[Field]string{StreetType: "улица", StreetName: "8 Марта", House: "5"}},
+		{"Рудный 50 лет Октября улица 7", map[Field]string{StreetName: "50 лет Октября", House: "7"}},
+		{"Павлодар кв 3 үй 29 Кривенко көшесі", map[Field]string{StreetName: "Кривенко", House: "29", Apartment: "3"}},
+		// a type after its name types that name
+		{"Семей 3 кв үй 12 Абая көшесі Small дүкенінің жанында", map[Field]string{StreetName: "Абая", House: "12", Landmark: "Small дүкенінің жанында"}},
 		{"Іле ауданы, Өтеген батыр ауылы, Нұрлы көшесі 17", map[Field]string{City: "Отеген батыр", StreetName: "Нұрлы", House: "17"}},
 		{"Астана жк Экспо Бульвар д 3 кв 117", map[Field]string{StreetType: "жилой комплекс", StreetName: "Экспо Бульвар", House: "3"}},
 		{"жк Хайвил ул Абая 5", map[Field]string{LivingArea: "Хайвил", StreetType: "улица", StreetName: "Абая", House: "5"}},

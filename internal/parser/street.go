@@ -595,6 +595,9 @@ func (st *state) street() {
 		}
 		if c.a < 0 {
 			c.a, c.b = st.collectBackward(i, typ)
+			if c.a > 0 && dict.RealStreetTypes[typ] && st.numberStartsName(c.a, c.b) {
+				c.a-- // "1 Мая көшесі", "50 лет Октября улица"
+			}
 		}
 		if c.a < 0 {
 			continue
@@ -661,6 +664,54 @@ func (st *state) street() {
 	}
 	if !untyped {
 		st.untypedStreet()
+	}
+}
+
+// numberStartsName reports whether the number right before the street name a..b, read backward from its
+// type, is the start of the name: a date or an anniversary ("1 Мая", "8 Марта", "50 лет Октября"), or a
+// numbered street of the city's map, also one letter off ("1 Маяя көшесі"). A number after a unit word is
+// the house or the flat: "үй 29 Кривенко көшесі".
+func (st *state) numberStartsName(a, b int) bool {
+	n := a - 1
+	if !st.availNum(n) || st.toks[n].seg != st.toks[a].seg || st.toks[a].kind != tWord {
+		return false
+	}
+	p := n - 1
+	for st.isPunct(p, ".") {
+		p--
+	}
+	if p >= 0 && st.toks[p].mk.IsUnit() {
+		return false
+	}
+	if st.toks[a].fold == "лет" || a == b && monthsOf[st.toks[a].fold] {
+		return true
+	}
+	city := st.vals[City]
+	if st.streetVotes(city, n, b) > 0 {
+		return true
+	}
+	k, _ := dict.StreetKey(st.text(a, b))
+	var buf, kbuf [text.MaxFuzzyLen]rune
+	r := text.ToRunes(k, kbuf[:0])
+	if len(r) < 2 || len(r) >= text.MaxFuzzyLen-1 {
+		return false
+	}
+	prefix := st.toks[n].fold + " "
+	for key := range dict.OSM().Streets[city] {
+		name, typ, _ := strings.Cut(key, "\x00")
+		if typ == dict.AnyType && strings.HasPrefix(name, prefix) && text.DistanceLimit(r, text.ToRunes(name[len(prefix):], buf[:0]), 1) <= 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// monthsOf are month names after a day: "1 Мая", "8 Марта".
+var monthsOf = map[string]bool{}
+
+func init() {
+	for _, w := range []string{"января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"} {
+		monthsOf[text.Fold(w)] = true
 	}
 }
 
