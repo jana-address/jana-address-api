@@ -1,6 +1,7 @@
 package dict
 
 import (
+	"sync"
 	"sync/atomic"
 
 	"github.com/jana-address/jana-address-api/internal/parser/text"
@@ -23,6 +24,23 @@ type Directory struct {
 	// LongestCity is the length in runes of the longest city key, which bounds the search for a city
 	// glued to the next word
 	LongestCity int
+
+	// lookups remembers the typo search by word: the directory never changes, and the same words
+	// ("алматы", "абая") come in most lines. At most maxLookups words are kept.
+	lookups sync.Map // cityQuery -> cityAnswer
+	stored  atomic.Int64
+}
+
+const maxLookups = 1 << 18
+
+type cityQuery struct {
+	key      string
+	maxTypos int
+}
+
+type cityAnswer struct {
+	p  Place
+	ok bool
 }
 
 // current is set by init right after initPlaces fills the base tables.
@@ -167,6 +185,19 @@ func (d *Directory) lookupCityWithin(k string, maxTypos int) (Place, bool) {
 	if p, ok := d.Cities[k]; ok {
 		return p, true
 	}
+	q := cityQuery{k, maxTypos}
+	if a, ok := d.lookups.Load(q); ok {
+		return a.(cityAnswer).p, a.(cityAnswer).ok
+	}
+	p, ok := d.searchCity(k, maxTypos)
+	if d.stored.Add(1) <= maxLookups {
+		d.lookups.Store(q, cityAnswer{p, ok})
+	}
+	return p, ok
+}
+
+// searchCity is the typo search of lookupCityWithin.
+func (d *Directory) searchCity(k string, maxTypos int) (Place, bool) {
 	var buf [text.MaxFuzzyLen]rune
 	r := text.ToRunes(k, buf[:0])
 	limit := min(fuzzyLimit(len(r)), maxTypos)
