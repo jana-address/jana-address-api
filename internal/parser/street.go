@@ -33,7 +33,9 @@ var kazakhStreetPostfix = map[string]bool{text.Fold("көшесі"): true, text.
 // collectForward reads a street name after a type marker: "ул. Курильская", "Мкр Аксай 3а".
 func (st *state) collectForward(m int, typ string) (int, int) {
 	j := m + 1 + st.toks[m].tail
+	quoted := false
 	for st.isPunct(j, ".\"") {
+		quoted = quoted || st.isPunct(j, "\"")
 		j++
 	}
 	a, b := -1, -1
@@ -78,6 +80,9 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 			}
 			return a, b
 		case tPunct:
+			if t.text == "\"" && quoted && a >= 0 && !dict.RealStreetTypes[typ] {
+				return a, b // the closing quote ends an area name: "ЖК «Асыл Тау» Маметовой 18"
+			}
 			if (t.text == "-" || t.text == "\"") && a >= 0 && k+1 < len(st.toks) && st.toks[k+1].kind != tPunct {
 				continue
 			}
