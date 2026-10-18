@@ -2,6 +2,7 @@ package parser
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jana-address/jana-address-api/internal/parser/dict"
 	"github.com/jana-address/jana-address-api/internal/parser/text"
@@ -15,14 +16,15 @@ func (st *state) landmarks() {
 		if t.kind == tWord && !t.used && postfixLandmark[t.fold] {
 			a := i
 			for a > 0 && st.toks[a-1].kind == tWord && !st.toks[a-1].used && st.toks[a-1].mk == nil && i-a < 3 {
-				if _, city := st.d.Cities[st.toks[a-1].fold]; a < i && (city || st.afterStreetType(a-1)) {
-					break // "ул Говрова балабақшаның жанында", "Шымкент емхананың қасында": the street and the city stay
+				if _, city := st.d.Cities[st.toks[a-1].fold]; a < i && city {
+					break // "Шымкент емхананың қасында": the city stays
 				}
 				a--
 			}
 			if a > 0 && a == i-1 && st.landmarkNum[a-1] {
 				a-- // "64 мектептің жанында"
 			}
+			a += st.typedName(a, i-1) // "ул Говрова балабақшаның жанында": the typed street keeps its name
 			if a < i {
 				parts = append(parts, st.text(a, i))
 				st.addSpan(Landmark, a, i)
@@ -123,21 +125,40 @@ func (st *state) numberedAreaAt(i int) bool {
 	return m != nil && m.Class == dict.Street && dict.NumberedAreaTypes[m.Canon]
 }
 
-// afterStreetType reports whether the word at i follows a street type written before its name, so it starts
-// the street name: "ул. Абая". A Kazakh type follows its name: in "Уалиханов көшесі Small дүкенінің жанында"
-// Small is a part of the landmark.
-func (st *state) afterStreetType(i int) bool {
-	p := i - 1
-	for st.isPunct(p, ".") {
-		p--
+// typedName returns how many of the words a..b, before a Kazakh landmark word, name the street or the
+// area typed right before them, 0 when no street or area type precedes: in "ул. Мустафина Магнумның
+// жанында" Мустафина is the street. The name is the longest run the city's map knows as a street, two
+// words before a title ("ул. Кабанбай батыра"), or one word; at least one word stays the landmark. A
+// type after a name types that name and is skipped.
+func (st *state) typedName(a, b int) int {
+	typed := false
+	for m := a - 1; m >= 0 && m >= a-4 && !typed; m-- {
+		t := st.toks[m]
+		if t.kind != tWord || t.mk == nil || t.mk.Class != dict.Street && t.mk.Class != dict.Living {
+			continue
+		}
+		if kazakhStreetPostfix[t.fold] || postfixAreaMarkers[t.fold] || m > 0 && st.toks[m-1].kind == tWord &&
+			st.toks[m-1].mk == nil && !st.toks[m-1].used && utf8.RuneCountInString(st.toks[m-1].fold) > 1 {
+			break // the type follows its name: "Уалиханов көшесі Small дүкенінің жанында"
+		}
+		j := m + 1 + t.tail
+		for st.isPunct(j, ".\"") {
+			j++
+		}
+		typed = j == a
 	}
-	if p < 0 || st.toks[p].kind != tWord || st.toks[p].mk == nil || st.toks[p].mk.Class != dict.Street {
-		return false
+	if !typed || a >= b {
+		return 0
 	}
-	if p > 0 && st.toks[p].used && st.toks[p-1].mk == st.toks[p].mk {
-		p-- // "ықшам ауданы"
+	for n := b - a; n >= 1; n-- {
+		if st.streetVotes(st.vals[City], a, a+n-1) > 0 {
+			return n
+		}
 	}
-	return !kazakhStreetPostfix[st.toks[p].fold] && !postfixAreaMarkers[st.toks[p].fold]
+	if a+1 < b && streetTitles[st.toks[a+1].fold] {
+		return 2
+	}
+	return 1
 }
 
 var postfixLandmark = map[string]bool{}
