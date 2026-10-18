@@ -135,6 +135,12 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 var postfixAreaMarkers = map[string]bool{text.Fold("шағын"): true, text.Fold("ықшам"): true, text.Fold("шағынаудан"): true,
 	text.Fold("ықшамаудан"): true, text.Fold("түк"): true, text.Fold("тұрғын"): true}
 
+// postfixAreaAt reports whether a Kazakh microdistrict or ЖК marker that follows its name starts at i:
+// "ықшам ауданы", "шағын ауданы", "ТҮК".
+func (st *state) postfixAreaAt(i int) bool {
+	return i < len(st.toks) && st.toks[i].kind == tWord && st.toks[i].mk != nil && !st.toks[i].used && postfixAreaMarkers[st.toks[i].fold]
+}
+
 // nameBefore reports whether the microdistrict or ЖК marker at i types the name before it (ba..bb) rather
 // than the words after it (fa..fb, -1 when none): after a Kazakh postfix marker ("Самал шағын ауданы"), a
 // number before the marker and after it ("6 шағын ауданы 10": 10 is the house), or when the words after the
@@ -588,6 +594,13 @@ func (st *state) street() {
 		typ := t.mk.Canon
 		c := cand{typ: typ, mk: i, isLiving: t.mk.Class == dict.Living}
 		c.a, c.b = st.collectForward(i, typ)
+		if dict.RealStreetTypes[typ] && c.a >= 0 && st.postfixAreaAt(c.b+1) {
+			// the words after the type are the area of a Kazakh postfix marker, the type follows its street:
+			// "Кривенко көшесі Юбилейный ықшам ауданы", "Сатпаева пр-т Шапағат шағын ауданы"
+			if ba, bb := st.collectBackward(i, typ); ba > covered {
+				c.a, c.b = ba, bb
+			}
+		}
 		if !dict.RealStreetTypes[typ] {
 			if ba, bb := st.collectBackward(i, typ); ba > covered && st.nameBefore(i, typ, c.a, c.b, ba, bb) {
 				c.a, c.b = ba, bb

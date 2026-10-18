@@ -132,6 +132,10 @@ func TestParseExamples(t *testing.T) {
 		{"8 Марта ул 5", map[Field]string{StreetType: "улица", StreetName: "8 Марта", House: "5"}},
 		{"Рудный 50 лет Октября улица 7", map[Field]string{StreetName: "50 лет Октября", House: "7"}},
 		{"Павлодар кв 3 үй 29 Кривенко көшесі", map[Field]string{StreetName: "Кривенко", House: "29", Apartment: "3"}},
+		// a street with its type, then a Kazakh microdistrict with its marker after the name
+		{"Павлодар үй 12 Абай көшесі Самал шағын ауданы", map[Field]string{StreetName: "Абай", LivingArea: "Самал", House: "12"}},
+		{"Шымкент дом 5 Байтурсынова пр-т Нурсат ықшам ауданы", map[Field]string{
+			StreetType: "проспект", StreetName: "Байтурсынова", LivingArea: "Нурсат", House: "5"}},
 		// a type after its name types that name
 		{"Семей 3 кв үй 12 Абая көшесі Small дүкенінің жанында", map[Field]string{StreetName: "Абая", House: "12", Landmark: "Small дүкенінің жанында"}},
 		{"Іле ауданы, Өтеген батыр ауылы, Нұрлы көшесі 17", map[Field]string{City: "Отеген батыр", StreetName: "Нұрлы", House: "17"}},
