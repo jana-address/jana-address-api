@@ -291,8 +291,8 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	if e-s < 3 || d.KnownWord(w.fold) {
 		return []token{w}
 	}
-	if city != "" && gluedStreet(city, w.fold) {
-		return []token{w} // "протозанова" after Усть-Каменогорск keeps its "пр"
+	if city != "" && (gluedStreet(city, w.fold) || bySurname(city, lookupKey(w.text))) {
+		return []token{w} // "протозанова" after Усть-Каменогорск keeps its "пр", "кошкарбаева" its "кош"
 	}
 	split := func(p int, leftCity string) []token {
 		return append([]token{wordToken(r, s, p)}, splitWord(d, r, p, e, leftCity)...)

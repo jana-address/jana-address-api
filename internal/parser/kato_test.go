@@ -230,6 +230,8 @@ func TestTypeGluedAfterCity(t *testing.T) {
 		{"алматы улжибек жолы 20", map[Field]string{StreetName: "жибек жолы", House: "20"}},
 		{"астана улытау 5", map[Field]string{StreetName: "улытау"}},
 		{"Алматы пригородный 5", map[Field]string{StreetName: "пригородный"}},
+		// a street known by its surname keeps a first syllable that reads as a type: "кош" in Кошкарбаева
+		{"астанакошкарбаева 40", map[Field]string{StreetName: "кошкарбаева", House: "40"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
