@@ -13,8 +13,8 @@
     the baseline, and the hash `synth_10000.sha256` keeps the set from changing silently
     together with the generator.
   - The generator does not produce forms whose fields cannot be read from the line itself: a
-    typo at the border of two glued words (in «алматыфтолеби» the extra letter may belong to the
-    city or to the street), a four-letter name cut to three letters («асу» for Аксу) and a house
+    typo at the border of two glued words, on either side (in «алматыфтолеби» the extra letter may belong
+    to the city or to the street), a four-letter name cut to three letters («асу» for Аксу) and a house
     letter в or г set apart before a word («18 г туркестан» reads as г. Туркестан, «17 в ақын
     сара» as the preposition в), and a ЖК whose name ends in a street type word before its street («жк экспо
     бульвар валиханова» is also ЖК Экспо on бульвар Валиханова).

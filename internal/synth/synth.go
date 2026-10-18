@@ -81,7 +81,9 @@ func Generate(n int, seed uint64) []eval.Gold {
 }
 
 type builder struct {
-	r     *rand.Rand
+	r *rand.Rand
+	// glued: the name being typed is glued to the city before it, so a slip keeps off its first letter
+	glued bool
 	fast  bool
 	lower bool
 	camel bool
@@ -347,7 +349,9 @@ func (b *builder) record() string {
 	if detailsFirst {
 		omit = 0
 	}
+	b.glued = b.camel || glueCity
 	stText, stName, shown := b.typed(st, sn, omit)
+	b.glued = false
 	if shown {
 		b.set("street_type", st, true)
 	}
@@ -772,7 +776,11 @@ func (b *builder) typed(typ string, n Name, omit float64) (string, string, bool)
 		}
 	}
 	if b.fast && b.p(0.10) || !b.fast && b.p(0.02) {
-		if s, ok := b.typo(nm); ok {
+		slip := b.typo
+		if b.glued {
+			slip = b.typoInner // "астанауЖмабаева": the у may belong to the city or to Жумабаева
+		}
+		if s, ok := slip(nm); ok {
 			nm = s
 			b.tag("typo")
 		}
