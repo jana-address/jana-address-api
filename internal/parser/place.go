@@ -290,8 +290,9 @@ func (st *state) houseNext(i int) bool {
 	return j+1 >= len(st.toks) || st.toks[j+1].mk == nil || !dict.NumberedAreaTypes[st.toks[j+1].mk.Canon]
 }
 
-// areaTypeBeforeHouse reports whether token i is a microdistrict or ЖК type right before a house marker:
-// the word before it is the name of the area ("Сайран мкр. д. 48"), not a city.
+// areaTypeBeforeHouse reports whether token i is a microdistrict or ЖК type right before a house marker
+// or a street type: the word before it is the name of the area ("Сайран мкр. д. 48", "Сайран мкрн ул.
+// Ходжанова 43"), not a city.
 func (st *state) areaTypeBeforeHouse(i int) bool {
 	if i >= len(st.toks) || st.toks[i].kind != tWord || st.toks[i].mk == nil || !areaType[st.toks[i].mk.Canon] {
 		return false
@@ -299,6 +300,9 @@ func (st *state) areaTypeBeforeHouse(i int) bool {
 	j := i + 1 + st.toks[i].tail
 	for st.isPunct(j, ".,") {
 		j++
+	}
+	if j < len(st.toks) && st.toks[j].kind == tWord && st.toks[j].mk != nil && st.toks[j].mk.Class == dict.Street && !areaType[st.toks[j].mk.Canon] {
+		return true
 	}
 	return st.houseAt(j) // a number after it is the number of the area: "Актау мкр 4"
 }

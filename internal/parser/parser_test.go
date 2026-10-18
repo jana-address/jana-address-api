@@ -259,6 +259,8 @@ func TestParseExamples(t *testing.T) {
 		{"ЖК Grand Park Абылай хана ул 5", map[Field]string{LivingArea: "Grand Park", StreetName: "Абылай хана", House: "5"}},
 		{"Шымкент жк Мирас Сайрам көш. д 4", map[Field]string{LivingArea: "Мирас", StreetType: "улица", StreetName: "Сайрам", House: "4"}},
 		{"Усть-Каменогорск ул Протозанова Ахмирово мкр д 5", map[Field]string{StreetName: "Протозанова", LivingArea: "Ахмирово", House: "5"}},
+		// an area name close to a town before its type and a street type is the area, not Сарань
+		{"Сайран мкрн Ул. Ходжанова 43 кв208", map[Field]string{City: "-", LivingArea: "Сайран", StreetType: "улица", StreetName: "Ходжанова", House: "43", Apartment: "208"}},
 		{"Актау, д 12, ул Бостандык 9 мкр", map[Field]string{StreetName: "Бостандык", LivingArea: "9", House: "12"}},
 		// a quoted area name ends at its closing quote
 		{"Тараз жк \"Алтын Орда\" Абая 7", map[Field]string{LivingArea: "Алтын Орда", StreetName: "Абая", House: "7"}},
