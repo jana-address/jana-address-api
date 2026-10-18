@@ -24,7 +24,7 @@ From `go test ./internal/eval -run TestFastTypeSet -v`:
 |---|---|---|---|---|
 | fasttype, 100 lines labelled by hand | 1.000 | 1.000 | 1.000 | 1.000 |
 | holdout, 100 lines labelled by hand | 1.000 | 1.000 | 1.000 | 1.000 |
-| synthetic, 10 000 lines | 0.999 | 0.999 | 1.000 | 0.996 |
+| synthetic, 10 000 lines | 1.000 | 1.000 | 1.000 | 0.998 |
 
 The team labelled the manual sets, and the synthetic set is built on the same lexicon as the
 parser. So these numbers are an upper bound; the hidden jury set will be stricter. The
