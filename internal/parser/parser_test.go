@@ -263,6 +263,13 @@ func TestParseExamples(t *testing.T) {
 		{"Шымкент жк Самал Бульвар Тауке хана ул 8", map[Field]string{LivingArea: "Самал Бульвар", StreetType: "улица", StreetName: "Тауке хана", House: "8"}},
 		{"Астана Абая пр. ЖК Хайвил 5", map[Field]string{LivingArea: "Хайвил", StreetType: "проспект", StreetName: "Абая", House: "5"}},
 		{"Алматы Баганашыл мкр. Сейфуллина 44", map[Field]string{LivingArea: "Баганашыл", StreetName: "Сейфуллина", House: "44"}},
+		// a large city mistyped in four letters, but not a word of a street name or a line naming its city
+		{"Смей, ул. Абая 12", map[Field]string{City: "Семей", Province: "область Абай", StreetName: "Абая", House: "12"}},
+		{"тарз ул Толе би 15", map[Field]string{City: "Тараз", StreetName: "Толе би", House: "15"}},
+		{"гор. Семй, ул. Абая 3", map[Field]string{City: "Семей", StreetName: "Абая"}},
+		{"дом 5, ул. Акын Сара", map[Field]string{City: "-", StreetName: "Акын Сара", House: "5"}},
+		{"Esim khana 7, Taraz", map[Field]string{City: "Тараз", StreetName: "Esim khana", House: "7"}},
+		{"Лисаков, 3 мкр, 12", map[Field]string{City: "Лисаковск", StreetName: "3", House: "12"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

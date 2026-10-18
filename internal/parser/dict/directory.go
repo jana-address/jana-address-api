@@ -136,6 +136,9 @@ func (d *Directory) lookupCityWithin(k string, maxTypos int) (Place, bool) {
 	var buf [text.MaxFuzzyLen]rune
 	r := text.ToRunes(k, buf[:0])
 	limit := min(fuzzyLimit(len(r)), maxTypos)
+	if len(r) == 4 && maxTypos > 0 && !d.knownName(k) {
+		limit = 1 // "смей", "тарз", "акту": four letters one typo from a large city and no other name
+	}
 	if limit == 0 || len(r) >= text.MaxFuzzyLen {
 		return Place{}, false
 	}
@@ -159,6 +162,18 @@ func (d *Directory) lookupCityWithin(k string, maxTypos int) (Place, bool) {
 		return best, true
 	}
 	return Place{}, false
+}
+
+// knownName reports whether k is a name of its own: a settlement of the classifier, a region, a district,
+// a marker or a street the map knows in some city. Such a short word is not read as a mistyped city.
+func (d *Directory) knownName(k string) bool {
+	if len(d.Settlements[k]) > 0 || d.Regions[k] != "" || Markers[k] != nil || FuzzyMarker(k) != nil {
+		return true
+	}
+	if _, ok := d.Districts[k]; ok {
+		return true
+	}
+	return OSM().KnownAnywhere(k)
 }
 
 // NearCity reports whether r is at most one edit from some city name, whichever and however many.

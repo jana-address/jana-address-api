@@ -117,7 +117,7 @@ func initPlaces() {
 	addCity("Бурабай", akm, "boravoe", "боровое", "burabay")
 	addCity("Шортанды", akm, "shortandy")
 	addCity("Аксу", pvl, "ақсу", "aksu", "aqsu", "ермак") // Ермак until 1993
-	addCity("Лисаковск", kst, "lisakovsk")
+	addCity("Лисаковск", kst, "лисаков", "lisakovsk")     // Лисаков in Kazakh
 	addCity("Шамалган", alm, "шамалған", "shamalgan")
 	addCity("Иргели", alm, "іргелі", "irgeli")
 	addCity("Узынагаш", alm, "ұзынағаш", "uzynagash")

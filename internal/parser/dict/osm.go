@@ -36,6 +36,9 @@ type OSMRef struct {
 	Houses  map[string]map[string]string     // key + "\x00" + type + "\x00" + HouseKey -> district, streets across a border
 	Areas   map[string]map[string]StreetRef  // area key
 	Numbers map[string]map[string][]Numbered // key + "\x00" + type -> the same buildings by number
+
+	anyOnce sync.Once
+	any     map[string]struct{} // street keys of all cities
 }
 
 // Street finds a street by its key and type ("улица", "проспект" or AnyType).
@@ -58,6 +61,26 @@ func (r *OSMRef) Neighbors(city, key, typ, house string) (string, bool) {
 		return "", false
 	}
 	return NeighborDistrict(r.Numbers[city][key+"\x00"+typ], n)
+}
+
+// KnownAnywhere reports whether some city of the map has a street with the key.
+func (r *OSMRef) KnownAnywhere(key string) bool {
+	_, ok := r.anywhere()[key]
+	return ok
+}
+
+func (r *OSMRef) anywhere() map[string]struct{} {
+	r.anyOnce.Do(func() {
+		r.any = map[string]struct{}{}
+		for _, streets := range r.Streets {
+			for k := range streets {
+				if name, typ, _ := strings.Cut(k, "\x00"); typ == AnyType {
+					r.any[name] = struct{}{}
+				}
+			}
+		}
+	})
+	return r.any
 }
 
 // OSM returns the embedded street directory; it is read once, on first use.

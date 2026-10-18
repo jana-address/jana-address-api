@@ -196,6 +196,9 @@ func (st *state) admin() {
 				if _, exact := st.d.Cities[t.fold]; !exact && !areaNext && !st.typoCityBefore(i) {
 					continue
 				}
+				if st.shortTypo(i) && (i > a && st.toks[i-1].kind == tWord && !st.toks[i-1].used && st.toks[i-1].mk == nil || st.exactCityElsewhere(i)) {
+					continue // "ул. Акын Сара" is a street, "Esim khana 72, Turkestan" names its city
+				}
 				if !st.d.AdminKnown(dict.City, t.fold) && (i != 0 || !st.townBefore(t.fold, i)) {
 					continue // a town of the classifier only opens the line: "Жаркент ул. Абая 5"
 				}
@@ -218,6 +221,35 @@ func (st *state) admin() {
 			}
 		}
 	}
+}
+
+// shortTypo reports whether token i is a word of four letters read as a large city only by its close
+// spelling: "тарз", "смей".
+func (st *state) shortTypo(i int) bool {
+	t := st.toks[i]
+	if _, exact := st.d.Cities[t.fold]; exact || len([]rune(t.fold)) != 4 {
+		return false
+	}
+	_, ok := st.d.LookupCity(t.fold)
+	return ok
+}
+
+// exactCityElsewhere reports whether a word other than token i names a city of the hand table exactly.
+func (st *state) exactCityElsewhere(i int) bool {
+	for j, t := range st.toks {
+		if j == i || t.kind != tWord {
+			continue
+		}
+		if _, ok := st.d.Cities[t.fold]; ok {
+			return true
+		}
+		if j+1 < len(st.toks) && st.toks[j+1].kind == tWord && j+1 != i {
+			if _, ok := st.d.Cities[t.fold+" "+st.toks[j+1].fold]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // cityPair reads a city of two words that opens part a..b of the line before more words:
