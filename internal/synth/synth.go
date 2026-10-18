@@ -1007,11 +1007,23 @@ func (b *builder) slip(s string, inner bool) (string, bool) {
 			}
 			out = slices.Insert(out, i+1, nb)
 		}
-		if t := string(out); t != s {
+		if t := string(out); t != s && !slipToMarker(s, t) {
 			return t, true
 		}
 	}
 	return s, false
+}
+
+// slipToMarker reports whether a slip turned a word of the name into a type or number marker: "Улы Дала"
+// with the ы dropped reads as ул. Дала.
+func slipToMarker(s, t string) bool {
+	ws, wt := strings.Fields(s), strings.Fields(t)
+	for i := range min(len(ws), len(wt)) {
+		if ws[i] != wt[i] && abbrevs[strings.Trim(strings.ToLower(wt[i]), ".")] {
+			return true
+		}
+	}
+	return false
 }
 
 var keyRows = []string{"йцукенгшщзхъ", "фывапролджэ", "ячсмитьбю", "qwertyuiop", "asdfghjkl", "zxcvbnm"}
