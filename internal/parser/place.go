@@ -185,6 +185,13 @@ func (st *state) admin() {
 			st.setDistrict(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
 		default:
+			// a region by its three letters opens the part: "ВКО ул. Абая 6", "зко мкр Кунаева"
+			if t := st.toks[a]; t.kind == tWord && t.mk == nil && a < b && len([]rune(t.fold)) == 3 && st.d.Regions[t.fold] != "" && st.vals[Province] == "" {
+				st.set(Province, st.d.Regions[t.fold], SourceString, a, a)
+				st.writtenRegion(st.d.Regions[t.fold], t.fold, t.text, "")
+				st.markUsed(a, a)
+				a++
+			}
 			// 3. a known city inside a street segment: "Алматы Сатпаева 5", "050000 Алматы ул Абая 10"
 			st.cityPair(a, b)
 			for i := a; i <= b; i++ {
