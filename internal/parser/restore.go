@@ -53,6 +53,12 @@ func (st *state) osmStreet(ref *dict.OSMRef, city string) (key, typ string, s di
 		return "", "", s, false
 	}
 	key, _ = dict.StreetKey(name)
+	if st.vals[StreetType] == "шоссе" {
+		// the map keeps "тасжолы" in the name: "Темірлан тасжолы" is "темирлан тасжолы", not the street "темирлан"
+		if _, ok := ref.Street(city, key+" "+tasZholy, dict.AnyType); ok {
+			key = key + " " + tasZholy
+		}
+	}
 	all, okAll := ref.Street(city, key, dict.AnyType)
 	if !okAll {
 		if alias, ok := streetAlias(ref, city, key); ok {

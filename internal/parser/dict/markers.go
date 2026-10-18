@@ -64,7 +64,7 @@ func init() {
 	addMarkers(Street, "микрорайон", "мкр", "мкп", "мкрн", "шағынаудан", "ықшамаудан", "мкр-н", "м-н", "мик-н", "микрорайон", "mkr", "mkrn", "mikrorayon", "mikroraion", "microdistrict")
 	addMarkers(Street, "квартал", "квартал", "кв-л", "квл", "kvartal")
 	addMarkers(Street, "переулок", "пер", "переулок", "пер-к", "тұйық", "тұйығы", "pereulok", "per")
-	addMarkers(Street, "бульвар", "б-р", "бульвар", "бул", "бульв", "бульвары", "желекжолы", "bulvar", "bul")
+	addMarkers(Street, "бульвар", "б-р", "бульвар", "бул", "бульв", "бульвары", "желекжолы", "bulvar", "bul", "b-r")
 	addMarkers(Street, "шоссе", "шоссе", "ш", "shosse", "трасса")  // "трасса" is not an output type
 	addMarkers(Living, "жилой комплекс", "жк", "түк", "zhk", "jk") // ТҮК: тұрғын үй кешені
 

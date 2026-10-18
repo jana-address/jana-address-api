@@ -107,3 +107,18 @@ func TestSpacedHouseLetter(t *testing.T) {
 		checkFields(t, tc.raw, tc.want)
 	}
 }
+
+func TestTypeWords(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want map[Field]string
+	}{
+		{"Astana b-r Kenesary 12, kv 40", map[Field]string{StreetType: "бульвар", StreetName: "Kenesary", House: "12", Apartment: "40"}},
+		// "тасжолы" written as one word is шоссе; the map still finds the road by its full name
+		{"Астана, Қорғалжын тасжолы 9", map[Field]string{StreetType: "шоссе", StreetName: "Қорғалжын", House: "9"}},
+		{"Шымкент Темірлан тасжолы 100", map[Field]string{StreetType: "шоссе", StreetName: "Темірлан", House: "100", District: "Абайский"}},
+	}
+	for _, tc := range cases {
+		checkFields(t, tc.raw, tc.want)
+	}
+}

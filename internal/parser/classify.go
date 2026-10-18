@@ -7,6 +7,9 @@ import (
 	"github.com/jana-address/jana-address-api/internal/parser/text"
 )
 
+// tasZholy is "тасжолы", шоссе written as one word.
+var tasZholy = text.Fold("тасжолы")
+
 func (st *state) classify() {
 	for i := range st.toks {
 		t := &st.toks[i]
@@ -51,6 +54,11 @@ func (st *state) classify() {
 				}
 				t.mk = nil
 			}
+		}
+		// "тасжолы" is "тас жолы" written as one word. It is not in dict.Markers: the street keys of the map
+		// keep it in the name ("темирлан тасжолы"), see osmStreet.
+		if t.mk == nil && t.fold == tasZholy {
+			t.mk = dict.Markers["шоссе"]
 		}
 		// typo in a long marker word: "подлъезд", "кваритра"; a typo right before a known city: "гролд актобе"
 		if t.mk == nil && !st.d.AdminKnown(dict.City, t.fold) {
