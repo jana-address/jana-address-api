@@ -113,6 +113,23 @@ func FuzzyMarker(f string) *Marker {
 	return best
 }
 
+// FuzzyUnitTypo is FuzzyMarker for house, apartment, entrance, floor and block words that end like the
+// marker form they are close to: "кварира" and "кваритра" are typos of "квартира", while "квартире",
+// "подъезде" and "этаже" are inflected forms, usually after a preposition ("10 в подъезде").
+func FuzzyUnitTypo(f string) *Marker {
+	m := FuzzyMarker(f)
+	if !m.IsUnit() {
+		return nil
+	}
+	r := []rune(f)
+	for _, form := range fuzzyMarkerForms {
+		if form.m == m && form.r[len(form.r)-1] == r[len(r)-1] {
+			return m
+		}
+	}
+	return nil
+}
+
 type markerForm struct {
 	r []rune
 	m *Marker

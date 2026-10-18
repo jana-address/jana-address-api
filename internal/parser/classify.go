@@ -88,6 +88,10 @@ func (st *state) classify() {
 		if t.fold == "кала" && t.mk != nil && !(i > 0 && st.toks[i-1].kind == tWord && st.d.KnownCityWord(st.toks[i-1].fold)) {
 			t.mk = nil // "Жана кала" is a name
 		}
+		// Latin "of." or "of 12" is an office, unlike the "of" in "Republic of Kazakhstan"
+		if t.fold == "of" && t.mk == nil && (st.isPunct(i+1, ".") || i+1 < len(st.toks) && st.toks[i+1].kind == tNum) {
+			t.mk = dict.Markers["оф"]
+		}
 		if t.fold == "п" {
 			j := i + 1
 			for st.isPunct(j, ".") {

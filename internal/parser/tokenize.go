@@ -59,9 +59,9 @@ func tokenize(r []rune) []token {
 			if singleLetterAt(r, j) && (r[j] != 'д' || afterHouseMarker(r, i)) { // "55д" is "55 дом", "11Д" and "д 11д" keep the letter
 				j++
 			} else if j+1 < n && r[j] == ' ' && singleLetterAt(r, j+1) &&
-				(j+2 == n || r[j+2] == ',' || (j+3 < n && r[j+2] == ' ' && r[j+3] == ',') ||
+				(j+2 == n || strings.ContainsRune(",;()", r[j+2]) || (j+3 < n && r[j+2] == ' ' && strings.ContainsRune(",;()", r[j+3])) ||
 					(r[j+2] == ' ' && (strings.ContainsRune("аАбБ", r[j+1]) || (!strings.ContainsRune("иИ", r[j+1]) && markerAt(r, j+3))))) {
-				j += 2 // "10 а", "162 ж кв 15" -> "10а", "162ж" ("10 в подъезде" keeps the preposition)
+				j += 2 // "10 а", "162 ж кв 15", "114 г (возле" -> "10а", "162ж", "114г" ("10 в подъезде" keeps the preposition)
 			}
 			// fraction: "55/6", "208 / 2"
 			q := j
@@ -127,7 +127,9 @@ func afterHouseMarker(r []rune, i int) bool {
 	return ok && m.Class == dict.House
 }
 
-// markerAt reports whether a marker word starts at r[i]: "кв", "подъезд", "эт".
+// markerAt reports whether a marker word starts at r[i]: "кв", "подъезд", "эт", a ЖК written with a dot
+// or a slash ("ж.к.", "ж/к"), or a mistyped unit word that keeps the ending of the marker ("кварира",
+// "кваритра"; "подъезде" and "квартире" are inflected, so "10 в подъезде" keeps the preposition).
 func markerAt(r []rune, i int) bool {
 	j := i
 	for j < len(r) && isLetter(r[j]) {
@@ -136,8 +138,14 @@ func markerAt(r []rune, i int) bool {
 	if j == i {
 		return false
 	}
-	m, ok := dict.Markers[text.Fold(string(r[i:j]))]
-	return ok && m.Class != dict.Noise && m.Class != dict.Landmark
+	w := text.Fold(string(r[i:j]))
+	if w == "ж" && j+1 < len(r) && (r[j] == '.' || r[j] == '/') && (r[j+1] == 'к' || r[j+1] == 'К') {
+		return true
+	}
+	if m, ok := dict.Markers[w]; ok {
+		return m.Class != dict.Noise && m.Class != dict.Landmark
+	}
+	return dict.FuzzyUnitTypo(w) != nil
 }
 
 // compactNum drops spaces inside a number token ("10 а" -> "10а").

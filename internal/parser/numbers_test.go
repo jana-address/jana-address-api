@@ -85,3 +85,25 @@ func TestLandmarkNumbers(t *testing.T) {
 		checkFields(t, tc.raw, tc.want)
 	}
 }
+
+func TestSpacedHouseLetter(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want map[Field]string
+	}{
+		// a house letter written apart before a mistyped apartment word, a ЖК or a bracket
+		{"Шымкент Байтурсынова 52 г кваритра 9", map[Field]string{House: "52г", Apartment: "9"}},
+		{"Тараз мкрн Жайлау, 8 в кварира 14 подъезд 1", map[Field]string{House: "8в", Apartment: "14", Entrance: "1"}},
+		{"Алматы пәтер 3, д14 г ж.к. Самал", map[Field]string{House: "14г", Apartment: "3"}},
+		{"Астана мкр Самал 12 г (возле рынка)", map[Field]string{House: "12г", Landmark: "возле рынка"}},
+		// an inflected word after "в" keeps the preposition
+		{"Абая 10 в подъезде 3", map[Field]string{House: "10", Entrance: "3"}},
+		{"Абая 12 в квартире 5", map[Field]string{House: "12", Apartment: "5"}},
+		// Latin "of." is an office
+		{"Almaty zhk Koktem 7 of. 120", map[Field]string{House: "7", Apartment: "120"}},
+		{"Republic of Kazakhstan, Almaty, Abay 10", map[Field]string{House: "10", Apartment: "-"}},
+	}
+	for _, tc := range cases {
+		checkFields(t, tc.raw, tc.want)
+	}
+}
