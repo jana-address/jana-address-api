@@ -8,3 +8,8 @@ OpenStreetMap
   internal/parser/dict/osm/
   © OpenStreetMap contributors, Open Database License (ODbL) 1.0
   https://www.openstreetmap.org/copyright
+
+Улицы Караганды по районам / Streets of Karaganda by district
+  internal/parser/dict/precincts/karaganda.tsv
+  Решение акима г. Караганды № 12/01 от 19.12.2018 «Об образовании избирательных участков»
+  в редакции № 03 от 14.07.2025, https://zakon.uchet.kz/rus/docs/G25KA00003B

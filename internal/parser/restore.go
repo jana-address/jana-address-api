@@ -29,6 +29,9 @@ func (st *state) restore() {
 	if _, ok := st.vals[District]; !ok && city == "Алматы" {
 		st.districtFromAlmatyAreas()
 	}
+	if _, ok := st.vals[District]; !ok {
+		st.districtFromPrecincts(city)
+	}
 	if _, ok := st.vals[StreetType]; !ok {
 		if name, ok := st.vals[StreetName]; ok {
 			k, _ := dict.StreetKey(name)
@@ -177,6 +180,34 @@ func (st *state) districtFromStreets(ref *dict.OSMRef, city string) {
 		if a, ok := ref.Areas[city][k]; ok && a.Share >= dict.MinStreetShare {
 			st.setDir(District, a.District, LevelArea)
 			return
+		}
+	}
+}
+
+// districtFromPrecincts restores the district of a city whose district borders the map does not draw
+// (Караганда) from the akim's list of polling precincts, which names the streets of each district: the
+// street first, then the microdistrict or living area.
+func (st *state) districtFromPrecincts(city string) {
+	p := dict.Precincts()[city]
+	if p == nil {
+		return
+	}
+	if name, ok := st.vals[StreetName]; ok {
+		k, _ := dict.StreetKey(name)
+		typ := ""
+		if st.src[StreetType] == SourceString {
+			typ = st.vals[StreetType]
+		}
+		if d, ok := p.District(k, typ); ok {
+			st.setDir(District, d, LevelStreet)
+			return
+		}
+	}
+	if v, ok := st.vals[LivingArea]; ok {
+		if k, _ := dict.StreetKey(v); k != "" {
+			if d, ok := p.District(k, ""); ok {
+				st.setDir(District, d, LevelArea)
+			}
 		}
 	}
 }
