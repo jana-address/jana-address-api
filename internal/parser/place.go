@@ -293,8 +293,8 @@ func (st *state) exactCityElsewhere(i int) bool {
 // the numbers: "ул. Айтеке би 9 Отеген батыр", "Школьная д. 47 өтеген батыр", "Абая 5 отеген батырр".
 func (st *state) cityPairAtEnd() {
 	b := len(st.toks) - 1
-	for b >= 0 && st.toks[b].kind == tPunct {
-		b--
+	for b >= 0 && (st.toks[b].kind == tPunct || st.toks[b].used && st.vals[Province] != "") {
+		b-- // and before the region read already: "Наурыз 62, 3 эт Өтеген батыр алматы облысы"
 	}
 	a := b - 1
 	if st.vals[City] != "" || a < 1 {
@@ -305,8 +305,15 @@ func (st *state) cityPairAtEnd() {
 			return
 		}
 	}
-	if p := st.toks[a-1]; p.kind != tNum && p.kind != tPunct {
-		return // only after the numbers or a comma: "ул. Отеген батыр" stays a street
+	if p := st.toks[a-1]; p.kind != tNum && p.kind != tPunct && !p.mk.IsUnit() {
+		return // only after the numbers, a comma or a unit word: "ул. Отеген батыр" stays a street
+	}
+	p := a - 1
+	for p > 0 && st.isPunct(p, ".") {
+		p--
+	}
+	if m := st.toks[p].mk; m != nil && (m.Class == dict.Street || m.Class == dict.Living) {
+		return
 	}
 	k := st.keyOf(a, b)
 	if _, ok := st.d.LookupCity(k); !ok {

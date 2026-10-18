@@ -214,6 +214,10 @@ func TestAreaBeforeStreet(t *testing.T) {
 		{"Алматинская обл, Отеген батырр, Нурлы 3", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
 		{"Алматинская обл Отеген ьатыр Нурлы 3", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
 		{"ул Нурлы 3 отеген батырр", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
+		// the city of two words after the flat and the floor, before the region
+		{"ул Нурлы 3, 2 эт Новый Узень Мангистауская обл", map[Field]string{City: "Жанаозен", StreetName: "Нурлы", Floor: "2"}},
+		{"ул. Отеген батыр 5 алматы облысы", map[Field]string{City: "-", StreetName: "Отеген батыр", House: "5"}},
+		{"ул. Отеген батыр алматы облысы", map[Field]string{City: "-", StreetName: "Отеген батыр"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
