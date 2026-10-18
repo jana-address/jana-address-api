@@ -32,6 +32,16 @@ The frontend lives in the separate repository `jana-address-web` and is a submod
 `web/`. Clone with `--recurse-submodules`; the GitHub "Download ZIP" button does not work,
 because the archive does not include the submodule.
 
+**From the archive.** The archive has the frontend already in `web/` and the prebuilt images:
+
+```bash
+cd jana-address-api
+docker compose up                      # builds the images; needs the network once
+# without the network: load the prebuilt images from the archive, then start without building
+docker load -i ../images/jana-address-images.tar.gz
+docker compose up --no-build
+```
+
 A `.env` file is optional: every variable has a default. To change the ports:
 `WEB_PORT=3001 API_PORT=8081 docker compose up` (see `.env.example`). To run a second copy next to a
 running one, also set `COMPOSE_PROJECT_NAME=<other name>`.
