@@ -196,6 +196,11 @@ func splitGlued(d *dict.Directory, r []rune, toks []token) []token {
 		if len(words) == 1 && city != "" {
 			words = typeBeforeStreet(r, t.s, t.e, city, words)
 		}
+		if n := len(out); len(words) == 1 && n > 0 && out[n-1].kind == tWord && !glued(out[n-1], t) {
+			if p := secondCityWord(d, out[n-1].fold, r, t.s, t.e); p > t.s {
+				words = []token{wordToken(r, t.s, p), wordToken(r, p, t.e)}
+			}
+		}
 		out = append(out, words...)
 		for _, w := range words {
 			if p, ok := d.LookupCity(w.fold); ok {
@@ -226,7 +231,51 @@ func typeBeforeStreet(r []rune, s, e int, city string, words []token) []token {
 			return []token{wordToken(r, s, p), wordToken(r, p, e)}
 		}
 	}
+	if p := typeOpening(r, s, e, city); p > s {
+		return []token{wordToken(r, s, p), wordToken(r, p, e)}
+	}
 	return words
+}
+
+// openingTypes are the short street types, folded, that open a mistyped street the map does not know.
+var openingTypes = []string{"пр-т", text.Fold("бульвар"), "б-р", "ул", "пр"}
+
+// typeOpening returns where a short street type ends in a word after the city that no city of the map
+// knows, nor a street one or two letters from it that opens with that type: "улгголя", "пртауелсиздик",
+// "б-рмир" (s when there is none). "привокзальный", "улытау" and "протзанова" keep their letters.
+func typeOpening(r []rune, s, e int, city string) int {
+	if e-s < 5 || !strings.ContainsRune("уУпПбБ", r[s]) {
+		return s
+	}
+	f := text.Fold(string(r[s:e]))
+	if gluedStreet("", f) || dict.OSM().KnownAnywhere(lookupKey(string(r[s:e]))) || dict.FuzzyMarker(f) != nil {
+		return s // "прспект" is a mistyped type word
+	}
+	for _, left := range openingTypes {
+		if !strings.HasPrefix(f, left) {
+			continue
+		}
+		n := len([]rune(left))
+		rest := []rune(f)[n:]
+		if len(rest) < 3 || len(rest) == 3 && n <= 2 {
+			return s
+		}
+		for k := n + 1; k <= min(len([]rune(f)), 10); k++ {
+			if m := dict.Markers[string([]rune(f)[:k])]; m != nil {
+				return s // "проспекта", "улицы"
+			}
+		}
+		if startsLikeStreet(city, f, left) || startsLikeStreet("", f, left) || streetLike("", f) {
+			return s // "Улиханов" is Уалиханова
+		}
+		for p := s + n; p < e && p <= s+n+1; p++ { // the folded type drops "ь"
+			if text.Fold(string(r[s:p])) == left && isLetter(r[p]) && isLetter(r[p-1]) {
+				return p
+			}
+		}
+		return s
+	}
+	return s
 }
 
 // adjectiveEnd marks a word that is an adjective made from a city name: "Алматинская", "Таразский".
@@ -329,7 +378,7 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	// "усть-каменогорсқала" (not "усть-каменогорсқ" and "ала")
 	if city == "" {
 		for p := min(e-3, top); p >= s+5; p-- {
-			if !startsWithTypeWord(text.Fold(string(r[p:e]))) {
+			if !startsWithTypeWord(r[p:e]) {
 				continue
 			}
 			if left, pl, unique, _ := prefix(p); unique {
@@ -474,14 +523,21 @@ func gluedStreet(city, f string) bool { return dict.OSM().GluedStreet(city, f) }
 var kalas = text.Fold("қалас")
 
 // typeWordStarts are the type words after a city that a stray letter may separate from it.
-var typeWordStarts = []string{"кала", "город", "горд", "ауыл", "мкр"}
+var typeWordStarts = [][]rune{[]rune("кала"), []rune("қала"), []rune("город"), []rune("горд"), []rune("ауыл"), []rune("мкр")}
 
-// startsWithTypeWord reports whether the folded rest of a glued word opens with a city type word or "мкр".
-func startsWithTypeWord(f string) bool {
+// startsWithTypeWord reports whether the rest of a glued word opens with a city type word or "мкр".
+func startsWithTypeWord(r []rune) bool {
+next:
 	for _, w := range typeWordStarts {
-		if strings.HasPrefix(f, w) {
-			return true
+		if len(r) < len(w) {
+			continue
 		}
+		for i, c := range w {
+			if unicode.ToLower(r[i]) != c {
+				continue next
+			}
+		}
+		return true
 	}
 	return false
 }
@@ -591,4 +647,54 @@ func streetLike(city, f string) bool {
 // Сейфуллина, "қаласатпаева" қала Сатпаева.
 func sStreet(city, rest string) bool {
 	return gluedStreet(city, "с"+rest) && !gluedStreet(city, rest) || streetLike(city, "с"+rest) && !streetLike(city, rest)
+}
+
+// cityPairs maps, per directory, the first word of the cities of two words to their second words.
+var cityPairs sync.Map // *dict.Directory -> map[string][]string
+
+func pairsOf(d *dict.Directory) map[string][]string {
+	if m, ok := cityPairs.Load(d); ok {
+		return m.(map[string][]string)
+	}
+	m := map[string][]string{}
+	add := func(k string) {
+		first, second, ok := strings.Cut(k, " ")
+		if ok && !strings.Contains(second, " ") && len([]rune(second)) >= 4 {
+			m[first] = append(m[first], second)
+		}
+	}
+	for k := range d.Cities {
+		add(k)
+	}
+	for k := range d.Settlements {
+		if _, ok := d.Cities[k]; !ok {
+			add(k)
+		}
+	}
+	cityPairs.Store(d, m)
+	return m
+}
+
+// secondCityWord returns where the second word of a city of two words ends when the street is glued to it:
+// "отеген батырмира" is Отеген батыр and Мира, also with a letter off in a long word ("баьыр"); s when not.
+func secondCityWord(d *dict.Directory, prev string, r []rune, s, e int) int {
+	seconds := pairsOf(d)[prev]
+	if len(seconds) == 0 {
+		return s
+	}
+	for lim := 0; lim <= 1; lim++ { // the exact word first: "батырмира" is not "баты" and "рмира"
+		for _, sw := range seconds {
+			w := []rune(sw)
+			if lim > 0 && len(w) < 5 {
+				continue
+			}
+			for _, p := range []int{s + len(w), s + len(w) + lim, s + len(w) - lim} {
+				var buf [text.MaxFuzzyLen]rune
+				if p <= e-3 && p-s < text.MaxFuzzyLen && text.DistanceLimit(text.ToRunes(text.Fold(string(r[s:p])), buf[:0]), w, lim) <= lim {
+					return p
+				}
+			}
+		}
+	}
+	return s
 }

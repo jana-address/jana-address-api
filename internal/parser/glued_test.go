@@ -35,6 +35,16 @@ func TestGluedBorders(t *testing.T) {
 		// a city in capitals keeps its last letter before a lowercase street
 		{"ПАВЛОДАРкутузова 4", map[Field]string{City: "Павлодар", StreetName: "кутузова", House: "4"}},
 		{"СЕМЕЙАбая 2", map[Field]string{City: "Семей", StreetName: "Абая", House: "2"}},
+		// a short type glued before a mistyped street that no city knows, in a word of its own after the city
+		{"павлодар улкутузвоа 3", map[Field]string{City: "Павлодар", StreetType: "улица", StreetName: "кутузвоа", House: "3"}},
+		{"кокшетау пркенесарыы 4", map[Field]string{City: "Кокшетау", StreetType: "проспект", StreetName: "кенесарыы", House: "4"}},
+		{"павлодар б-рмирра 6", map[Field]string{City: "Павлодар", StreetType: "бульвар", StreetName: "мирра", House: "6"}},
+		// a mistyped type word and a street one letter from a known one stay whole
+		{"алматы прспект абая 5", map[Field]string{City: "Алматы", StreetName: "абая", House: "5"}},
+		{"актобе улиханова 7", map[Field]string{City: "Актобе", StreetName: "улиханова", House: "7"}},
+		// a street glued to the second word of a city of two words
+		{"отеген батырсадовая 5", map[Field]string{City: "Отеген батыр", StreetName: "садовая", House: "5"}},
+		{"отеген батыравезова 8", map[Field]string{City: "Отеген батыр", StreetName: "авезова", House: "8"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
