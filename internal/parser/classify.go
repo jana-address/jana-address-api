@@ -54,7 +54,11 @@ func (st *state) classify() {
 		}
 		// typo in a long marker word: "подлъезд", "кваритра"; a typo right before a known city: "гролд актобе"
 		if t.mk == nil && !st.d.AdminKnown(dict.City, t.fold) {
-			if m := dict.FuzzyMarker(t.fold); m != nil {
+			m := dict.FuzzyMarker(t.fold)
+			if signed := text.RuSpelling(strings.ToLower(t.text)); m == nil && strings.ContainsAny(signed, "ьъ") {
+				m = dict.FuzzyMarker(signed) // a soft sign typed for a letter: "эьаж" is "этаж", not "эаж"
+			}
+			if m != nil {
 				t.mk = m
 			} else if i+1 < len(st.toks) && st.d.AdminKnown(dict.City, st.toks[i+1].fold) &&
 				text.DistanceLimit([]rune(t.fold), []rune("город"), 2) <= 2 {
