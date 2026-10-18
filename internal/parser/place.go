@@ -457,11 +457,26 @@ func (st *state) setCity(k, name string, a, b int, village bool) {
 			return
 		}
 	}
-	if len(ps) > 0 && sameName(ps) { // namesakes in several regions: the name is certain, the region is not
+	if len(ps) > 0 && sameName(ps) { // namesakes in several places: the name is certain, the region only if they share it
 		st.set(City, ps[0].Name, SourceString, a, b)
+		if prov := shared(ps, func(p dict.Place) string { return p.Province }); prov != "" {
+			st.setDir(Province, prov, LevelSettlement) // "с. Баскудук": two villages, both in Мангистауская область
+			st.setDir(District, shared(ps, func(p dict.Place) string { return p.District }), LevelSettlement)
+		}
 		return
 	}
 	st.set(City, text.RuSpelling(name), SourceString, a, b)
+}
+
+// shared returns the value every place has, or "".
+func shared(ps []dict.Place, value func(dict.Place) string) string {
+	v := value(ps[0])
+	for _, p := range ps[1:] {
+		if value(p) != v {
+			return ""
+		}
+	}
+	return v
 }
 
 func sameName(ps []dict.Place) bool {

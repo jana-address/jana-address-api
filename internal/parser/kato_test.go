@@ -60,6 +60,8 @@ func TestKATOSettlements(t *testing.T) {
 		{"Актобе, район Астана, ул. Абая 5", map[Field]string{City: "Актобе", Province: "Актюбинская область", District: "Астана"}},
 		// a town of the classifier before "мкр", with no other city, is not a living area
 		{"Жаркент мкр Самал 3", map[Field]string{LivingArea: "-", StreetType: "микрорайон", StreetName: "Самал", House: "3"}},
+		// namesakes in one region give the region but no district: two villages called Баскудук in Мангистауская область
+		{"с. Баскудук, ул. Жастар 7", map[Field]string{City: "Баскудук", Province: "Мангистауская область", District: "-"}},
 		{"Астана, район Алматы, ул. Абая 5", map[Field]string{City: "Астана", Province: "Астана", District: "Алматы"}},
 		// a new region keeps its written Russian form
 		{"Абайская область, Семей, ул. Шакарима 20", map[Field]string{Province: "Абайская область", City: "Семей", StreetName: "Шакарима"}},
