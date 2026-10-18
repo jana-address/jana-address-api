@@ -181,7 +181,9 @@ func (st *state) admin() {
 			(st.writtenValue(Province) != "" || st.writtenValue(District) != ""):
 			st.setCity(k, st.text(a, b), a, b, true)
 			st.markUsed(a, b)
-		case clean && strings.HasSuffix(k, "ий") && st.d.AdminKnown(dict.District, k):
+		// a rayon adjective after a city with rayons of its own is one of them; another one is a street:
+		// "г. Шымкент, Сайрамский, д.117" is the street, "Шымкент, Енбекшинский район" a rayon of the city
+		case clean && strings.HasSuffix(k, "ий") && st.d.AdminKnown(dict.District, k) && st.cityRayon(k):
 			st.setDistrict(k, st.text(a, b), a, b)
 			st.markUsed(a, b)
 		default:
@@ -353,6 +355,17 @@ func (st *state) typoCityBefore(i int) bool {
 		j++ // a comma between two parts, a quoted name: "алматыы «Нурлы Тау» жк"
 	}
 	return j == len(st.toks) || st.toks[j].kind == tWord
+}
+
+// cityRayon reports whether the rayon name k may be read with the city of the line: no city yet, a city
+// without rayons in the tables, or one of its own rayons.
+func (st *state) cityRayon(k string) bool {
+	ds, ok := st.d.CityDistricts[st.vals[City]]
+	if st.vals[City] == "" || !ok {
+		return true
+	}
+	_, own := ds[k]
+	return own
 }
 
 // typoCityOpening reports whether a close spelling of a city at token i, before a number, is the city: the

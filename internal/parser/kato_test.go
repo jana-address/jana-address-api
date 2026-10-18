@@ -275,6 +275,9 @@ func TestTypoCityOpening(t *testing.T) {
 		// a region by its three letters before the street
 		{"ско ул. Абая 12", map[Field]string{Province: "Северо-Казахстанская область", StreetName: "Абая", House: "12"}},
 		{"ЗКО пр. Назарбаева 5 кв 2", map[Field]string{Province: "Западно-Казахстанская область", StreetName: "Назарбаева"}},
+		// a rayon of another region after the city is a street, a rayon of the city stays the rayon
+		{"г. Шымкент, Сайрамский, 12", map[Field]string{City: "Шымкент", StreetName: "Сайрамский", House: "12"}},
+		{"Алматы, Медеуский, ул. Абая 5", map[Field]string{District: "Медеуский", StreetName: "Абая"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
