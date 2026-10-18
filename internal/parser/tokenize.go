@@ -389,10 +389,23 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	// 2. a city at the start whose rest begins with a street the map knows there: "Аксукамзина" is Аксу
 	// and Камзина, "уральскевразия" Уральск and Евразия, "алматдостык" Алматы and Достык. An exact city
 	// goes first, then a close spelling, the longest first.
+	// A street one letter off counts when no split gives a street as written: "оралевразмя", "кокшетуабылайхна",
+	// but "алматжандосова" is Алмат and Жандосова.
 	if city == "" && !dict.OSM().KnownAnywhere(w.fold) {
+		typoP, typoCity := 0, ""
 		for p := min(e-3, exactEnd); p >= s+4; p-- {
-			if pl, ok := d.Cities[text.Fold(string(r[s:p]))]; ok && streetFirst(d, r, p, e, pl.Name) {
+			pl, ok := d.Cities[text.Fold(string(r[s:p]))]
+			if !ok {
+				continue
+			}
+			switch streetFirst(d, r, p, e, pl.Name) {
+			case 2:
 				return split(p, pl.Name)
+			case 1:
+				// not when the city's last letter is typed twice: "шымкенттташенова"
+				if typoP == 0 && unicode.ToLower(r[p]) != unicode.ToLower(r[p-1]) {
+					typoP, typoCity = p, pl.Name
+				}
 			}
 		}
 		// a letter more than an exact city goes with the street: "шымкентджангельдина" is Джангельдина and
@@ -402,9 +415,21 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 			if _, ok := d.Cities[left]; ok || exactLen > 0 && len([]rune(left)) < exactLen+2 && !doubledEnd(left, exactLen) {
 				continue
 			}
-			if unique && streetFirst(d, r, p, e, pl.Name) {
-				return split(p, pl.Name)
+			if !unique {
+				continue
 			}
+			switch streetFirst(d, r, p, e, pl.Name) {
+			case 2:
+				return split(p, pl.Name)
+			case 1:
+				// not "көкшетауу" before "алиханв"
+				if typoP == 0 && len([]rune(left)) >= 5 && !(exactLen > 0 && doubledEnd(left, exactLen)) {
+					typoP, typoCity = p, pl.Name
+				}
+			}
+		}
+		if typoP > 0 {
+			return split(typoP, typoCity)
 		}
 	}
 	// 3. a city with one typo at the start: "асстанаакжол", "шпмалғанул"; not for adjectives like "Алматинская"
@@ -505,16 +530,25 @@ func cityName(p dict.Place, left string) string {
 	return left
 }
 
-// streetFirst reports whether the glued rest r[s:e] after a city starts with a street of that city, after
+// streetFirst tells whether the glued rest r[s:e] after a city starts with a street of that city, after
 // the type words: "камзина", "улстроителей", "қаласыабая".
-func streetFirst(d *dict.Directory, r []rune, s, e int, city string) bool {
+// It gives 2 for a street as written, 1 for one a letter off ("евразмя", "интернациональна" before
+// "көшесі") and 0 for none.
+func streetFirst(d *dict.Directory, r []rune, s, e int, city string) int {
 	for _, t := range splitWord(d, r, s, e, city) {
 		if dict.Markers[t.fold] != nil {
 			continue
 		}
-		return len([]rune(t.fold)) >= 4 && gluedStreet(city, t.fold)
+		n := len([]rune(t.fold))
+		switch {
+		case n >= 4 && gluedStreet(city, t.fold):
+			return 2
+		case n >= 6 && streetLike(city, t.fold):
+			return 1
+		}
+		return 0
 	}
-	return false
+	return 0
 }
 
 // gluedStreet reports whether the city has a street written as the word f.
