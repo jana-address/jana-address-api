@@ -175,26 +175,26 @@
   "holdout": {
     "cities": {
       "Алматы": {
-        "accuracy": 0.988,
-        "addresses": 12858,
-        "by_neighbors": 11085,
-        "by_street": 1389,
+        "accuracy": 0.989,
+        "addresses": 12857,
+        "by_neighbors": 11083,
+        "by_street": 1388,
         "coverage": 0.97,
-        "restored": 12474,
+        "restored": 12471,
         "right": 12328
       },
       "Астана": {
         "accuracy": 0.991,
-        "addresses": 2998,
+        "addresses": 2997,
         "by_neighbors": 2343,
-        "by_street": 606,
+        "by_street": 605,
         "coverage": 0.984,
-        "restored": 2949,
-        "right": 2923
+        "restored": 2948,
+        "right": 2922
       },
       "Шымкент": {
         "accuracy": 0.974,
-        "addresses": 9215,
+        "addresses": 9216,
         "by_neighbors": 7749,
         "by_street": 969,
         "coverage": 0.946,
@@ -208,13 +208,13 @@
   "min_street_share": 0.75,
   "rows": {
     "areas": 915,
-    "houses": 189592,
-    "streets": 17606
+    "houses": 187739,
+    "streets": 17602
   },
   "sha256": {
     "areas.tsv.gz": "f63a4f1537517eb327705a8e5de6a800d2c4710d465a3f28a277fb0bcc149cc9",
-    "houses.tsv.gz": "1fb947dd48f22e5567b0448ba9587df29cf4f7a2861682077e6e1fe0ee8566fa",
-    "streets.tsv.gz": "f1ad7eba8991f30085a44bce453f3e93d9fadcd3ced22046f93fccfe1b584b89"
+    "houses.tsv.gz": "74d93508f3aa896e931c5e0c96ed73b1dc134df0e3b0448c14819a2cd9c15d82",
+    "streets.tsv.gz": "90016ea1af98cd7b0517a20e93db2eaba86f1b1d0347c270226470a7d499852c"
   },
   "source": "OpenStreetMap, Overpass API (https://overpass-api.de/api/interpreter)",
   "timestamp_osm_base": "2026-10-17T22:08:20Z"

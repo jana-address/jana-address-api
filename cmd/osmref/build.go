@@ -100,6 +100,57 @@ func names(tags map[string]string, keys ...string) []string {
 	return out
 }
 
+var streetTags = []string{"addr:street", "addr:street:ru", "addr:street:kk"}
+
+// address is one street address of a building: the spellings of its street and its number.
+type address struct {
+	streets []string
+	number  string
+}
+
+// addresses lists the street addresses of a building. Its street tags usually spell one street in
+// several languages, and those spellings are joined into one street. A corner building may list
+// several streets in one tag, "улица Комиссарова;проспект Бухар-жырау" with the number "37;66": those
+// are different streets and are not joined; each gets its own number when the numbers pair up.
+func addresses(tg map[string]string) []address {
+	hn := tg["addr:housenumber"]
+	several := false
+	for _, k := range streetTags {
+		several = several || strings.Contains(tg[k], ";")
+	}
+	if !several {
+		return []address{{names(tg, streetTags...), hn}}
+	}
+	nums := splitList(hn)
+	var out []address
+	seen := map[string]bool{}
+	for _, k := range streetTags {
+		ss := splitList(tg[k])
+		for i, s := range ss {
+			num := hn
+			if len(nums) == len(ss) {
+				num = nums[i]
+			}
+			if !seen[s+"\x00"+num] {
+				seen[s+"\x00"+num] = true
+				out = append(out, address{[]string{s}, num})
+			}
+		}
+	}
+	return out
+}
+
+// splitList splits a tag value that holds several values: "37;66".
+func splitList(v string) []string {
+	var out []string
+	for _, s := range strings.Split(v, ";") {
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // nodesOf turns names into street nodes of one city, without repeats.
 func nodesOf(city string, ns []string) []node {
 	var out []node
@@ -185,10 +236,15 @@ func build(args []string) error {
 					nWays++
 				}
 			}
-			if hn := tg["addr:housenumber"]; hn != "" {
-				ns := nodesOf(d.City, names(tg, "addr:street", "addr:street:ru", "addr:street:kk"))
-				if len(ns) > 0 {
-					h := dict.HouseKey(hn)
+			if tg["addr:housenumber"] != "" {
+				counted := false
+				for _, a := range addresses(tg) {
+					ns := nodesOf(d.City, a.streets)
+					if len(ns) == 0 {
+						continue
+					}
+					counted = true
+					h := dict.HouseKey(a.number)
 					for _, n := range ns {
 						nd := b.data(n)
 						isTest := holdout(n, h)
@@ -207,6 +263,8 @@ func build(args []string) error {
 					if len(ns) > 1 {
 						b.union(ns)
 					}
+				}
+				if counted {
 					nHouses++
 				}
 			}
