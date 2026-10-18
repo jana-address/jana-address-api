@@ -162,7 +162,7 @@ func (st *state) admin() {
 		k := st.keyOf(a, b)
 		switch {
 		// 2. a segment that is just a known name: "Алматы", "Турксибский"
-		case clean && (st.d.Cities[k] != dict.Place{} || ((seg == 0 || st.vals[City] == "" && st.opensLine(a)) && st.d.AdminKnown(dict.City, k) && (st.typoCityBefore(b) || a == b && st.typoCityOpening(a)))): // close spelling only where the line opens, maybe after the region
+		case clean && (st.d.Cities[k] != dict.Place{} || (st.vals[City] == "" && (seg == 0 || st.opensLine(a)) && st.d.AdminKnown(dict.City, k) && (st.typoCityBefore(b) || a == b && st.typoCityOpening(a)))): // close spelling only where the line opens, maybe after the region, and only once: "Астана қаласы Сауран, дом 28"
 			st.setCity(k, st.text(a, b), a, b, false)
 			st.markUsed(a, b)
 		// 2b. a town of the classifier as a part of its own before more words: "Жаркент, ул. Абая 5".
