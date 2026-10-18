@@ -333,7 +333,7 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 		// "алматыддостык" keeps its typo, but a longer name may be mistyped: "лисаковмк…" is Лисаковск
 		for p := min(e-3, top); p >= s+4; p-- {
 			left, pl, unique, _ := prefix(p)
-			if _, ok := d.Cities[left]; ok || exactLen > 0 && len([]rune(left)) < exactLen+2 {
+			if _, ok := d.Cities[left]; ok || exactLen > 0 && len([]rune(left)) < exactLen+2 && !doubledEnd(left, exactLen) {
 				continue
 			}
 			if unique && streetFirst(d, r, p, e, pl.Name) {
@@ -397,6 +397,13 @@ func init() {
 	for _, w := range []string{"бульвары", "тұйығы", "тасжолы", "шоссе"} {
 		postfixGlued[text.Fold(w)] = true
 	}
+}
+
+// doubledEnd reports whether the folded left part is an exact city of n letters with its last letter typed
+// twice: "алматыы" before "желтоксан" is Алматы, the street keeps its own letters.
+func doubledEnd(left string, n int) bool {
+	r := []rune(left)
+	return len(r) == n+1 && r[n] == r[n-1]
 }
 
 // softSigns counts the letters of r[s:e] that the folded key drops ("ь", "ъ"), so a bound on a key length
