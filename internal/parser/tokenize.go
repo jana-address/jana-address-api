@@ -425,8 +425,8 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 			case 2:
 				return split(p, pl.Name)
 			case 1:
-				// not "көкшетауу" before "алиханв"
-				if typoP == 0 && len([]rune(left)) >= 5 && !(exactLen > 0 && doubledEnd(left, exactLen)) {
+				// not "көкшетауу" before "алиханв"; a name of four letters is close to one city only: "тарзрыскуловва"
+				if typoP == 0 && len([]rune(left)) >= 4 && !(exactLen > 0 && doubledEnd(left, exactLen)) {
 					typoP, typoCity = p, pl.Name
 				}
 			}
