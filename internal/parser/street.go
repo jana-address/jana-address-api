@@ -388,16 +388,30 @@ func (st *state) areaThenStreetSomewhere(c *cand) int {
 			return -1
 		}
 	}
+	var splits []int // word tokens that may start the street
 	for j := c.a + 1; j <= c.b; j++ {
-		if st.toks[j].kind != tWord || st.toks[j-1].kind != tWord {
-			continue
+		if st.toks[j].kind == tWord && st.toks[j-1].kind == tWord && !strings.ContainsAny(st.text(j, c.b), "0123456789") {
+			splits = append(splits, j)
 		}
+	}
+	for _, j := range splits {
 		k := lookupKey(st.text(j, c.b))
-		if strings.ContainsAny(k, "0123456789") {
-			continue
-		}
 		for city := range ref.Streets {
-			if st.knownArea(city, c.a, j-1) && (st.strongStreet(city, k) || bySurname(city, k) || closeStreet(city, k)) {
+			if (st.strongStreet(city, k) || bySurname(city, k)) && st.knownArea(city, c.a, j-1) {
+				return j
+			}
+		}
+	}
+	for _, j := range splits { // a street one letter off in a city that knows the area
+		k, head := lookupKey(st.text(j, c.b)), st.text(c.a, j-1)
+		hk := lookupKey(head)
+		for city, areas := range ref.Areas {
+			if _, ok := areas[hk]; ok && closeStreet(city, k) {
+				return j
+			}
+		}
+		for _, ar := range st.d.Areas[text.Key(lookupName(head))] {
+			if closeStreet(ar.City, k) {
 				return j
 			}
 		}
