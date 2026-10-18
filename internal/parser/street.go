@@ -398,29 +398,53 @@ var surnames = sync.OnceValue(func() map[string]map[string][]string {
 // closeStreet reports whether exactly one street of the city that the map knows well (a key of six letters
 // or more, three segments and buildings) is one letter from the key: "рыскулоова" is Рыскулова.
 func closeStreet(city, k string) bool {
-	var buf, kbuf [text.MaxFuzzyLen]rune
+	var kbuf [text.MaxFuzzyLen]rune
 	r := text.ToRunes(k, kbuf[:0])
 	if len(r) < 6 || len(r) >= text.MaxFuzzyLen-1 {
 		return false
 	}
+	byLen := wellKnownStreets()[city]
 	found := ""
-	for key, s := range dict.OSM().Streets[city] {
-		name, typ, _ := strings.Cut(key, "\x00")
-		if typ != dict.AnyType || s.Votes < 3 {
+	for n := len(r) - 1; n <= len(r)+1; n++ {
+		if n < 6 || n >= len(byLen) {
 			continue
 		}
-		if n := utf8.RuneCountInString(name); n < len(r)-1 || n > len(r)+1 || n < 6 {
-			continue
-		}
-		if text.DistanceLimit(r, text.ToRunes(name, buf[:0]), 1) <= 1 {
-			if found != "" && found != name {
-				return false // two streets as close: no guess
+		for _, c := range byLen[n] {
+			if text.DistanceLimit(r, c.r, 1) <= 1 {
+				if found != "" && found != c.name {
+					return false // two streets as close: no guess
+				}
+				found = c.name
 			}
-			found = name
 		}
 	}
 	return found != ""
 }
+
+type knownStreet struct {
+	name string
+	r    []rune
+}
+
+// wellKnownStreets keeps, per city, the streets of the map known well (a key of six letters or more, three
+// segments and buildings) bucketed by length in runes, so closeStreet compares only names of a close length.
+var wellKnownStreets = sync.OnceValue(func() map[string][][]knownStreet {
+	out := map[string][][]knownStreet{}
+	for city, streets := range dict.OSM().Streets {
+		byLen := make([][]knownStreet, text.MaxFuzzyLen)
+		for key, s := range streets {
+			name, typ, _ := strings.Cut(key, "\x00")
+			if typ != dict.AnyType || s.Votes < 3 {
+				continue
+			}
+			if n := utf8.RuneCountInString(name); n >= 6 && n < text.MaxFuzzyLen {
+				byLen[n] = append(byLen[n], knownStreet{name, []rune(name)})
+			}
+		}
+		out[city] = byLen
+	}
+	return out
+})
 
 // strongStreet reports whether the city's map knows the street key well enough to cut it off a living
 // area name: a key of five letters or more with at least three segments and buildings, a long key such as
