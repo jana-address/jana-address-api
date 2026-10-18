@@ -382,11 +382,21 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	// 6. a type word at the end: "абайкошеси", "самалмкр", "қабанбайбатыркөш"
 	for p := s + 3; p <= e-2; p++ {
 		right := text.Fold(string(r[p:e]))
-		if dict.GlueMarkers[right] || right == text.Fold("көш") {
+		if dict.GlueMarkers[right] || right == text.Fold("көш") || postfixGlued[right] {
 			return append(splitWord(d, r, s, p, city), wordToken(r, p, e))
 		}
 	}
 	return []token{w}
+}
+
+// postfixGlued are Kazakh street types written after the name that end glued words too: "мирабульвары",
+// "ботаническийтұйығы", "темирлановскоетасжолы".
+var postfixGlued = map[string]bool{}
+
+func init() {
+	for _, w := range []string{"бульвары", "тұйығы", "тасжолы", "шоссе"} {
+		postfixGlued[text.Fold(w)] = true
+	}
 }
 
 // softSigns counts the letters of r[s:e] that the folded key drops ("ь", "ъ"), so a bound on a key length

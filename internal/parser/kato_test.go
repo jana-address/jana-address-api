@@ -230,6 +230,9 @@ func TestTypeGluedAfterCity(t *testing.T) {
 		{"алматы улжибек жолы 20", map[Field]string{StreetName: "жибек жолы", House: "20"}},
 		{"астана улытау 5", map[Field]string{StreetName: "улытау"}},
 		{"Алматы пригородный 5", map[Field]string{StreetName: "пригородный"}},
+		// a Kazakh postfix type glued at the end
+		{"караганда бухаржыраубульвары 12", map[Field]string{StreetType: "бульвар", StreetName: "бухаржырау", House: "12"}},
+		{"алматы абаятұйығы 4", map[Field]string{StreetType: "переулок", StreetName: "абая"}},
 		// a street known by its surname keeps a first syllable that reads as a type: "кош" in Кошкарбаева
 		{"астанакошкарбаева 40", map[Field]string{StreetName: "кошкарбаева", House: "40"}},
 	}
