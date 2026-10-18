@@ -495,6 +495,13 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 			return split(p, cityName(pl, left))
 		}
 	}
+	// 3b. a city of four letters or five with one typo before a street the map knows: "актусейфуллина" is
+	// Актау and Сейфуллина
+	if p := s + 4; city == "" && exactEnd == s && e-p >= 5 {
+		if left, _, unique, _ := prefix(p); unique && len([]rune(left)) == 4 && dict.OSM().KnownAnywhere(text.Fold(string(r[p:e]))) {
+			return []token{wordToken(r, s, p), wordToken(r, p, e)}
+		}
+	}
 	// 4. a city at the start, the longest first: "алматыабая", "шымкентабй", "оралқала…"
 	for p := exactEnd; p >= s+4; p-- {
 		left, rest := text.Fold(string(r[s:p])), text.Fold(string(r[p:e]))

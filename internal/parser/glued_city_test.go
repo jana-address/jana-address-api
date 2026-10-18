@@ -29,6 +29,8 @@ func TestGluedCity(t *testing.T) {
 		{"жезказгнпромышленная 3", map[Field]string{City: "Жезказган", StreetName: "промышленная", House: "3"}},
 		{"жезказгнулпромышленная 3", map[Field]string{City: "Жезказган", StreetType: "улица", StreetName: "промышленная", House: "3"}},
 		{"Алматинская 5", map[Field]string{StreetName: "Алматинская", House: "5"}},
+		// a city of five letters typed in four before a street the map knows
+		{"актусейфуллина 3", map[Field]string{City: "Актау", StreetName: "сейфуллина", House: "3"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
