@@ -2,6 +2,7 @@ package parser
 
 import (
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/jana-address/jana-address-api/internal/parser/dict"
@@ -230,7 +231,7 @@ func (st *state) areaThenStreet(c *cand) int {
 	for _, j := range splits {
 		// both halves must be known: map names are noisy ("Алтын" is an area, "Тау" a street), and
 		// "ЖК Алтын Булак" or "ЖК Асыл Тау" must stay whole
-		if k := key(j, c.b); st.strongStreet(city, k) && knownArea(c.a, j-1) && !strings.ContainsAny(k, "0123456789") {
+		if k := key(j, c.b); (st.strongStreet(city, k) || bySurname(city, k)) && knownArea(c.a, j-1) && !strings.ContainsAny(k, "0123456789") {
 			return j
 		}
 	}
@@ -241,6 +242,30 @@ func (st *state) areaThenStreet(c *cand) int {
 	}
 	return -1
 }
+
+// bySurname reports whether the key is the last word of exactly one street of the city that the map knows
+// well: "ауэзова" is Мухтара Ауэзова in Астана, "чокина" Академика Чокина in Павлодар.
+func bySurname(city, k string) bool {
+	return len([]rune(k)) >= 5 && !strings.Contains(k, " ") && len(surnames()[city][k]) == 1
+}
+
+// surnames maps a city and the last word of its streets of two words or more, known well, to their keys.
+var surnames = sync.OnceValue(func() map[string]map[string][]string {
+	out := map[string]map[string][]string{}
+	for city, streets := range dict.OSM().Streets {
+		m := map[string][]string{}
+		for key, s := range streets {
+			name, typ, _ := strings.Cut(key, "\x00")
+			i := strings.LastIndexByte(name, ' ')
+			if typ != dict.AnyType || s.Votes < 3 || i < 0 {
+				continue
+			}
+			m[name[i+1:]] = append(m[name[i+1:]], name)
+		}
+		out[city] = m
+	}
+	return out
+})
 
 // closeStreet reports whether exactly one street of the city that the map knows well (a key of six letters
 // or more, three segments and buildings) is one letter from the key: "рыскулоова" is Рыскулова.
