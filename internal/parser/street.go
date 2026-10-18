@@ -237,6 +237,9 @@ func (st *state) knownArea(city string, a, b int) bool {
 func (st *state) areaThenStreet(c *cand) int {
 	city := st.vals[City]
 	ref := dict.OSM()
+	if city == "" && areaType[c.typ] && c.b > c.a {
+		return st.areaThenStreetSomewhere(c)
+	}
 	if !areaType[c.typ] || c.b <= c.a || (ref.Streets[city] == nil && city != "Алматы") {
 		return -1
 	}
@@ -278,6 +281,33 @@ func (st *state) areaThenStreet(c *cand) int {
 	for _, j := range splits {
 		if k := key(j, c.b); st.strongStreet(city, k) && !strings.ContainsAny(k, "0123456789") {
 			return j
+		}
+	}
+	return -1
+}
+
+// areaThenStreetSomewhere splits the name in a line without a city when one city of the map knows both
+// halves, the area and the street well, and no city knows the name whole: "мкр Юбилейный Торайгырова 24".
+func (st *state) areaThenStreetSomewhere(c *cand) int {
+	ref := dict.OSM()
+	whole, _ := dict.StreetKey(st.text(c.a, c.b))
+	for city := range ref.Streets {
+		if s, ok := ref.Street(city, whole, dict.AnyType); ok && s.Votes >= 3 || st.knownArea(city, c.a, c.b) {
+			return -1
+		}
+	}
+	for j := c.a + 1; j <= c.b; j++ {
+		if st.toks[j].kind != tWord || st.toks[j-1].kind != tWord {
+			continue
+		}
+		k, _ := dict.StreetKey(st.text(j, c.b))
+		if strings.ContainsAny(k, "0123456789") {
+			continue
+		}
+		for city := range ref.Streets {
+			if (st.strongStreet(city, k) || bySurname(city, k)) && st.knownArea(city, c.a, j-1) {
+				return j
+			}
 		}
 	}
 	return -1

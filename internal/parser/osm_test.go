@@ -72,6 +72,10 @@ func TestOSMDistricts(t *testing.T) {
 		// a numbered street of the city, typed after its name, also one letter off
 		{"Павлодар, 1 Мая көшесі 44", map[Field]string{StreetName: "1 Мая", House: "44"}, ""},
 		{"Павлодар 1 Маяя ул 12", map[Field]string{StreetName: "1 Маяя", House: "12"}, ""},
+		// no city in the line: a city of the map knows both halves, and none knows the name whole
+		{"мкр Мамыр Саина 5", map[Field]string{LivingArea: "Мамыр", StreetName: "Саина", House: "5", City: "-"}, ""},
+		{"мкр Акбулак Момышулы 3 кв 8", map[Field]string{LivingArea: "Акбулак", StreetName: "Момышулы", House: "3"}, ""},
+		{"жк алтын булак 31 кв 93", map[Field]string{StreetName: "алтын булак", LivingArea: "-"}, ""},
 		// known whole, or a number in the name: not split
 		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", LivingArea: "-"}, ""},
 		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{StreetName: "Аксай 3а", LivingArea: "-"}, ""},
