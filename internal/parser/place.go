@@ -230,6 +230,7 @@ func (st *state) admin() {
 			}
 		}
 	}
+	st.cityPairAtEnd()
 }
 
 // shortTypo reports whether token i is a word of four letters read as a large city only by its close
@@ -259,6 +260,33 @@ func (st *state) exactCityElsewhere(i int) bool {
 		}
 	}
 	return false
+}
+
+// cityPairAtEnd reads a city of two words, written exactly, that closes the line after the street and the
+// numbers: "ул. Айтеке би 9 Отеген батыр", "Школьная д. 47 өтеген батыр".
+func (st *state) cityPairAtEnd() {
+	b := len(st.toks) - 1
+	for b >= 0 && st.toks[b].kind == tPunct {
+		b--
+	}
+	a := b - 1
+	if st.vals[City] != "" || a < 1 {
+		return
+	}
+	for i := a; i <= b; i++ {
+		if t := st.toks[i]; t.kind != tWord || t.used || t.mk != nil {
+			return
+		}
+	}
+	if p := st.toks[a-1]; p.kind != tNum && p.kind != tPunct {
+		return // only after the numbers or a comma: "ул. Отеген батыр" stays a street
+	}
+	k := st.keyOf(a, b)
+	if st.d.Cities[k] == (dict.Place{}) {
+		return
+	}
+	st.setCity(k, st.text(a, b), a, b, false)
+	st.markUsed(a, b)
 }
 
 // cityPair reads a city of two words that opens part a..b of the line before more words:
