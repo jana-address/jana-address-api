@@ -240,7 +240,35 @@ func (st *state) areaThenStreet(c *cand) int {
 			return j
 		}
 	}
+	for _, j := range splits { // an area mistyped by one letter: "мкр Сампл Шевченко 50"
+		if k := key(j, c.b); st.strongStreet(city, k) && !strings.ContainsAny(k, "0123456789") && closeArea(city, key(c.a, j-1)) {
+			return j
+		}
+	}
 	return -1
+}
+
+// closeArea reports whether exactly one living area of the city in the map (a key of five letters or
+// more) is one letter from the key: "сампл" is Самал.
+func closeArea(city, k string) bool {
+	var buf, kbuf [text.MaxFuzzyLen]rune
+	r := text.ToRunes(k, kbuf[:0])
+	if len(r) < 5 || len(r) >= text.MaxFuzzyLen-1 {
+		return false
+	}
+	found := ""
+	for name := range dict.OSM().Areas[city] {
+		if n := utf8.RuneCountInString(name); n < len(r)-1 || n > len(r)+1 || n < 5 {
+			continue
+		}
+		if text.DistanceLimit(r, text.ToRunes(name, buf[:0]), 1) <= 1 {
+			if found != "" && found != name {
+				return false
+			}
+			found = name
+		}
+	}
+	return found != ""
 }
 
 // bySurname reports whether the key is the last word of exactly one street of the city that the map knows
