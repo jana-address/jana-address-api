@@ -13,3 +13,8 @@ OpenStreetMap
   internal/parser/dict/precincts/karaganda.tsv
   Решение акима г. Караганды № 12/01 от 19.12.2018 «Об образовании избирательных участков»
   в редакции № 03 от 14.07.2025, https://zakon.uchet.kz/rus/docs/G25KA00003B
+
+Улицы Актобе по районам / Streets of Aktobe by district
+  internal/parser/dict/precincts/aktobe.tsv
+  Решение акима г. Актобе № 7 от 25.10.2019 «Об образовании избирательных участков»
+  в редакции № 4 от 28.05.2026, https://zakon.uchet.kz/rus/docs/V19CA006434

@@ -41,6 +41,10 @@ func TestOSMDistricts(t *testing.T) {
 		{"астана мангелик ел52", map[Field]string{District: "Есиль", StreetName: "мангелик ел"}, ""},
 		{"караганда алалыкена 12", map[Field]string{District: "Казыбек би", StreetName: "алалыкена"}, LevelStreet},
 		{"караганда ерубаево 20", map[Field]string{District: "Казыбек би", StreetName: "ерубаево"}, LevelStreet},
+		// Актобе: the same from the akim's list of polling precincts
+		{"Актобе, ул. Акимжанова 5", map[Field]string{District: "Алматы"}, LevelStreet},
+		{"актобе арынова 12 кв 3", map[Field]string{District: "Астана"}, LevelStreet},
+		{"Актобе, район Астана, ул. Акимжанова 5", map[Field]string{District: "Астана"}, ""},
 		// a word that ends one street and starts another gives no street of the map
 		{"алматы жибек 50", map[Field]string{StreetName: "жибек", District: "-", StreetType: "-"}, ""},
 		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{District: "Ауэзовский"}, ""},

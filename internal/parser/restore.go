@@ -188,7 +188,7 @@ func (st *state) districtFromStreets(ref *dict.OSMRef, city string) {
 }
 
 // districtFromPrecincts restores the district of a city whose district borders the map does not draw
-// (Караганда) from the akim's list of polling precincts, which names the streets of each district: the
+// (Караганда, Актобе) from the akim's list of polling precincts, which names the streets of each district: the
 // street first, then the microdistrict or living area.
 func (st *state) districtFromPrecincts(city string) {
 	p := dict.Precincts()[city]

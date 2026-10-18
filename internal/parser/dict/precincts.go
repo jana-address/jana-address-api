@@ -6,11 +6,14 @@ import (
 	"sync"
 )
 
-// The streets and microdistricts of Караганда by city district, from the akim decision on polling precincts
-// (the header of precincts/karaganda.tsv gives the act): the map draws no district borders in that city.
-//
-//go:embed precincts/karaganda.tsv
-var karagandaTSV string
+// The streets and microdistricts of Караганда and Актобе by city district, from the akim decisions on
+// polling precincts (the header of each file gives the act): the map draws no district borders there.
+var (
+	//go:embed precincts/karaganda.tsv
+	karagandaTSV string
+	//go:embed precincts/aktobe.tsv
+	aktobeTSV string
+)
 
 // PrecinctDistricts maps the streets of one city to its districts: by key and type, by key alone when every
 // street of that key lies in one district, and by the last word of a longer name ("аманжолова").
@@ -34,7 +37,7 @@ func (p *PrecinctDistricts) District(key, typ string) (string, bool) {
 
 // Precincts returns the district lists by the city name the parser outputs.
 var Precincts = sync.OnceValue(func() map[string]*PrecinctDistricts {
-	return map[string]*PrecinctDistricts{"Караганда": loadPrecincts(karagandaTSV)}
+	return map[string]*PrecinctDistricts{"Караганда": loadPrecincts(karagandaTSV), "Актобе": loadPrecincts(aktobeTSV)}
 })
 
 func loadPrecincts(tsv string) *PrecinctDistricts {
