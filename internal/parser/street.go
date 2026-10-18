@@ -283,7 +283,14 @@ func (st *state) areaThenStreet(c *cand) int {
 			return j
 		}
 	}
-	return -1
+	// then a street of the city by its surname alone or one letter off a street it knows well, after an
+	// area it does not know: "мкр Тельман Шакарима 54", "мкр Кайтпас Рыскулоова 9"
+	for _, j := range splits {
+		if k := key(j, c.b); !strings.ContainsAny(k, "0123456789") && (bySurname(city, k) || closeStreet(city, k)) {
+			return j
+		}
+	}
+	return st.areaThenStreetSomewhere(c)
 }
 
 // areaThenStreetSomewhere splits the name in a line without a city when one city of the map knows both
@@ -306,6 +313,34 @@ func (st *state) areaThenStreetSomewhere(c *cand) int {
 		}
 		for city := range ref.Streets {
 			if (st.strongStreet(city, k) || bySurname(city, k)) && st.knownArea(city, c.a, j-1) {
+				return j
+			}
+		}
+	}
+	return st.streetAnywhere(c)
+}
+
+// streetAnywhere splits a microdistrict or ЖК name that no city knows whole at the first word that starts
+// a street some city of the map knows well, when the words before it are no street there: "мкр Шубар
+// Валиханова 48" in a city whose map lacks the street, or in a line without a city.
+func (st *state) streetAnywhere(c *cand) int {
+	for j := c.a; j <= c.b; j++ {
+		if st.isPunct(j, "\"«»") {
+			return -1 // a quoted name is never cut
+		}
+	}
+	ref := dict.OSM()
+	for j := c.a + 1; j <= c.b; j++ {
+		if st.toks[j].kind != tWord || st.toks[j-1].kind != tWord {
+			continue
+		}
+		k := lookupKey(st.text(j, c.b))
+		if strings.ContainsAny(k, "0123456789") || c.isLiving && len([]rune(k)) < 6 {
+			continue // a ЖК keeps a short last word: "ЖК Алтын Булак" with a typo is no street Булак
+		}
+		head := lookupKey(st.text(c.a, j-1))
+		for city := range ref.Streets {
+			if (st.strongStreet(city, k) || bySurname(city, k)) && !st.strongStreet(city, head) {
 				return j
 			}
 		}

@@ -168,3 +168,45 @@ func TestKATOTowns(t *testing.T) {
 		}
 	}
 }
+
+// TestAreaBeforeStreet: an area no directory knows, run into a street the map knows in some city, is cut
+// before the street; a quoted or known name, or a ЖК with a short last word, stays whole.
+func TestAreaBeforeStreet(t *testing.T) {
+	recs, _, err := kato.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := dict.Current()
+	defer dict.SetCurrent(old)
+	UseKATO(recs)
+	cases := []struct {
+		raw  string
+		want map[Field]string // "-" means must be absent
+	}{
+		{"Астана мкр Шугыла Валиханова 12 кв 3", map[Field]string{LivingArea: "Шугыла", StreetName: "Валиханова", House: "12"}},
+		{"Усть-Каменогорск мкр Береке Независимости 7", map[Field]string{LivingArea: "Береке", StreetName: "Независимости"}},
+		{"мкр Ынтымак Горького 15", map[Field]string{LivingArea: "Ынтымак", StreetName: "Горького", House: "15"}},
+		{"ЖК Жасыл Ел Байтурсынова 9 кв 4", map[Field]string{LivingArea: "Жасыл Ел", StreetName: "Байтурсынова"}},
+		{`ЖК "Жасыл Ел" 9`, map[Field]string{LivingArea: "-", StreetName: "Жасыл Ел", House: "9"}},
+		{"Алматы ЖК Алтын Булак 2", map[Field]string{LivingArea: "-", StreetName: "Алтын Булак"}},
+		{"Алматы мкр Жас Канат 5", map[Field]string{LivingArea: "-", StreetName: "Жас Канат", House: "5"}},
+		{"павлодар мкр достык академика маргулана 47 кв 9", map[Field]string{LivingArea: "достык", StreetName: "академика маргулана"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.raw, func(t *testing.T) {
+			o := Parse(tc.raw)
+			for f, want := range tc.want {
+				got, ok := o.Values[f]
+				if want == "-" {
+					if ok {
+						t.Errorf("%s = %q, want empty", f, got)
+					}
+					continue
+				}
+				if got != want {
+					t.Errorf("%s = %q, want %q (all: %v)", f, got, want, o.Values)
+				}
+			}
+		})
+	}
+}
