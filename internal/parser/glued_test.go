@@ -56,6 +56,8 @@ func TestGluedBorders(t *testing.T) {
 		{"кокшетуабылайхна 9", map[Field]string{City: "Кокшетау", StreetName: "абылайхна", House: "9"}},
 		{"павлдараба 5", map[Field]string{City: "Павлодар", StreetName: "аба", House: "5"}},
 		{"тарзтолебии 5", map[Field]string{City: "Тараз", StreetName: "толебии", House: "5"}},
+		// a mistyped city glued to the first word of a street of two words
+		{"астанбогенбай батыра 7", map[Field]string{City: "Астана", StreetName: "богенбай батыра", House: "7"}},
 		// a short city before қала
 		{"семеқала абая 4", map[Field]string{City: "Семей", StreetName: "абая", House: "4"}},
 		// a short street after "ауыл", a street that reads as an adjective after "ул", a mistyped street

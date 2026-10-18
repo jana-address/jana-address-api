@@ -541,7 +541,7 @@ func cityName(p dict.Place, left string) string {
 // streetFirst tells whether the glued rest r[s:e] after a city starts with a street of that city, after
 // the type words: "камзина", "улстроителей", "қаласыабая".
 // It gives 2 for a street as written, 1 for one a letter off ("евразмя", "интернациональна" before
-// "көшесі") and 0 for none.
+// "көшесі") or the first word of a street of two ("кабанбай" before "батыра") and 0 for none.
 func streetFirst(d *dict.Directory, r []rune, s, e int, city string) int {
 	for _, t := range splitWord(d, r, s, e, city) {
 		if dict.Markers[t.fold] != nil {
@@ -551,7 +551,7 @@ func streetFirst(d *dict.Directory, r []rune, s, e int, city string) int {
 		switch {
 		case n >= 4 && gluedStreet(city, t.fold):
 			return 2
-		case n >= 6 && streetLike(city, t.fold), n == 3 && shortStreetLike(city, t.fold):
+		case n >= 6 && streetLike(city, t.fold), n == 3 && shortStreetLike(city, t.fold), n >= 5 && len(firstWords()[city][t.fold]) > 0:
 			return 1
 		}
 		return 0
