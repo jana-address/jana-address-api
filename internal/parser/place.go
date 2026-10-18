@@ -162,7 +162,7 @@ func (st *state) admin() {
 		k := st.keyOf(a, b)
 		switch {
 		// 2. a segment that is just a known name: "Алматы", "Турксибский"
-		case clean && (st.d.Cities[k] != dict.Place{} || (seg == 0 && st.d.AdminKnown(dict.City, k) && st.typoCityBefore(b))): // close spelling only in the first segment
+		case clean && (st.d.Cities[k] != dict.Place{} || (seg == 0 && st.d.AdminKnown(dict.City, k) && (st.typoCityBefore(b) || a == b && st.typoCityOpening(a)))): // close spelling only in the first segment
 			st.setCity(k, st.text(a, b), a, b, false)
 			st.markUsed(a, b)
 		// 2b. a town of the classifier as a part of its own before more words: "Жаркент, ул. Абая 5".
@@ -193,7 +193,7 @@ func (st *state) admin() {
 					continue
 				}
 				areaNext := i+2 <= b && st.toks[i+1].kind == tNum && st.toks[i+2].mk != nil && dict.NumberedAreaTypes[st.toks[i+2].mk.Canon]
-				if _, exact := st.d.Cities[t.fold]; !exact && !areaNext && !st.typoCityBefore(i) {
+				if _, exact := st.d.Cities[t.fold]; !exact && !areaNext && !st.typoCityBefore(i) && !st.typoCityOpening(i) {
 					continue
 				}
 				if st.shortTypo(i) && (i > a && st.toks[i-1].kind == tWord && !st.toks[i-1].used && st.toks[i-1].mk == nil || st.exactCityElsewhere(i)) {
@@ -346,6 +346,28 @@ func (st *state) typoCityBefore(i int) bool {
 		j++ // a comma between two parts, a quoted name: "алматыы «Нурлы Тау» жк"
 	}
 	return j == len(st.toks) || st.toks[j].kind == tWord
+}
+
+// typoCityOpening reports whether a close spelling of a city at token i, before a number, is the city: the
+// word opens the line, no city of the map has a street so written, and a street or area type comes later:
+// "Асьана 167 кв, ул. Калдаякова", "Влматы, 8 мкр, 17". "Абая 10 кв 5" and "Сатпаева 22, мкр Самал 5"
+// stay streets.
+func (st *state) typoCityOpening(i int) bool {
+	t := st.toks[i]
+	if t.kind != tWord || t.mk != nil || dict.OSM().KnownAnywhere(lookupKey(t.text)) || dict.OSM().KnownAnywhere(t.fold) {
+		return false
+	}
+	for j := 0; j < i; j++ {
+		if p := st.toks[j]; p.kind == tWord && !p.used || p.kind == tNum && !p.ignore {
+			return false
+		}
+	}
+	for j := i + 1; j < len(st.toks); j++ {
+		if m := st.toks[j].mk; m != nil && (m.Class == dict.Street || m.Class == dict.Living) {
+			return true
+		}
+	}
+	return false
 }
 
 // setCity stores a city or village. The hand table of large places goes first unless the line names

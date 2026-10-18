@@ -244,3 +244,41 @@ func TestTypeGluedAfterCity(t *testing.T) {
 		})
 	}
 }
+
+// TestTypoCityOpening: a city one letter off before a number opens the line when a typed street follows;
+// a street name stays a street.
+func TestTypoCityOpening(t *testing.T) {
+	recs, _, err := kato.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := dict.Current()
+	defer dict.SetCurrent(old)
+	UseKATO(recs)
+	cases := []struct {
+		raw  string
+		want map[Field]string // "-" means must be absent
+	}{
+		{"Кокшетауу 15 кв 3, ул. Абая", map[Field]string{City: "Кокшетау", StreetName: "Абая"}},
+		{"Павлодаар, 5 мкр, 12", map[Field]string{City: "Павлодар", House: "12"}},
+		{"Сатпаева 22, мкр Самал 5", map[Field]string{City: "-", StreetName: "Сатпаева", House: "22"}},
+		{"Абая 10 кв 5 мкр Самал", map[Field]string{City: "-", StreetName: "Абая", House: "10"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.raw, func(t *testing.T) {
+			o := Parse(tc.raw)
+			for f, want := range tc.want {
+				got, ok := o.Values[f]
+				if want == "-" {
+					if ok {
+						t.Errorf("%s = %q, want empty", f, got)
+					}
+					continue
+				}
+				if got != want {
+					t.Errorf("%s = %q, want %q (all: %v)", f, got, want, o.Values)
+				}
+			}
+		})
+	}
+}
