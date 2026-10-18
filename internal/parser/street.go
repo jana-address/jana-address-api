@@ -241,6 +241,9 @@ func (st *state) areaThenStreet(c *cand) int {
 		if j := st.areaThenStreetSomewhere(c); j > 0 {
 			return j
 		}
+		if j := st.popularTailAnywhere(city, c); j > 0 {
+			return j
+		}
 		return st.titledTail(c)
 	}
 	if !areaType[c.typ] || c.b <= c.a {
@@ -308,6 +311,9 @@ func (st *state) areaThenStreet(c *cand) int {
 	if j := st.popularTail(city, c); j > 0 {
 		return j
 	}
+	if j := st.popularTailAnywhere(city, c); j > 0 {
+		return j
+	}
 	return st.titledTail(c)
 }
 
@@ -316,22 +322,8 @@ func (st *state) areaThenStreet(c *cand) int {
 // masculine form of its adjective, and no living area of the map is or ends in it: "ЖК Шахристан Турн
 // 108" is Туран, "мкр Ббереке Поьеды 60" is Победы. The name whole is not known (areaThenStreet checked).
 func (st *state) popularTail(city string, c *cand) int {
-	j := c.b
-	if j <= c.a || j+1 >= len(st.toks) || st.toks[j].kind != tWord || st.toks[j-1].kind != tWord {
-		return -1
-	}
-	if n := st.toks[j+1]; n.kind != tNum && !(n.kind == tWord && n.mk != nil && n.mk.Class == dict.House) {
-		return -1 // "Поьеды 60", "Поьеды д.60"
-	}
-	for k := max(c.a-1, 0); k <= j+1; k++ {
-		if st.isPunct(k, "\"«»") {
-			return -1
-		}
-	}
-	k := lookupKey(st.toks[j].text)
-	names := areaNames()
-	if utf8.RuneCountInString(k) < 4 || strings.ContainsAny(k, "0123456789 ") || names[0][k] || names[1][k] ||
-		streetTitles[st.toks[j].fold] || closeArea(city, k) {
+	j, k := st.tailWord(city, c)
+	if j < 0 {
 		return -1
 	}
 	if s, ok := dict.OSM().Street(city, k, dict.AnyType); ok {
@@ -366,6 +358,65 @@ func (st *state) popularTail(city string, c *cand) int {
 		}
 	}
 	if found == "" || votes < 20 {
+		return -1
+	}
+	return j
+}
+
+// tailWord returns the last word of a name of two words or more right before the house number, and its
+// key, when it may be a street cut off the name: unquoted, no area of the map, no digits.
+func (st *state) tailWord(city string, c *cand) (int, string) {
+	j := c.b
+	if j <= c.a || j+1 >= len(st.toks) || st.toks[j].kind != tWord || st.toks[j-1].kind != tWord {
+		return -1, ""
+	}
+	if n := st.toks[j+1]; n.kind != tNum && !(n.kind == tWord && n.mk != nil && n.mk.Class == dict.House) {
+		return -1, "" // "Поьеды 60", "Поьеды д.60"
+	}
+	for k := max(c.a-1, 0); k <= j+1; k++ {
+		if st.isPunct(k, "\"«»") {
+			return -1, ""
+		}
+	}
+	k := lookupKey(st.toks[j].text)
+	names := areaNames()
+	if utf8.RuneCountInString(k) < 4 || strings.ContainsAny(k, "0123456789 ") || names[0][k] || names[1][k] ||
+		streetTitles[st.toks[j].fold] || city != "" && closeArea(city, k) {
+		return -1, ""
+	}
+	return j, k
+}
+
+// popularTailAnywhere is popularTail over the maps of all cities, for a line without a city or a city
+// whose map lacks the street: the last word is a street the maps know by many votes in total, as written
+// or as the masculine form of its adjective, and the name whole is no street or area anywhere:
+// "мкр Кунаева Есенжанова 8", "ЖК Шахристан Ботанический 35".
+func (st *state) popularTailAnywhere(city string, c *cand) int {
+	j, k := st.tailWord(city, c)
+	if j < 0 {
+		return -1
+	}
+	ref := dict.OSM()
+	whole := lookupKey(st.text(c.a, c.b))
+	head := lookupKey(st.text(c.a, j-1))
+	base, adj := strings.CutSuffix(k, "ский")
+	if s, ok := ref.Street(city, head, dict.AnyType); city != "" && ok && s.Votes >= 3 {
+		return -1 // the words before are a street of the line's city
+	}
+	votes := 0
+	for city := range ref.Streets {
+		if s, ok := ref.Street(city, whole, dict.AnyType); ok && s.Votes >= 3 || st.knownArea(city, c.a, c.b) {
+			return -1
+		}
+		if s, ok := ref.Street(city, k, dict.AnyType); ok {
+			votes += s.Votes
+		} else if adj {
+			if s, ok := ref.Street(city, base+"ская", dict.AnyType); ok {
+				votes += s.Votes
+			}
+		}
+	}
+	if votes < 20 {
 		return -1
 	}
 	return j
