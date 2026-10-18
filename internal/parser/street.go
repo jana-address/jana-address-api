@@ -741,10 +741,26 @@ func (st *state) typesInLivingNames() {
 		if j >= len(st.toks) || st.toks[j].mk == nil || st.toks[j].mk.Class != dict.Living || st.toks[j].used {
 			continue
 		}
-		if quoted || postfixAreaMarkers[st.toks[j].fold] || !st.opensName(j) {
+		if quoted || postfixAreaMarkers[st.toks[j].fold] || !st.opensName(j) && !st.opensQuotedName(j) {
 			st.toks[k].mk = nil
 		}
 	}
+}
+
+// opensQuotedName reports whether the marker word at i is followed by a quoted name: "Ж/К «Комфорт»" names its
+// own ЖК, so in "Темирлановское ш. Ж/К «Комфорт»" ш. types Темирлановское.
+func (st *state) opensQuotedName(i int) bool {
+	j := i + 1 + st.toks[i].tail
+	for st.isPunct(j, ".") {
+		j++
+	}
+	if !st.isPunct(j, "\"«»") {
+		return false
+	}
+	for st.isPunct(j, "\"«»") {
+		j++
+	}
+	return j < len(st.toks) && st.toks[j].kind == tWord && st.toks[j].mk == nil && !st.toks[j].used
 }
 
 // opensName reports whether the marker word at i, after its dots, is followed by a plain word that it

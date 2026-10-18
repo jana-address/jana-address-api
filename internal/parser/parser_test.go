@@ -62,6 +62,8 @@ func TestParseExamples(t *testing.T) {
 		{"КАРАГАНДЫ К. Мұстафин үй 20", map[Field]string{City: "Караганда", StreetName: "Мұстафин", House: "20"}},
 		{"160000, г. Шымкент, ул. Байтурсынова 12", map[Field]string{City: "Шымкент", House: "12", Apartment: "-"}},
 		{"050000 Алматы ул Абая 10", map[Field]string{City: "Алматы", Province: "Алматы", StreetName: "Абая", House: "10"}},
+		// a quoted ЖК after the street type does not take the type away from the street
+		{"Шымкент д 42/3 Темирлановское ш. Ж/К «Комфорт»", map[Field]string{StreetType: "шоссе", StreetName: "Темирлановское", LivingArea: "Комфорт", House: "42/3"}},
 		// the new postcode after the old one, as 2GIS writes it
 		{"Шымкент, улица Тауке хана, 12, 160011/X09F4F0", map[Field]string{City: "Шымкент", StreetName: "Тауке хана", House: "12"}},
 		{"X09F4F0 Шымкент Тауке хана 12 кв 5", map[Field]string{City: "Шымкент", StreetName: "Тауке хана", House: "12", Apartment: "5"}},
