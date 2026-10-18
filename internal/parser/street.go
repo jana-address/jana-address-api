@@ -378,7 +378,8 @@ func (st *state) knownAreaHead(city string, c *cand, splits []int) int {
 }
 
 // areaThenStreetSomewhere splits the name in a line without a city when one city of the map knows both
-// halves, the area and the street well, and no city knows the name whole: "мкр Юбилейный Торайгырова 24".
+// halves, the area and the street well or one letter off, and no city knows the name whole: "мкр
+// Юбилейный Торайгырова 24", "мкр Юбилейный Торайгыроова 24".
 func (st *state) areaThenStreetSomewhere(c *cand) int {
 	ref := dict.OSM()
 	whole := lookupKey(st.text(c.a, c.b))
@@ -396,7 +397,7 @@ func (st *state) areaThenStreetSomewhere(c *cand) int {
 			continue
 		}
 		for city := range ref.Streets {
-			if (st.strongStreet(city, k) || bySurname(city, k)) && st.knownArea(city, c.a, j-1) {
+			if st.knownArea(city, c.a, j-1) && (st.strongStreet(city, k) || bySurname(city, k) || closeStreet(city, k)) {
 				return j
 			}
 		}
