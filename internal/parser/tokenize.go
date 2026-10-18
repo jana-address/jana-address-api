@@ -431,8 +431,9 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 			case 2:
 				return split(p, pl.Name)
 			case 1:
-				// not when the city's last letter is typed twice: "шымкенттташенова"
-				if typoP == 0 && unicode.ToLower(r[p]) != unicode.ToLower(r[p-1]) {
+				// not when the city's last letter is typed twice: "шымкенттташенова"; the street may start with
+				// that letter when the rest after it is no street: "есиккунава" is Есик and Кунаева
+				if typoP == 0 && (unicode.ToLower(r[p]) != unicode.ToLower(r[p-1]) || streetFirst(d, r, p+1, e, pl.Name) == 0) {
 					typoP, typoCity = p, pl.Name
 				}
 			}
