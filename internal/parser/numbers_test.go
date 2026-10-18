@@ -122,3 +122,20 @@ func TestTypeWords(t *testing.T) {
 		checkFields(t, tc.raw, tc.want)
 	}
 }
+
+func TestPostfixLandmarkBounds(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want map[Field]string
+	}{
+		// the name right after a street type and a city name do not join a Kazakh postfix landmark
+		{"Атырау кв. 12 дом 7 ул Махамбета балабақшаның жанында", map[Field]string{
+			StreetName: "Махамбета", House: "7", Apartment: "12", Landmark: "балабақшаның жанында"}},
+		{"ул.Байтурсынова 12 дом абайский р-н шымкент шымкент балабақшаның жанында", map[Field]string{StreetName: "Байтурсынова", House: "12", Landmark: "балабақшаның жанында"}},
+		// after a Kazakh type, which follows its name, the words before the landmark noun stay in it
+		{"Семей Абай көшесі 5 Small дүкенінің жанында", map[Field]string{StreetName: "Абай", House: "5", Landmark: "Small дүкенінің жанында"}},
+	}
+	for _, tc := range cases {
+		checkFields(t, tc.raw, tc.want)
+	}
+}

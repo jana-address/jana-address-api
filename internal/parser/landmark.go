@@ -15,6 +15,9 @@ func (st *state) landmarks() {
 		if t.kind == tWord && !t.used && postfixLandmark[t.fold] {
 			a := i
 			for a > 0 && st.toks[a-1].kind == tWord && !st.toks[a-1].used && st.toks[a-1].mk == nil && i-a < 3 {
+				if _, city := st.d.Cities[st.toks[a-1].fold]; a < i && (city || st.afterStreetType(a-1)) {
+					break // "ул Говрова балабақшаның жанында", "Шымкент емхананың қасында": the street and the city stay
+				}
 				a--
 			}
 			if a > 0 && a == i-1 && st.landmarkNum[a-1] {
@@ -118,6 +121,23 @@ func (st *state) numberedAreaAt(i int) bool {
 	}
 	m := st.toks[i].mk
 	return m != nil && m.Class == dict.Street && dict.NumberedAreaTypes[m.Canon]
+}
+
+// afterStreetType reports whether the word at i follows a street type written before its name, so it starts
+// the street name: "ул. Абая". A Kazakh type follows its name: in "Уалиханов көшесі Small дүкенінің жанында"
+// Small is a part of the landmark.
+func (st *state) afterStreetType(i int) bool {
+	p := i - 1
+	for st.isPunct(p, ".") {
+		p--
+	}
+	if p < 0 || st.toks[p].kind != tWord || st.toks[p].mk == nil || st.toks[p].mk.Class != dict.Street {
+		return false
+	}
+	if p > 0 && st.toks[p].used && st.toks[p-1].mk == st.toks[p].mk {
+		p-- // "ықшам ауданы"
+	}
+	return !kazakhStreetPostfix[st.toks[p].fold] && !postfixAreaMarkers[st.toks[p].fold]
 }
 
 var postfixLandmark = map[string]bool{}
