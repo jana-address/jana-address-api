@@ -162,7 +162,7 @@ func (st *state) admin() {
 		k := st.keyOf(a, b)
 		switch {
 		// 2. a segment that is just a known name: "Алматы", "Турксибский"
-		case clean && (st.d.Cities[k] != dict.Place{} || (seg == 0 && st.d.AdminKnown(dict.City, k) && (st.typoCityBefore(b) || a == b && st.typoCityOpening(a)))): // close spelling only in the first segment
+		case clean && (st.d.Cities[k] != dict.Place{} || ((seg == 0 || st.vals[City] == "" && st.opensLine(a)) && st.d.AdminKnown(dict.City, k) && (st.typoCityBefore(b) || a == b && st.typoCityOpening(a)))): // close spelling only where the line opens, maybe after the region
 			st.setCity(k, st.text(a, b), a, b, false)
 			st.markUsed(a, b)
 		// 2b. a town of the classifier as a part of its own before more words: "Жаркент, ул. Абая 5".
@@ -289,8 +289,8 @@ func (st *state) exactCityElsewhere(i int) bool {
 	return false
 }
 
-// cityPairAtEnd reads a city of two words, written exactly, that closes the line after the street and the
-// numbers: "ул. Айтеке би 9 Отеген батыр", "Школьная д. 47 өтеген батыр".
+// cityPairAtEnd reads a city of two words, also one letter off, that closes the line after the street and
+// the numbers: "ул. Айтеке би 9 Отеген батыр", "Школьная д. 47 өтеген батыр", "Абая 5 отеген батырр".
 func (st *state) cityPairAtEnd() {
 	b := len(st.toks) - 1
 	for b >= 0 && st.toks[b].kind == tPunct {
@@ -309,7 +309,7 @@ func (st *state) cityPairAtEnd() {
 		return // only after the numbers or a comma: "ул. Отеген батыр" stays a street
 	}
 	k := st.keyOf(a, b)
-	if st.d.Cities[k] == (dict.Place{}) {
+	if _, ok := st.d.LookupCity(k); !ok {
 		return
 	}
 	st.setCity(k, st.text(a, b), a, b, false)
@@ -318,7 +318,8 @@ func (st *state) cityPairAtEnd() {
 
 // cityPair reads a city of two words that opens part a..b of the line before more words:
 // "Отеген батыр ул. Центральная 105", "новый узень абая 5", but not before a postfix street type.
-// A close spelling counts only at the start of the line ("отеген баатыр"), and the name written twice
+// A close spelling counts only where the line opens, after a postcode or a region ("отеген баатыр",
+// "Алматинская обл Отеген баатыр Абая 5"), and the name written twice
 // is read once ("Отеген батыр Отеген батыр …").
 func (st *state) cityPair(a, b int) {
 	if cur := st.vals[City]; cur != "" {
@@ -333,7 +334,7 @@ func (st *state) cityPair(a, b int) {
 	}
 	k := st.keyOf(a, a+1)
 	if st.d.Cities[k] == (dict.Place{}) {
-		if _, ok := st.d.LookupCity(k); !ok || a != 0 {
+		if _, ok := st.d.LookupCity(k); !ok || !st.opensLine(a) {
 			return
 		}
 	}
@@ -435,6 +436,17 @@ func (st *state) cityRayon(k string) bool {
 	return own
 }
 
+// opensLine reports whether token i opens the line but for a postcode and the parts already read, such as
+// the region: "Алматинская обл, Отеген баатыр, Абая 5".
+func (st *state) opensLine(i int) bool {
+	for j := 0; j < i; j++ {
+		if p := st.toks[j]; p.kind == tWord && !p.used || p.kind == tNum && !p.ignore {
+			return false
+		}
+	}
+	return true
+}
+
 // typoCityOpening reports whether a close spelling of a city at token i, before a number, is the city: the
 // word opens the line, no city of the map has a street so written, and a street or area type comes later:
 // "Асьана 167 кв, ул. Калдаякова", "Влматы, 8 мкр, 17". "Абая 10 кв 5" and "Сатпаева 22, мкр Самал 5"
@@ -444,10 +456,8 @@ func (st *state) typoCityOpening(i int) bool {
 	if t.kind != tWord || t.mk != nil || dict.OSM().KnownAnywhere(lookupKey(t.text)) || dict.OSM().KnownAnywhere(t.fold) {
 		return false
 	}
-	for j := 0; j < i; j++ {
-		if p := st.toks[j]; p.kind == tWord && !p.used || p.kind == tNum && !p.ignore {
-			return false
-		}
+	if !st.opensLine(i) {
+		return false
 	}
 	for j := i + 1; j < len(st.toks); j++ {
 		if m := st.toks[j].mk; m != nil && (m.Class == dict.Street || m.Class == dict.Living) {

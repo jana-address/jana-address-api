@@ -207,6 +207,10 @@ func TestAreaBeforeStreet(t *testing.T) {
 		// the city written two or three times, also in both languages
 		{"семей / семей семей абая 12", map[Field]string{City: "Семей", StreetName: "абая", House: "12"}},
 		{"п. Отеген батыр Отеген батыр Нурлы 3", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
+		// a city of two words one letter off after the region, or closing the line
+		{"Алматинская обл, Отеген батырр, Нурлы 3", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
+		{"Алматинская обл Отеген ьатыр Нурлы 3", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
+		{"ул Нурлы 3 отеген батырр", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
