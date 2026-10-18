@@ -68,6 +68,10 @@ func (st *state) classify() {
 			if signed := text.RuSpelling(strings.ToLower(t.text)); m == nil && strings.ContainsAny(signed, "ьъ") {
 				m = dict.FuzzyMarker(signed) // a soft sign typed for a letter: "эьаж" is "этаж", not "эаж"
 			}
+			// a microdistrict name one letter off a type word is a name before the type: "Қвратал ықшам ауданы"
+			if m != nil && m.Class == dict.Street && st.streetTypeAt(i+1) {
+				m = nil
+			}
 			if m != nil {
 				t.mk = m
 			} else if i+1 < len(st.toks) && st.d.AdminKnown(dict.City, st.toks[i+1].fold) &&
@@ -96,7 +100,7 @@ func (st *state) classify() {
 		if t.fold == "с" && (st.isPunct(i+1, ".") || st.knownPlaceAt(i+1) || st.opensLine(i) && st.closePairAt(i+1)) {
 			t.mk = &dict.Marker{Class: dict.Settlement}
 		}
-		if t.fold == "кала" && t.mk != nil && !(i > 0 && st.toks[i-1].kind == tWord && st.cityBeforeKala(st.toks[i-1], *t)) {
+		if t.fold == "кала" && t.mk != nil && (!(i > 0 && st.toks[i-1].kind == tWord && st.cityBeforeKala(st.toks[i-1], *t)) || st.villageAfterCity(i-1)) {
 			t.mk = nil // "Жана кала" is a name
 		}
 		// Latin "of." or "of 12" is an office, unlike the "of" in "Republic of Kazakhstan"
@@ -221,4 +225,31 @@ func (st *state) cityBeforeKala(prev, t token) bool {
 	}
 	_, ok := st.d.LookupCity(prev.fold)
 	return ok
+}
+
+// streetTypeAt reports whether a street type word starts at token i: "мкр", "ықшам ауданы".
+func (st *state) streetTypeAt(i int) bool {
+	if i >= len(st.toks) || st.toks[i].kind != tWord {
+		return false
+	}
+	f := st.toks[i].fold
+	if (f == "шагын" || f == "ыкшам") && i+1 < len(st.toks) && (st.toks[i+1].fold == "аудан" || st.toks[i+1].fold == "ауданы") {
+		return true
+	}
+	m, ok := dict.Markers[f]
+	return ok && m.Class == dict.Street
+}
+
+// villageAfterCity reports whether the word p before "кала" and a house number is only a village name while a
+// city was already named earlier: "г. туркестан Жанап кала 88/19" is a microdistrict, not the village Жанап.
+func (st *state) villageAfterCity(p int) bool {
+	if p < 1 || p+2 >= len(st.toks) || st.toks[p+2].kind != tNum || st.d.AdminKnown(dict.City, st.toks[p].fold) {
+		return false
+	}
+	for j := p - 1; j >= 0; j-- {
+		if st.toks[j].kind == tWord && st.d.AdminKnown(dict.City, st.toks[j].fold) {
+			return true
+		}
+	}
+	return false
 }
