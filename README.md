@@ -1,20 +1,21 @@
 # Jana Address
 
-Разбор адресов Jana Post: Go API + React UI + PostgreSQL. Хакатон Terricon Valley, кейс 1.
+Address parsing for Jana Post: Go API + React UI + PostgreSQL. Terricon Valley hackathon, case 1.
 
-Клиент пишет адрес одной строкой как удобно: «66квартал 12дом 69квартира»,
-«Туран 55/6 магазин береке 4подьезд 9этаж». Сервис раскладывает её на область, город,
-район, жилой массив, тип и название улицы, дом, квартиру, подъезд, этаж и ориентир,
-восстанавливает недостающее по справочнику и отмечает записи для ручной проверки.
+A customer writes an address in one line, in any form: «66квартал 12дом 69квартира»,
+«Туран 55/6 магазин береке 4подьезд 9этаж». The service splits it into 14 JSON fields:
+province, city, district, living area, street type and name, house, apartment, entrance,
+floor and landmark. It fills missing fields from the reference data and marks records
+for manual review.
 
-- **Пакетный метод для жюри:** `POST /api/v1/parse/batch`, см. «Для жюри» ниже.
-- **Интерфейс** http://localhost:3000: проверка строки с подсветкой, загрузка файла,
-  ручная правка неуверенных записей, выгрузка результата.
-- **Документация** http://localhost:3000/docs и OpenAPI `GET /api/v1/openapi.yaml`.
+- **REST API** on http://localhost:8080, with the batch method `POST /api/v1/parse/batch`.
+- **Operator UI** on http://localhost:3000: check one line with highlighting, upload a file,
+  correct uncertain records by hand, download the result.
+- **Works offline.** The reference data is built into the image; no network is needed at runtime.
 
-## Запуск
+## Quick start
 
-Нужны Docker Engine ≥ 24 и Docker Compose ≥ 2.20.
+Requirements: Docker Engine ≥ 24 and Docker Compose ≥ 2.20.
 
 ```bash
 git clone --recurse-submodules https://github.com/jana-address/jana-address-api.git
@@ -22,336 +23,88 @@ cd jana-address-api
 docker compose up
 ```
 
-- Интерфейс: http://localhost:3000
-- API: http://localhost:8080/api/v1/health
+- UI: http://localhost:3000
+- API: http://localhost:8080
+- Health check: `curl http://localhost:8080/api/v1/health` returns
+  `{"status":"ok","version":"0.1.0","db":"ok","directory":{…KATO version…}}`.
 
-Фронтенд лежит в отдельном репозитории `jana-address-web` и подключён submodule в
-папку `web/`. Поэтому клонировать нужно с `--recurse-submodules`, а кнопка GitHub
-«Download ZIP» не подойдёт: в архив submodule не попадает.
+The frontend lives in the separate repository `jana-address-web` and is a submodule in
+`web/`. Clone with `--recurse-submodules`; the GitHub "Download ZIP" button does not work,
+because the archive does not include the submodule.
 
-`.env` не обязателен, у всех переменных есть значения по умолчанию. Порты можно
-поменять: `WEB_PORT=3001 API_PORT=8081 docker compose up` (см. `.env.example`).
+A `.env` file is optional: every variable has a default. To change the ports:
+`WEB_PORT=3001 API_PORT=8081 docker compose up` (see `.env.example`).
 
-## Для жюри: как прогнать тестовый набор
+The network is needed only for the first image build (`docker compose build`). After
+that, `docker compose up` works offline.
+
+## API example
 
 ```bash
-docker compose up -d --wait
 curl -s -XPOST http://localhost:8080/api/v1/parse/batch \
-  --data-binary @sample_input.json -o result.json
+  -H 'Content-Type: application/json' \
+  --data-binary '[{"id": "rec_00417", "raw_address": "город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70"}]'
 ```
 
-- **Вход:** JSON-массив `[{"id": "...", "raw_address": "..."}]`, как `sample_input.json`.
-  Принимаются также NDJSON и `multipart/form-data` с полем `file`. Тело не больше 128 МиБ и
-  1 000 000 записей, сломанный JSON получает 400.
-- **Выход:** массив той же длины и в том же порядке. В каждой записи ровно 14 ключей в
-  порядке ТЗ (`id`, `raw_address`, `province`, `city`, `district`, `living_area`,
-  `street_type`, `street_name`, `house`, `apartment`, `entrance`, `floor`, `landmark`,
-  `confidence`).
-  - `raw_address` и `id` возвращаются без изменений;
-  - неизвестное поле — `null`;
-  - запись, которую не удалось разобрать, получает `null` в полях и `confidence: 0`, пропусков нет.
-- **Скорость:** 10 000 записей ≈ 60 мс на ноутбуке (лимит ТЗ — 5 минут на 1000). Сеть не нужна.
-- **Без кеша:** ответ не ищется по `id` или по всей строке, каждая запись разбирается
-  заново.
-- **Свой набор на 10 000 строк** собирается из того же образа, Go не нужен. Файл подходит и
-  для загрузки в интерфейсе:
+```json
+[
+  {
+    "id": "rec_00417",
+    "raw_address": "город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70",
+    "province": "Алматы",
+    "city": "Алматы",
+    "district": "Ауэзовский",
+    "living_area": null,
+    "street_type": "микрорайон",
+    "street_name": "Аксай 3а",
+    "house": "59",
+    "apartment": "70",
+    "entrance": null,
+    "floor": null,
+    "landmark": null,
+    "confidence": 0.95
+  }
+]
+```
 
-  ```bash
-  docker compose run --rm --no-deps -T api synth > testdata/synth/synth_10000_input.json
-  ```
+The output has the same length and order as the input, and every record has exactly 14 keys.
+For a whole file: `curl -s -XPOST http://localhost:8080/api/v1/parse/batch --data-binary @sample_input.json -o result.json`.
 
-## Как устроен разбор
+- OpenAPI spec: `GET /api/v1/openapi.yaml` (source: [internal/httpapi/openapi.yaml](internal/httpapi/openapi.yaml)).
+- API reference page in the UI: http://localhost:3000/docs.
+- Formats, limits and errors: [docs/api.md](docs/api.md).
 
-Правила и справочник. Результат детерминирован и объясним, а каждое поле
-помечено источником: «из строки» или «справочник».
+## Quality and speed
 
-1. **Очистка.** Невидимые символы, NBSP, разные тире и кавычки. Для подсветки
-   запоминаются позиции в исходной строке.
-2. **Токены.** Склейки разрезаются: «66квартал», «Назарбаева8», «кв5под2», «АлматыАбая10»,
-   «астанакалас…». Дроби и литеры сохраняются: «55/6», «208 / 2» → «208/2», «12 а» → «12а».
-3. **Маркеры** на русском, казахском и латинице, с опечатками: кв/пәтер/kv/кваритра,
-   подъезд/кіреберіс/подлъезд, ул/көшесі, мкр/шағын аудан/микрарайон, қаласы, ауданы…
-4. **Город, район, область:**
-   - по маркерам и справочнику;
-   - двуязычие через «/», повтор города, район вместо города («Турксибский район» → Алматы);
-   - опечатки в названиях («алматыы», «гролд актобе»).
-5. **Номера к маркерам:** сначала склейки, потом соседство. Направление записи
-   («кв 5» или «5 кв») определяется по цепочке.
-6. **Ориентир, улица, жилой массив:**
-   - улица с типом или без него;
-   - название дословно, как в строке;
-   - микрорайон и ЖК при отдельно указанной улице идут в `living_area`, в том числе без
-     слова «мкр» («Караганда, Пришахтинск, ул. Ленина 5»);
-   - микрорайон и улица без разделителя делятся по справочнику улиц города, если он знает
-     обе части: «Павлодар мкр Достык Академика Маргулана 47» → `living_area` «Достык»,
-     улица «Академика Маргулана». Одна опечатка в одной из частей допустима, если в городе
-     нет второго такого же близкого названия; улица узнаётся и по фамилии («Бектурова» —
-     «Академика Бектурова»);
-   - название перед маркером («Самал шағын ауданы», «Хайвил жк Сыганак 18», «32 мкр Абылай
-     хан көшесі 48») и название в кавычках («ЖК «Асыл Тау» Маметовой 18») тоже уходят в
-     `living_area`, а слова после них — в улицу;
-   - если после микрорайона идёт улица с типом в конце («мкр Коктем Кабанбай батыра улица»),
-     границу ставит справочник. Когда он не знает ни одной части, микрорайон берётся из одного
-     слова, а улица перед ЖК — из одного слова или из двух, если второе — титул («батыра», «би»,
-     «хана»).
-7. **Восстановление по справочнику** (только пустые поля; написанное в строке не меняется):
-   - область по городу, область и район по селу (КАТО);
-   - город и область по району, город по жилому массиву («Пришахтинск» → Караганда);
-   - район Алматы, Астаны, Шымкента и Тараза по дому, по соседним номерам, по улице или по микрорайону (OpenStreetMap,
-     см. «Справочник улиц»);
-   - тип улицы, если у всех улиц с таким названием в городе он один («Сатпаева» → улица).
-
-   В ответе `POST /api/v1/parse` у каждого восстановленного поля есть `levels`: как оно
-   найдено — `house`, `neighbors`, `street`, `area`, `settlement` или `district`. Интерфейс показывает это
-   рядом с бейджем «справочник».
-8. **Уверенность:** ≥ 0,8 «уверенно», 0,5–0,8 «проверить», < 0,5 «не разобрано».
-
-Описание API: http://localhost:3000/docs и `GET /api/v1/openapi.yaml`.
-
-## Качество
-
-- **Юнит-тесты:** все примеры ТЗ и сотни форм ввода (`internal/parser`).
-- **Оценщик** по правилам метрики ТЗ (`internal/eval`): нижний регистр, без пунктуации,
-  веса 60/25/15, справочные поля только там, где они есть в строке.
-  - Два набора по 100 строк размечены вручную.
-  - Генератор быстрого набора `cmd/synth`: опечатки, склейки, латиница, казахский, ЖК,
-    сёла. Набор детерминирован сидом: тест генерирует 10 000 строк (сид 1) на лету, в
-    репозитории их нет. CI не даёт метрике опуститься ниже базовой линии, а хеш
-    `synth_10000.sha256` не даёт набору незаметно измениться вместе с генератором.
-
-Текущие цифры (`go test ./internal/eval -run TestFastTypeSet -v`):
-
-| Набор | Итог | Адрес (60%) | Детали (25%) | Справочные (15%) |
+| Set | Total | Address (60%) | Details (25%) | Reference (15%) |
 |---|---|---|---|---|
-| fasttype, 100 строк вручную | 1,000 | 1,000 | 1,000 | 1,000 |
-| holdout, 100 строк вручную | 1,000 | 1,000 | 1,000 | 1,000 |
-| синтетика, 10 000 строк | 0,999 | 0,999 | 1,000 | 0,996 |
+| fasttype, 100 lines labelled by hand | 1.000 | 1.000 | 1.000 | 1.000 |
+| holdout, 100 lines labelled by hand | 1.000 | 1.000 | 1.000 | 1.000 |
+| synthetic, 10 000 lines | 0.999 | 0.999 | 1.000 | 0.996 |
 
-Ручные наборы размечала команда, а синтетика построена на том же лексиконе, что и
-парсер. Поэтому это верхняя оценка; скрытый набор жюри будет строже. Восстановление
-района по справочнику проверяется отдельно, на отложенных домах OSM (см. «Справочник
-улиц»).
+The team labelled the manual sets, and the synthetic set uses the same lexicon as the
+parser, so these numbers are an upper bound; the hidden jury set will be stricter.
+Speed: 100 000 records in one request ≈ 0.5 s, 1 000 000 ≈ 5 s on a 32-thread machine; one address takes about 45 µs on one core (the case limit is 5 minutes per 1000).
+Method and commands: [docs/quality.md](docs/quality.md).
 
-```bash
-go test ./internal/eval -run TestFastTypeSet -v                  # 100 + 100 + 10 000
-go run ./cmd/synth -n 10000 -seed 1 -format jury -o testdata/synth/synth_10000_input.json  # файл для интерфейса (без Go: server synth, см. выше)
-go run ./cmd/synth -n 100000 -seed 2 -o testdata/synth/synth_100000.jsonl
-EVAL_EXTRA=synth/synth_100000 go test ./internal/eval -run TestFastTypeSet -v
-```
+## Documentation
 
-## Без интернета
+| File | Contents |
+|---|---|
+| [docs/api.md](docs/api.md) | Endpoints, input and output formats, field rules, limits, errors |
+| [docs/parser.md](docs/parser.md) | How parsing works, step by step; confidence; villages from KATO |
+| [docs/reference-data.md](docs/reference-data.md) | KATO, the OpenStreetMap street directory, the Караганда and Актобе precinct tables, holdout check |
+| [docs/quality.md](docs/quality.md) | Evaluation method, metric table, synthetic generator, how to run the evaluation |
+| [docs/architecture.md](docs/architecture.md) | Services, images, security, start order, component versions |
+| [docs/operations.md](docs/operations.md) | Offline mode, KATO refresh, migrations, environment variables, health checks, troubleshooting |
+| [docs/development.md](docs/development.md) | Tests, CI, tools (`osmref`, `kato`, `synth`), working with the submodule |
+| [jana-address-web](https://github.com/jana-address/jana-address-web) (`web/README.md`) | The UI: screens, file formats, running and building |
 
-Интернет нужен только для первой сборки образов:
+## Licence and data
 
-```bash
-docker compose build
-```
+The reference data in the image comes from KATO (stat.gov.kz), OpenStreetMap
+(© OpenStreetMap contributors, ODbL 1.0) and the akimat decisions on polling precincts of
+Караганда and Актобе. Sources and terms: [ATTRIBUTION](ATTRIBUTION).
 
-После этого `docker compose up` работает офлайн. Шрифты подключены локально, внешних
-запросов нет ни в UI, ни в API.
-
-## Справочник КАТО и миграции
-
-КАТО (классификатор административно-территориальных объектов, stat.gov.kz, версия
-18.09.2026) — это 15 586 записей: 20 регионов, 236 районов и городских администраций,
-87 городов и 9 645 сёл с названиями на русском и казахском. По нему парсер узнаёт
-города и сёла, сельские районы и районы Актобе и Караганды, восстанавливает область
-и район населённого пункта.
-
-- **Снимок в образе.** `internal/kato/snapshot/` (`kato.csv.gz` + `manifest.json` с
-  sha256 исходного xlsx и датой) вшит в бинарник. API разбирает адреса по нему сразу
-  после старта, не дожидаясь ни базы, ни сети.
-- **Миграции с нуля.** При старте API ждёт PostgreSQL, применяет SQL-миграции из
-  `internal/db/migrations/` (таблица `schema_migrations`, advisory-lock) и, если база
-  пустая, записывает снимок как первую версию КАТО. Вручную:
-  `docker compose run --rm api migrate`.
-- **Версии в базе.** `kato_version` (одна активная), `kato_object` (строки
-  классификатора), `kato_sync_log` (каждая проверка).
-- **Обновление.** По умолчанию `OFFLINE=true`: в сеть API не ходит, финальный прогон
-  жюри идёт без интернета. С `OFFLINE=false` API раз в `KATO_REFRESH_INTERVAL`
-  (по умолчанию `168h`) открывает страницу классификатора, находит ссылку на
-  свежий xlsx, сравнивает sha256 и, если файл новый, проверяет его (≥ 10 тыс. строк,
-  20 регионов, уникальные коды, разница с прошлой версией ≤ 15%), сохраняет новой
-  версией и подменяет справочник парсера без перезапуска. При ошибке остаётся старая
-  версия, ошибка видна в `/api/v1/health` и в `kato_sync_log`.
-
-  ```bash
-  OFFLINE=false docker compose up
-  ```
-- **Обновить снимок в репозитории:** `go run ./cmd/kato fetch`.
-
-Сёла из КАТО парсер берёт только там, где это точно населённый пункт: после «с.»,
-«п.», «ауылы», «г.» или отдельной частью рядом с написанным районом или областью.
-Сотни сёл называются «Абай», «Достык», «Береке», как улицы, поэтому слово перед номером
-дома селом не считается. Если сёл с одним названием несколько, выбирает написанный
-район или область; если их нет, берётся крупный пункт из ручной таблицы.
-
-## Справочник улиц (OpenStreetMap)
-
-В КАТО нет улиц, поэтому район городского адреса без района в строке берётся из
-OpenStreetMap. Справочник покрывает 21 район Алматы, Астаны, Шымкента и Тараза и ещё 43 города
-со своим акиматом (Караганда, Актобе, Павлодар и другие, список в `cmd/osmref/main.go`).
-Эти города берутся целиком, без деления на районы. Район по ним не ставится, зато их
-улицы и микрорайоны делят
-«мкр Достык Академика Маргулана 47» на микрорайон и улицу и дают тип улицы. Сельские
-районы не берутся: их улицы принадлежат многим сёлам, а без координат село не
-определить. Справочник лежит в `internal/parser/dict/osm/` (`streets.tsv.gz`,
-`houses.tsv.gz`, `areas.tsv.gz`, `manifest.json`), весит 1,0 МБ (55 678 улиц, 196 887 домов на улицах через границу районов, 2 687 ЖК и микрорайонов; выгрузка OSM от 17–18.10.2026) и вшит в бинарник. Сеть
-для него не нужна, а загрузка при старте занимает ~85 мс.
-
-Районы Караганды (Казыбек би и Әлихан Бөкейхан) в OSM не нарисованы. Район там берётся по
-улице, а если улицы нет — по микрорайону, из решения акима Караганды об образовании
-избирательных участков (№ 12/01 от 19.12.2018 в редакции № 03 от 14.07.2025,
-https://zakon.uchet.kz/rus/docs/G25KA00003B): приложение 1 — район Казыбек би, приложение 2 —
-Әлихан Бөкейхан. Из него собрано около 1 500 названий улиц и микрорайонов на русском и казахском
-(`internal/parser/dict/precincts/karaganda.tsv`); улица, которая есть в обоих районах, района
-не даёт. Район, написанный в строке, не заменяется.
-
-Так же устроены районы Актобе (Алматы и Астана): решение акима Актобе об образовании
-избирательных участков (№ 7 от 25.10.2019 в редакции № 4 от 28.05.2026,
-https://zakon.uchet.kz/rus/docs/V19CA006434), около 1 200 названий в
-`internal/parser/dict/precincts/aktobe.tsv`; улицы, которые есть в обоих районах (Абая, Мира,
-Сатпаева и другие), района не дают.
-
-**Как собирается** (`cmd/osmref`, воспроизводимо):
-
-```bash
-go run ./cmd/osmref fetch   # Overpass API: по каждому полигону района или города улицы, дома с адресом, ЖК и микрорайоны
-go run ./cmd/osmref build   # data/raw/osm/*.json -> internal/parser/dict/osm/
-```
-
-- **Голоса.** Каждый сегмент улицы и каждое здание с адресом голосуют за район, в
-  полигоне которого лежат.
-- **Одна улица под разными именами.** Русское и казахское имена одной дороги
-  («проспект Абая» и «Абай даңғылы») объединяются в одну улицу. «Улица Абая» и
-  «проспект Абая» — две разные, как требует ТЗ. Ключ строится функцией
-  `dict.StreetKey`, общей для сборки и разбора: тип улицы снимается, буквы
-  сворачиваются, инициалы отбрасываются. Угловое здание с двумя улицами в одном
-  теге («улица Комиссарова;проспект Бухар-жырау», номер «37;66») их не объединяет:
-  это разные улицы, и каждая получает свой номер.
-- **Как парсер находит район** (в порядке точности):
-  1. **дом** (`house`): номер есть в OSM у улицы, которая идёт через несколько районов;
-  2. **соседи** (`neighbors`): дома нет в OSM, но ближайшие номера с той же стороны
-     улицы (той же чётности) лежат в одном районе — по большинству зданий этого номера.
-     «Розыбакиева 241» стоит между 237 и 247 Бостандыкского, «Розыбакиева 35» — между 33
-     и 37 Алмалинского (из трёх зданий 37 одно, 37а в глубине квартала, — в Бостандыкском).
-     Другая сторона не считается: улица сама бывает границей;
-  3. **улица** (`street`): не меньше 75% голосов улицы — за один район. Улица поровну
-     в двух районах района не даёт;
-  4. **массив** (`area`): микрорайон или ЖК из OSM. Запасной вариант — ручная таблица
-     микрорайонов Алматы.
-- **Честная проверка.** При сборке каждое десятое здание (по хешу) откладывается. Его
-  район восстанавливается так, как парсер делает для дома, которого нет в справочнике:
-  по соседним номерам (без зданий с тем же номером, «17а» для «17» тоже убирается),
-  иначе по улице:
-
-  | Город | Отложено домов | Район восстановлен | Верно |
-  |---|---|---|---|
-  | Алматы | 12 857 | 97,0% | 98,9% |
-  | Астана | 2 997 | 98,4% | 99,1% |
-  | Шымкент | 9 216 | 94,6% | 97,4% |
-  | Тараз | 4 428 | 98,8% | 99,5% |
-
-  Остаток — дома между номерами разных районов или в конце улицы; там район не
-  ставится. Если дом есть в OSM, парсер берёт его район точно (`house`).
-
-  Цифры пересчитываются каждой сборкой и записываются в `manifest.json`; их же отдаёт
-  `GET /api/v1/health` в поле `streets`.
-- **Лицензия.** Данные © OpenStreetMap contributors, ODbL 1.0 (файл `ATTRIBUTION`).
-
-## Сервисы
-
-| Сервис | Образ | Порт | Что делает |
-|---|---|---|---|
-| `web` | nginx-unprivileged 1.30.6 (alpine-slim), uid 101 | 3000 → 8080 | отдаёт React-сборку, проксирует `/api` в `api` |
-| `api` | Go 1.26.9 → distroless static nonroot, uid 65532 | 8080 | HTTP API |
-| `db` | PostgreSQL 18.6 (alpine) без `gosu`, uid 70 | наружу не публикуется | данные |
-
-Сервисы стартуют по цепочке healthcheck: `db` → `api` → `web`. База сидит во
-внутренней сети без выхода наружу. Все контейнеры работают не от root, с
-`cap_drop: ALL` и `no-new-privileges`, а `api` и `web` ещё и с файловой системой
-только на чтение.
-
-## API
-
-| Метод | Путь | Ответ |
-|---|---|---|
-| GET | `/livez` | `ok`, если процесс жив |
-| GET | `/readyz` | 200, когда справочники загружены и API разбирает адреса; база для этого не нужна |
-| GET | `/api/v1/health` | `{"status":"ok","version":"0.1.0","db":"ok","directory":{…версия КАТО…}}` |
-| POST | `/api/v1/parse/batch` | метод для жюри: массив `{id, raw_address}` → массив из 14 полей в порядке ТЗ |
-| POST | `/api/v1/parse` | одна строка для интерфейса: поля, подсветка, источники, подсказка |
-
-## Тесты и CI
-
-GitHub Actions (`.github/workflows/ci.yml`) запускается на каждый push в `main` и на
-pull request:
-
-- **test:**
-  - `go mod verify`, `gofmt`, `go vet`;
-  - `go test -race` с покрытием против PostgreSQL 18.6 (service container);
-  - `govulncheck`.
-- **build:**
-  - `docker compose config`;
-  - сборка образов `api` и `db`;
-  - smoke-тест: `docker compose up --wait db api`, затем `/api/v1/health` должен вернуть `"db":"ok"`.
-
-Интеграционный тест базы запускается, только если задан `TEST_DATABASE_URL`:
-
-```bash
-TEST_DATABASE_URL=postgres://jana:jana_local_only@localhost:5432/jana?sslmode=disable go test ./...
-```
-
-Actions закреплены по SHA коммита, а не по тегу.
-
-## Разработка
-
-```bash
-# API локально (нужен Go 1.26.9; более старый Go скачает его сам по директиве toolchain)
-go test ./...
-DATABASE_URL=postgres://jana:jana_local_only@localhost:5432/jana?sslmode=disable go run ./cmd/server
-
-# тесты в контейнере
-docker build --target test .
-
-# фронтенд: см. web/README.md
-```
-
-После изменений во фронтенде обновите указатель submodule:
-
-```bash
-git -C web pull origin main && git add web && git commit -m "feat(web): bump submodule"
-```
-
-## Версии
-
-Берём стабильные версии без известных уязвимостей, но не самые свежие. Если
-исправление уязвимости есть только в новой версии, берём её. Базовые образы
-закреплены по multi-arch digest.
-
-| Компонент | Версия | Новейшая на 17.10.2026 |
-|---|---|---|
-| Go | 1.26.9 | 1.27.x |
-| pgx | v5.10.0 | v5.11.0 |
-| golang.org/x/text | v0.41.0 (минимальная с исправлениями GO-2026-5970 и GO-2026-6629) | v0.43.0 |
-| PostgreSQL | 18.6 | 19 (RC) |
-| React | 19.2.9 | 19.3.x |
-| Vite | 8.2.4 | 8.3.x |
-| TypeScript | 6.0.3 | 7.0 |
-| Node (только сборка) | 24.22.0 LTS | 26.x |
-| nginx | 1.30.6 (stable) | 1.31 (mainline) |
-
-Проверка уязвимостей в CI: `govulncheck` для Go и `npm audit --audit-level=high` для веба.
-
-## Данные организаторов
-
-`train.json`, `sample_input.json` и `sample_output.json` нельзя выносить за пределы
-хакатона. Они в `.gitignore` и `.dockerignore`: в git и в образы не попадают.
-Храните их вне репозитория.
-
-## Если что-то не так
-
-- **`unable to prepare context: path "…/web" not found` или пустая папка `web/`.**
-  Submodule не скачан, выполните `git submodule update --init`.
-- **Порт занят.** Запустите `WEB_PORT=3001 API_PORT=8081 docker compose up`.
-- **Начать с чистой базы.** `docker compose down -v` удалит том с данными.
+The organizers' files `train.json`, `sample_input.json` and `sample_output.json` are not in
+the repository; see [docs/operations.md](docs/operations.md#organizers-data).

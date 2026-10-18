@@ -3,21 +3,21 @@ info:
   title: Jana Address API
   version: 0.1.0
   description: |
-    Разбор адреса доставки из одной строки на поля: область, город, район, жилой массив,
-    тип и название улицы, дом, квартира, подъезд, этаж, ориентир.
-    Работает без сети: справочник КАТО вшит в образ.
+    Parses a one-line delivery address into fields: province, city, district, living area,
+    street type and name, house, apartment, entrance, floor, landmark.
+    Works without a network: the KATO directory is built into the image.
 servers:
   - url: http://localhost:8080
 paths:
   /api/v1/parse/batch:
     post:
-      summary: Пакетный разбор (метод для жюри)
+      summary: Batch parsing (the method for the jury)
       description: |
-        Массив записей на входе, массив той же длины и в том же порядке на выходе.
-        Пропусков нет: запись, которую не удалось разобрать, получает null в полях и confidence 0.
-        Принимает также объект с массивом в items/records/data/addresses, NDJSON и
-        multipart/form-data с полем file. BOM UTF-8 допускается. Тело не больше 128 МиБ
-        и не больше 1 000 000 записей.
+        An array of records in, an array of the same length and in the same order out.
+        No record is dropped: a record that could not be parsed gets null fields and confidence 0.
+        Also accepts an object with the array in items/records/data/addresses, NDJSON and
+        multipart/form-data with the field file. A UTF-8 BOM is allowed. The body is at most 128 MiB
+        and at most 1 000 000 records.
       requestBody:
         required: true
         content:
@@ -35,10 +35,10 @@ paths:
                 file: { type: string, format: binary }
       responses:
         '200':
-          description: Результаты в порядке входа
+          description: Results in the input order
           headers:
             X-Records:
-              description: Число записей
+              description: Number of records
               schema: { type: integer }
           content:
             application/json:
@@ -61,18 +61,18 @@ paths:
                   landmark: null
                   confidence: 0.95
         '400':
-          description: Тело пустое, не является JSON или обрезано
+          description: The body is empty, is not JSON, or is truncated
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '413':
-          description: Больше 1 000 000 записей или тело больше 128 МиБ
+          description: More than 1 000 000 records, or the body is larger than 128 MiB
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
   /api/v1/parse:
     post:
-      summary: Разбор одной строки для интерфейса
+      summary: Parse one line for the UI
       requestBody:
         required: true
         content:
@@ -86,7 +86,7 @@ paths:
               raw_address: Астанамангликел55
       responses:
         '200':
-          description: Поля, подсветка, источники и подсказка
+          description: Fields, highlighting, sources and a suggestion
           content:
             application/json:
               schema:
@@ -95,7 +95,7 @@ paths:
                   result: { $ref: '#/components/schemas/Result' }
                   spans:
                     type: array
-                    description: Фрагменты исходной строки по полям, смещения в UTF-16
+                    description: Fragments of the input line per field, offsets in UTF-16
                     items:
                       type: object
                       properties:
@@ -104,17 +104,17 @@ paths:
                         end: { type: integer }
                   sources:
                     type: object
-                    description: Откуда взято поле
+                    description: Where the field comes from
                     additionalProperties:
                       type: string
                       enum: [string, directory, absent]
                   levels:
                     type: object
                     description: >-
-                      Как сопоставлено поле из справочника: house — дом в границах района (OSM),
-                      neighbors — ближайшие номера на этой стороне улицы в одном районе (OSM),
-                      street — большая часть домов улицы в одном районе (OSM), area — микрорайон или жилой массив,
-                      settlement — область и район населённого пункта (КАТО), district — город и область написанного района
+                      How a field was matched in the directory: house — the house inside a district border (OSM),
+                      neighbors — the nearest numbers on this side of the street are in one district (OSM),
+                      street — most houses of the street are in one district (OSM), area — a microdistrict or living area,
+                      settlement — the province and district of a settlement (KATO), district — the city and province of the written district
                     additionalProperties:
                       type: string
                       enum: [house, neighbors, street, area, settlement, district]
@@ -123,18 +123,18 @@ paths:
                     enum: [confident, review, unparsed]
                   suggestion:
                     type: string
-                    description: Адрес в чистом виде для подсказки под полем ввода
+                    description: The clean address for the hint under the input field
         '400':
-          description: Нет raw_address
+          description: No raw_address
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
   /api/v1/health:
     get:
-      summary: Состояние сервиса и версия справочника КАТО
+      summary: Service state and the KATO directory version
       responses:
         '200':
-          description: ok или degraded (база недоступна)
+          description: ok or degraded (the database is unavailable)
           content:
             application/json:
               schema:
@@ -156,46 +156,45 @@ paths:
                   streets:
                     type: object
                     description: >-
-                      Справочник улиц OpenStreetMap для районов Алматы, Астаны, Шымкента и Тараза и ещё 43 городов целиком:
-                      источник, лицензия, дата выгрузки, число строк и проверка на отложенных домах (покрытие и
-                      точность района по улице)
+                      The OpenStreetMap street directory for the districts of Алматы, Астана, Шымкент and Тараз and 43 more whole cities:
+                      source, licence, export date, number of rows and the check on held-out houses (coverage and
+                      accuracy of the district by street)
   /livez:
     get:
-      summary: Процесс жив
+      summary: The process is alive
       responses:
         '200': { description: ok }
   /readyz:
     get:
-      summary: База отвечает
+      summary: The API is ready to parse (the database is not checked; its state is in /api/v1/health)
       responses:
         '200': { description: ok }
-        '503': { description: база недоступна }
 components:
   schemas:
     Input:
       type: object
       properties:
-        id: { description: 'Любое JSON-значение, возвращается как есть' }
+        id: { description: 'Any JSON value, returned as is' }
         raw_address: { type: string }
     Result:
       type: object
-      description: Ровно 14 ключей в этом порядке. Неизвестное поле — null.
+      description: Exactly 14 keys in this order. An unknown field is null.
       required: [id, raw_address, province, city, district, living_area, street_type, street_name, house, apartment, entrance, floor, landmark, confidence]
       properties:
-        id: { description: Как во входе }
-        raw_address: { description: Как во входе, байт в байт }
-        province: { type: [string, 'null'], description: 'Область в прямом порядке или город респ. значения: «Актюбинская область», «Алматы»' }
-        city: { type: [string, 'null'], description: 'Только название: «Актобе», «Боралдай»' }
-        district: { type: [string, 'null'], description: 'Без слова «район»: «Илийский», «Ауэзовский»' }
-        living_area: { type: [string, 'null'], description: 'Микрорайон или ЖК, когда улица указана отдельно' }
+        id: { description: As in the input }
+        raw_address: { description: As in the input, byte for byte }
+        province: { type: [string, 'null'], description: 'Province in direct word order, or a city of republican significance: «Актюбинская область», «Алматы»' }
+        city: { type: [string, 'null'], description: 'Name only: «Актобе», «Боралдай»' }
+        district: { type: [string, 'null'], description: 'Without the word «район»: «Илийский», «Ауэзовский»' }
+        living_area: { type: [string, 'null'], description: 'Microdistrict or residential complex (ЖК), when the street is given separately' }
         street_type: { type: [string, 'null'], enum: [улица, проспект, микрорайон, переулок, квартал, бульвар, шоссе, жилой комплекс, null] }
-        street_name: { type: [string, 'null'], description: Без типа, ровно как в строке }
-        house: { type: [string, 'null'], description: 'С дробью и литерой: «1/2», «12а»' }
+        street_name: { type: [string, 'null'], description: Without the type, exactly as in the line }
+        house: { type: [string, 'null'], description: 'With a fraction and a letter: «1/2», «12а»' }
         apartment: { type: [string, 'null'] }
         entrance: { type: [string, 'null'] }
         floor: { type: [string, 'null'] }
         landmark: { type: [string, 'null'] }
-        confidence: { type: number, minimum: 0, maximum: 1, description: '≥ 0,8 уверенно, 0,5–0,8 проверить, < 0,5 не разобрано' }
+        confidence: { type: number, minimum: 0, maximum: 1, description: '≥ 0.8 confident, 0.5–0.8 review, < 0.5 unparsed' }
     Error:
       type: object
       properties:
