@@ -197,6 +197,9 @@ func TestAreaBeforeStreet(t *testing.T) {
 		{"Астана ЖК Арнау Шокпаровская 12", map[Field]string{LivingArea: "Арнау", StreetName: "Шокпаровская", House: "12"}},
 		{"Туркестан мкр Бекзат Тауасарова 7", map[Field]string{LivingArea: "Бекзат", StreetName: "Тауасарова", House: "7"}},
 		{`Астана ЖК "Арнау Шокпаровская" 12`, map[Field]string{LivingArea: "-", StreetName: "Арнау Шокпаровская"}},
+		// a small "а." (ауылы) after the village is no part of the street; a capital "А." is an initial
+		{"Каскелен а. Тауелсиздик 14", map[Field]string{City: "Каскелен", StreetName: "Тауелсиздик", House: "14"}},
+		{"Алматы, А. Байтурсынова 12", map[Field]string{City: "Алматы", StreetName: "А. Байтурсынова"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

@@ -864,7 +864,7 @@ func init() {
 func (st *state) untypedStreet() bool {
 	for i := 0; i < len(st.toks); i++ {
 		t := st.toks[i]
-		if t.kind != tWord || t.used || t.mk != nil {
+		if t.kind != tWord || t.used || t.mk != nil || st.villagePostfix(i) {
 			continue
 		}
 		j := i
@@ -902,6 +902,18 @@ func (st *state) untypedStreet() bool {
 		i = j
 	}
 	return false
+}
+
+// villagePostfix reports whether the word i is a small "а." (ауылы) right after the name of the
+// settlement, which is no part of the street after it: "Қаскелең а. Жібек жолы 5". A capital "А." is
+// an initial of the street: "Алматы, А. Байтурсынова 12".
+func (st *state) villagePostfix(i int) bool {
+	t := st.toks[i]
+	if (t.text != "а" && t.text != "a") || !st.isPunct(i+1, ".") || i == 0 || st.vals[City] == "" {
+		return false
+	}
+	p := st.toks[i-1]
+	return p.kind == tWord && p.used
 }
 
 // livingPart takes a separate part of plain words between the city and the street as the living area:
