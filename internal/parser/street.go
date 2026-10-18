@@ -46,9 +46,8 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 		}
 		switch t.kind {
 		case tWord:
-			if t.mk != nil && typ == "жилой комплекс" && a >= 0 && t.mk.Class == dict.Street && !st.opensName(k) &&
-				t.mk.Canon != "улица" && !kazakhStreetPostfix[t.fold] {
-				break // a type word inside the name: "ЖК Экспо Бульвар"; "ЖК Нурлы Тау ул. Толе би" ends before "ул."
+			if t.mk != nil && typ == "жилой комплекс" && a >= 0 && st.typeInName(k) && (!st.opensName(k) || st.typedLater(k)) {
+				break // a type word inside the name: "ЖК Экспо Бульвар", "ЖК Экспо Бульвар Акжол ул. 5"; "ЖК Нурлы Тау ул. Толе би" ends before "ул."
 			}
 			if t.mk != nil {
 				return a, b
@@ -284,9 +283,11 @@ func (st *state) areaStreetBorder(a, b int, areaFirst, living bool) int {
 	for j := a; j <= b; j++ {
 		quoted = quoted || st.isPunct(j, "\"«»")
 	}
-	var splits []int // words after a word or, in a quoted name, after its quote: "ЖК «Мирас» Капал батыра ул."
+	// plain words after a word or, in a quoted name, after its quote: "ЖК «Мирас» Капал батыра ул."; a type
+	// word inside the name does not start the street: "ЖК Самал Бульвар Тауке хана ул."
+	var splits []int
 	for j := a + 1; j <= b; j++ {
-		if st.toks[j].kind == tWord && st.toks[st.beforeQuotes(j-1)].kind == tWord && (!quoted || st.isPunct(j-1, "\"«»")) {
+		if st.toks[j].kind == tWord && st.toks[j].mk == nil && st.toks[st.beforeQuotes(j-1)].kind == tWord && (!quoted || st.isPunct(j-1, "\"«»")) {
 			splits = append(splits, j)
 		}
 	}
@@ -376,6 +377,53 @@ func (st *state) streetVotes(city string, a, b int) int {
 	return 0
 }
 
+// typeInName reports whether the street type word at k may be a part of a ЖК name ("Экспо Бульвар"):
+// not улица and not a Kazakh type word, which always type the street before them.
+func (st *state) typeInName(k int) bool {
+	m := st.toks[k].mk
+	return m != nil && m.Class == dict.Street && m.Canon != "улица" && !kazakhStreetPostfix[st.toks[k].fold]
+}
+
+// typedLater reports whether the plain words after the type word at k end at another, postfix, street
+// type: in "ЖК Экспо Бульвар Сейфуллина ул. 44" the street is Сейфуллина, and Бульвар is in the ЖК name.
+func (st *state) typedLater(k int) bool {
+	j := k + 1 + st.toks[k].tail
+	for st.isPunct(j, ".") {
+		j++
+	}
+	n := 0
+	for ; j < len(st.toks) && st.toks[j].kind == tWord && st.toks[j].mk == nil && !st.toks[j].used; j++ {
+		n++
+	}
+	return n > 0 && st.postfixStreetAt(j)
+}
+
+// typesInLivingNames drops the street type of a word that ends a ЖК name written before its marker:
+// "Экспо Бульвар ЖК, Мәңгілік Ел даң.", "«Экспо Бульвар» ЖК пр. Тауелсиздик", "Экспо Бульвар тұрғын үй
+// кешені Габдуллин 33". The name must be quoted, or the marker Kazakh (it follows its name), or the marker
+// not followed by a name of its own: in "Абая пр. ЖК Хайвил 5" пр. types Абая.
+func (st *state) typesInLivingNames() {
+	for k := 1; k+1 < len(st.toks); k++ {
+		if !st.typeInName(k) || st.toks[k].used || st.toks[k-1].kind != tWord || st.toks[k-1].mk != nil {
+			continue
+		}
+		j := k + 1 + st.toks[k].tail
+		for st.isPunct(j, ".") {
+			j++
+		}
+		quoted := st.isPunct(j, "\"")
+		for st.isPunct(j, "\"") {
+			j++
+		}
+		if j >= len(st.toks) || st.toks[j].mk == nil || st.toks[j].mk.Class != dict.Living || st.toks[j].used {
+			continue
+		}
+		if quoted || postfixAreaMarkers[st.toks[j].fold] || !st.opensName(j) {
+			st.toks[k].mk = nil
+		}
+	}
+}
+
 // opensName reports whether the marker word at i, after its dots, is followed by a plain word that it
 // names: "ул. Толе би", "ул.садовая".
 func (st *state) opensName(i int) bool {
@@ -415,6 +463,7 @@ func (st *state) postfixStreetAt(i int) bool {
 }
 
 func (st *state) street() {
+	st.typesInLivingNames()
 	var cands []cand
 	covered := -1 // a type word inside a collected name is not a new street: "жк Экспо Бульвар"
 	for i, t := range st.toks {

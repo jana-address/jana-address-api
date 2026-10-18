@@ -240,6 +240,11 @@ func TestParseExamples(t *testing.T) {
 		// a quoted area name ends at its closing quote
 		{"Тараз жк \"Алтын Орда\" Абая 7", map[Field]string{LivingArea: "Алтын Орда", StreetName: "Абая", House: "7"}},
 		{"Кызылорда мкр «Шугыла» Жахаева 15", map[Field]string{LivingArea: "Шугыла", StreetName: "Жахаева", House: "15"}},
+		// a type word inside a ЖК name, unlike a type of the street before the ЖК
+		{"Астана, «Изумрудный Квартал» ЖК, Кабанбай батыра пр., 11", map[Field]string{LivingArea: "Изумрудный Квартал", StreetName: "Кабанбай батыра", StreetType: "проспект"}},
+		{"Алматы Парк Бульвар тұрғын үй кешені Сатпаева 30", map[Field]string{LivingArea: "Парк Бульвар", StreetName: "Сатпаева", House: "30"}},
+		{"Шымкент жк Самал Бульвар Тауке хана ул 8", map[Field]string{LivingArea: "Самал Бульвар", StreetType: "улица", StreetName: "Тауке хана", House: "8"}},
+		{"Астана Абая пр. ЖК Хайвил 5", map[Field]string{LivingArea: "Хайвил", StreetType: "проспект", StreetName: "Абая", House: "5"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
