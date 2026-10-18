@@ -89,8 +89,9 @@ func (st *state) classify() {
 				continue
 			}
 		}
-		// "с." before a name is a village, otherwise a preposition; "с Отеген батыр" without a dot only before a known place
-		if t.fold == "с" && (st.isPunct(i+1, ".") || st.knownPlaceAt(i+1)) {
+		// "с." before a name is a village, otherwise a preposition; "с Отеген батыр" without a dot only before a known
+		// place, or one of two words one letter off where the line opens: "040712 с Отеген баьыр"
+		if t.fold == "с" && (st.isPunct(i+1, ".") || st.knownPlaceAt(i+1) || st.opensLine(i) && st.closePairAt(i+1)) {
 			t.mk = &dict.Marker{Class: dict.Settlement}
 		}
 		if t.fold == "кала" && t.mk != nil && !(i > 0 && st.toks[i-1].kind == tWord && st.d.KnownCityWord(st.toks[i-1].fold)) {
@@ -125,6 +126,15 @@ func (st *state) knownPlaceAt(i int) bool {
 		return st.d.KnownCityWord(k + " " + st.toks[i+1].fold)
 	}
 	return false
+}
+
+// closePairAt reports whether two words at i are a close spelling of a place of two words: "отеге батыр".
+func (st *state) closePairAt(i int) bool {
+	if i+1 >= len(st.toks) || st.toks[i].kind != tWord || st.toks[i+1].kind != tWord {
+		return false
+	}
+	p, ok := st.d.LookupCity(st.toks[i].fold + " " + st.toks[i+1].fold)
+	return ok && strings.Contains(p.Name, " ")
 }
 
 // placeAt reports whether a place name starts at i: a city, or a settlement or a close spelling of a city
