@@ -172,6 +172,24 @@
       "relation": 21588024
     },
     {
+      "addresses": 22747,
+      "city": "Тараз",
+      "district": "Әулиеата",
+      "elements": 23919,
+      "named_areas": 54,
+      "named_ways": 1134,
+      "relation": 18817641
+    },
+    {
+      "addresses": 21169,
+      "city": "Тараз",
+      "district": "Жібек жолы",
+      "elements": 22457,
+      "named_areas": 57,
+      "named_ways": 1254,
+      "relation": 18817642
+    },
+    {
       "addresses": 24080,
       "city": "Актобе",
       "district": "",
@@ -487,15 +505,6 @@
       "relation": 3392135
     },
     {
-      "addresses": 43915,
-      "city": "Тараз",
-      "district": "",
-      "elements": 46325,
-      "named_areas": 105,
-      "named_ways": 2343,
-      "relation": 3388834
-    },
-    {
       "addresses": 4501,
       "city": "Текели",
       "district": "",
@@ -517,9 +526,9 @@
       "addresses": 43109,
       "city": "Туркестан",
       "district": "",
-      "elements": 44794,
+      "elements": 44795,
       "named_areas": 35,
-      "named_ways": 1660,
+      "named_ways": 1661,
       "relation": 5496366
     },
     {
@@ -588,6 +597,15 @@
         "restored": 2948,
         "right": 2922
       },
+      "Тараз": {
+        "accuracy": 0.995,
+        "addresses": 4428,
+        "by_neighbors": 3863,
+        "by_street": 514,
+        "coverage": 0.988,
+        "restored": 4377,
+        "right": 4357
+      },
       "Шымкент": {
         "accuracy": 0.974,
         "addresses": 9216,
@@ -604,14 +622,14 @@
   "min_street_share": 0.75,
   "rows": {
     "areas": 2687,
-    "houses": 187739,
-    "streets": 55679
+    "houses": 196887,
+    "streets": 55678
   },
   "sha256": {
-    "areas.tsv.gz": "a071ea5e4d1741c22aa75cf3a624005498cfd9157cdfb0735bed939fa1cd5f0a",
-    "houses.tsv.gz": "74d93508f3aa896e931c5e0c96ed73b1dc134df0e3b0448c14819a2cd9c15d82",
-    "streets.tsv.gz": "0799ddbb5232205e1b2579f9a064bd750b4e89c5b4ad999a0e1f8361df6bdcc4"
+    "areas.tsv.gz": "a3ced843f40ec396bcf13bc4acb8fedf47b72eab00a4a8b44d39710897a3c72b",
+    "houses.tsv.gz": "d6e4fecfb9e9d29154ca19bbdc3d024dae820952cce8019b612ab3454fa5331c",
+    "streets.tsv.gz": "16d07a0171876ca1b349293c11ce0f8504534e63d78827686918fdc69acc8ff9"
   },
   "source": "OpenStreetMap, Overpass API (https://overpass-api.de/api/interpreter)",
-  "timestamp_osm_base": "2026-10-17T23:46:51Z"
+  "timestamp_osm_base": "2026-10-18T09:03:36Z"
 }

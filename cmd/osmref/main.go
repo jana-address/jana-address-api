@@ -1,12 +1,12 @@
 // Command osmref builds the street and living-area directory of the cities in
-// internal/parser/dict/osm from OpenStreetMap: by district for Алматы, Астана and Шымкент,
+// internal/parser/dict/osm from OpenStreetMap: by district for Алматы, Астана, Шымкент and Тараз,
 // whole for every other city with its own administration.
 //
 //	osmref fetch [-raw DIR] [-api URL]
 //	osmref build [-raw DIR] [-out DIR]
 //
 // fetch asks the Overpass API for the named streets, the addressed buildings and the
-// named living areas inside every district polygon of Алматы, Астана and Шымкент, and
+// named living areas inside every district polygon of Алматы, Астана, Шымкент and Тараз, and
 // inside the boundary of every other city with its own administration, and stores the
 // answers in -raw, one file per area. build reads them and writes
 // streets.tsv.gz, houses.tsv.gz, areas.tsv.gz and manifest.json; the same raw files give
@@ -25,7 +25,7 @@ const (
 	defaultOut = "internal/parser/dict/osm"
 )
 
-// districts are the OSM boundary relations (admin_level 6) of the city districts, with the
+// districts are the OSM boundary relations (admin_level 6, 7 for Тараз) of the city districts, with the
 // district names the parser outputs.
 var districts = []struct {
 	Rel      int64
@@ -39,6 +39,7 @@ var districts = []struct {
 	{20593940, "Астана", "Нура"}, {19733918, "Астана", "Сарайшык"}, {3486954, "Астана", "Сарыарка"},
 	{5548210, "Шымкент", "Абайский"}, {5550509, "Шымкент", "Аль-Фарабийский"}, {5551117, "Шымкент", "Енбекшинский"},
 	{5551119, "Шымкент", "Каратауский"}, {21588024, "Шымкент", "Туран"},
+	{18817641, "Тараз", "Әулиеата"}, {18817642, "Тараз", "Жібек жолы"},
 }
 
 // cities are the other cities with their own administration ("қалалық әкімдігі", "Г.А."), with the
@@ -56,7 +57,7 @@ var cities = []struct {
 	{16717004, "Кульсары"}, {5499667, "Курчатов"}, {3396852, "Кызылорда"}, {2914970, "Лисаковск"}, {5501700, "Павлодар"},
 	{2313542, "Петропавловск"}, {2456975, "Приозерск"}, {3389550, "Риддер"}, {2068946, "Рудный"}, {5511047, "Сарань"},
 	{5513234, "Сатпаев"}, {17351528, "Семей"}, {3404209, "Степногорск"}, {15405616, "Талгар"}, {3392135, "Талдыкорган"},
-	{3388834, "Тараз"}, {5518135, "Текели"}, {5511190, "Темиртау"}, {5496366, "Туркестан"}, {3767383, "Уральск"},
+	{5518135, "Текели"}, {5511190, "Темиртау"}, {5496366, "Туркестан"}, {3767383, "Уральск"},
 	{3389569, "Усть-Каменогорск"}, {5511125, "Шахтинск"}, {21176885, "Щучинск"}, {5502043, "Экибастуз"},
 }
 

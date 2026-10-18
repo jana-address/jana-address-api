@@ -11,7 +11,7 @@ import (
 )
 
 // The street directory built from OpenStreetMap by cmd/osmref (manifest.json lists the source, the
-// date, the areas and the checks): the city districts of Алматы, Астана and Шымкент, and every other
+// date, the areas and the checks): the city districts of Алматы, Астана, Шымкент and Тараз, and every other
 // city with its own administration taken whole, with an empty district.
 //
 //go:embed osm/streets.tsv.gz osm/houses.tsv.gz osm/areas.tsv.gz osm/manifest.json

@@ -42,6 +42,9 @@ func TestOSMDistricts(t *testing.T) {
 		{"караганда алалыкена 12", map[Field]string{District: "Казыбек би", StreetName: "алалыкена"}, LevelStreet},
 		{"караганда ерубаево 20", map[Field]string{District: "Казыбек би", StreetName: "ерубаево"}, LevelStreet},
 		// Актобе: the same from the akim's list of polling precincts
+		// Тараз: the district borders from the map, as in Алматы
+		{"Тараз, ул. Толе би 50", map[Field]string{District: "Әулиеата"}, ""},
+		{"тараз байдибек баба 12", map[Field]string{District: "Жібек жолы"}, ""},
 		{"Актобе, ул. Акимжанова 5", map[Field]string{District: "Алматы"}, LevelStreet},
 		{"актобе арынова 12 кв 3", map[Field]string{District: "Астана"}, LevelStreet},
 		{"Актобе, район Астана, ул. Акимжанова 5", map[Field]string{District: "Астана"}, ""},
