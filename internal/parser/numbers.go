@@ -103,7 +103,8 @@ func (st *state) units() {
 	var closedRight func(n, depth int) bool
 	closedRight = func(n, depth int) bool {
 		k := n + 1
-		if depth > 4 || k >= len(st.toks) || bound[k] || !st.toks[k].mk.IsUnit() || st.toks[k].mk.Class == dict.Block || st.toks[k].used {
+		if depth > 4 || k >= len(st.toks) || bound[k] || st.toks[k].used ||
+			!st.toks[k].mk.IsUnit() || st.toks[k].mk.Class == dict.Block {
 			return false
 		}
 		next := numAfter(k)
@@ -218,12 +219,18 @@ func (st *state) areaNumber(i int) bool {
 	if m == nil || m.Class != dict.Street || !dict.NumberedAreaTypes[m.Canon] {
 		return false
 	}
-	// a postfix type after its name keeps the house after it: "Салтанат мкр. 49, 5 блок", "5 мкр 50, 3 блок";
-	// in "д 32/14 мкрн 11" the number before the type is the house
 	if p > 0 && st.toks[p-1].used && st.toks[p-1].mk == m {
 		p-- // the first word of "ықшам ауданы"
 	}
-	return !(p > 0 && (st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil && !st.toks[p-1].used || st.availNum(p-1) && !st.afterUnit(p-1)))
+	if p == 0 {
+		return true
+	}
+	// a postfix type after its name or number keeps the house after it: "Салтанат мкр. 49, 5 блок",
+	// "5 мкр 50, 3 блок"; in "д 32/14 мкрн 11" the number before the type is the house
+	b := st.toks[p-1]
+	nameBefore := b.kind == tWord && b.mk == nil && !b.used
+	numberBefore := st.availNum(p-1) && !st.afterUnit(p-1)
+	return !nameBefore && !numberBefore
 }
 
 // afterUnit reports whether the token at i follows a unit marker: "д 32", "кв. 5".
