@@ -210,16 +210,16 @@ func (st *state) knownArea(city string, a, b int) bool {
 	if city == "" {
 		return false
 	}
-	k, _ := dict.StreetKey(st.text(a, b))
+	k := lookupKey(st.text(a, b))
 	if _, ok := dict.OSM().Areas[city][k]; ok {
 		return true
 	}
-	for _, ar := range st.d.Areas[text.Key(st.text(a, b))] {
+	for _, ar := range st.d.Areas[text.Key(lookupName(st.text(a, b)))] {
 		if ar.City == city {
 			return true
 		}
 	}
-	if _, ok := dict.AlmatyAreas[st.toks[a].fold]; !ok || city != "Алматы" {
+	if _, ok := dict.AlmatyAreas[text.Fold(lookupName(st.toks[a].text))]; !ok || city != "Алматы" {
 		return false
 	}
 	for k := a + 1; k <= b; k++ {
@@ -243,7 +243,7 @@ func (st *state) areaThenStreet(c *cand) int {
 	if !areaType[c.typ] || c.b <= c.a || (ref.Streets[city] == nil && city != "Алматы") {
 		return -1
 	}
-	key := func(a, b int) string { k, _ := dict.StreetKey(st.text(a, b)); return k }
+	key := func(a, b int) string { return lookupKey(st.text(a, b)) }
 	knownStreet := func(k string) bool { s, ok := ref.Street(city, k, dict.AnyType); return ok && s.Votes >= 3 }
 	knownArea := func(a, b int) bool { return st.knownArea(city, a, b) }
 	if knownStreet(key(c.a, c.b)) || knownArea(c.a, c.b) {
@@ -290,7 +290,7 @@ func (st *state) areaThenStreet(c *cand) int {
 // halves, the area and the street well, and no city knows the name whole: "мкр Юбилейный Торайгырова 24".
 func (st *state) areaThenStreetSomewhere(c *cand) int {
 	ref := dict.OSM()
-	whole, _ := dict.StreetKey(st.text(c.a, c.b))
+	whole := lookupKey(st.text(c.a, c.b))
 	for city := range ref.Streets {
 		if s, ok := ref.Street(city, whole, dict.AnyType); ok && s.Votes >= 3 || st.knownArea(city, c.a, c.b) {
 			return -1
@@ -300,7 +300,7 @@ func (st *state) areaThenStreetSomewhere(c *cand) int {
 		if st.toks[j].kind != tWord || st.toks[j-1].kind != tWord {
 			continue
 		}
-		k, _ := dict.StreetKey(st.text(j, c.b))
+		k := lookupKey(st.text(j, c.b))
 		if strings.ContainsAny(k, "0123456789") {
 			continue
 		}
@@ -460,6 +460,11 @@ func (st *state) areaStreetBorder(a, b int, areaFirst, living bool) int {
 	}
 	streetAt := func(j, votes int) bool { sa, sb := streetOf(j); return st.streetVotes(city, sa, sb) >= votes }
 	areaAt := func(j int) bool { aa, ab := areaOf(j); return st.knownArea(city, aa, ab) }
+	for _, j := range splits { // a change of script is the border: "ЖК Comfort City Торайгырова ул."
+		if text.IsLatin(st.toks[j].text) != text.IsLatin(st.toks[st.beforeQuotes(j-1)].text) {
+			return j
+		}
+	}
 	byStreet := make([]int, len(splits)) // from the longest street half to the shortest
 	for n := range splits {
 		byStreet[n] = splits[n]
@@ -521,7 +526,7 @@ func (st *state) beforeQuotes(i int) int {
 
 // streetVotes returns the number of map segments and buildings of the street a..b in the city, 0 when unknown.
 func (st *state) streetVotes(city string, a, b int) int {
-	k, _ := dict.StreetKey(st.text(a, b))
+	k := lookupKey(st.text(a, b))
 	if s, ok := dict.OSM().Street(city, k, dict.AnyType); ok && k != "" {
 		return s.Votes
 	}

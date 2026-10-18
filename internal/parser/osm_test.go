@@ -76,6 +76,11 @@ func TestOSMDistricts(t *testing.T) {
 		{"мкр Мамыр Саина 5", map[Field]string{LivingArea: "Мамыр", StreetName: "Саина", House: "5", City: "-"}, ""},
 		{"мкр Акбулак Момышулы 3 кв 8", map[Field]string{LivingArea: "Акбулак", StreetName: "Момышулы", House: "3"}, ""},
 		{"жк алтын булак 31 кв 93", map[Field]string{StreetName: "алтын булак", LivingArea: "-"}, ""},
+		// Latin names are looked up respelled in Cyrillic, and keep their spelling
+		{"Astana mkr. Koktal Kenesary 12", map[Field]string{LivingArea: "Koktal", StreetName: "Kenesary", House: "12"}, ""},
+		{"Almaty ZhK Shakhristan Zhandosova 40 kv 5", map[Field]string{LivingArea: "Shakhristan", StreetName: "Zhandosova", House: "40"}, ""},
+		// a change of script is the border between a ЖК and its street
+		{"Алматы ЖК Comfort City Торайгырова ул 12", map[Field]string{LivingArea: "Comfort City", StreetName: "Торайгырова", House: "12"}, ""},
 		// known whole, or a number in the name: not split
 		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", LivingArea: "-"}, ""},
 		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{StreetName: "Аксай 3а", LivingArea: "-"}, ""},
