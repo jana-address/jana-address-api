@@ -77,9 +77,9 @@ func (st *state) osmStreet(ref *dict.OSMRef, city string) (key, typ string, s di
 	return key, dict.AnyType, all, okAll
 }
 
-// streetAlias finds the map name of a street written shorter or longer than the map has it, when only one
-// street fits: "габдуллина" is Малика Габдуллина in Астана, "Малика Габдуллина" is Габдуллина in Алматы,
-// "мангилик" is Мангилик Ел.
+// streetAlias finds the map name of a street written shorter or longer than the map has it, or with one
+// letter wrong, when only one street fits: "габдуллина" is Малика Габдуллина in Астана, "Малика Габдуллина"
+// is Габдуллина in Алматы, "мангилик" is Мангилик Ел, "алалыкена" is Алалыкина.
 func streetAlias(ref *dict.OSMRef, city, key string) (string, bool) {
 	first, byFirst := byFirstWord(ref, city, key)
 	if bySurname(city, key) {
@@ -90,6 +90,9 @@ func streetAlias(ref *dict.OSMRef, city, key string) (string, bool) {
 	}
 	if byFirst {
 		return first, true
+	}
+	if name, ok := closeStreetName(city, key); ok {
+		return name, true // "алалыкена" is Алалыкина: only one street of the city is one letter off
 	}
 	i := strings.LastIndexByte(key, ' ')
 	if i < 0 {
@@ -201,6 +204,12 @@ func (st *state) districtFromPrecincts(city string) {
 		if d, ok := p.District(k, typ); ok {
 			st.setDir(District, d, LevelStreet)
 			return
+		}
+		if alias, ok := streetAlias(dict.OSM(), city, k); ok { // a typo or a shorter name of a street the map knows
+			if d, ok := p.District(alias, typ); ok {
+				st.setDir(District, d, LevelStreet)
+				return
+			}
 		}
 	}
 	if v, ok := st.vals[LivingArea]; ok {

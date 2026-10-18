@@ -398,10 +398,16 @@ var surnames = sync.OnceValue(func() map[string]map[string][]string {
 // closeStreet reports whether exactly one street of the city that the map knows well (a key of six letters
 // or more, three segments and buildings) is one letter from the key: "рыскулоова" is Рыскулова.
 func closeStreet(city, k string) bool {
+	_, ok := closeStreetName(city, k)
+	return ok
+}
+
+// closeStreetName is closeStreet that also returns the map name of the street.
+func closeStreetName(city, k string) (string, bool) {
 	var kbuf [text.MaxFuzzyLen]rune
 	r := text.ToRunes(k, kbuf[:0])
 	if len(r) < 6 || len(r) >= text.MaxFuzzyLen-1 {
-		return false
+		return "", false
 	}
 	byLen := wellKnownStreets()[city]
 	found := ""
@@ -412,13 +418,13 @@ func closeStreet(city, k string) bool {
 		for _, c := range byLen[n] {
 			if text.DistanceLimit(r, c.r, 1) <= 1 {
 				if found != "" && found != c.name {
-					return false // two streets as close: no guess
+					return "", false // two streets as close: no guess
 				}
 				found = c.name
 			}
 		}
 	}
-	return found != ""
+	return found, found != ""
 }
 
 type knownStreet struct {
