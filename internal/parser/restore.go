@@ -69,13 +69,18 @@ func (st *state) osmStreet(ref *dict.OSMRef, city string) (key, typ string, s di
 }
 
 // streetAlias finds the map name of a street written shorter or longer than the map has it, when only one
-// street fits: "габдуллина" is Малика Габдуллина in Астана, "Малика Габдуллина" is Габдуллина in Алматы.
+// street fits: "габдуллина" is Малика Габдуллина in Астана, "Малика Габдуллина" is Габдуллина in Алматы,
+// "мангилик" is Мангилик Ел.
 func streetAlias(ref *dict.OSMRef, city, key string) (string, bool) {
+	first, byFirst := byFirstWord(ref, city, key)
 	if bySurname(city, key) {
-		return surnames()[city][key][0], true
+		if last := surnames()[city][key][0]; !byFirst || last == first {
+			return last, true
+		}
+		return "", false // "жибек" ends Алтын Жибек and starts Жибек Жолы: no guess
 	}
-	if k, ok := byFirstWord(ref, city, key); ok {
-		return k, true
+	if byFirst {
+		return first, true
 	}
 	i := strings.LastIndexByte(key, ' ')
 	if i < 0 {
