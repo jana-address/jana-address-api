@@ -416,6 +416,32 @@ func (st *state) popularTailAnywhere(city string, c *cand) int {
 			}
 		}
 	}
+	// a microdistrict, not a ЖК ("ЖК Бауырластар Тлендиевва" keeps its words), before a word one letter off
+	// a street of six letters or more, the only one that close anywhere
+	if votes == 0 && !c.isLiving {
+		var kbuf [text.MaxFuzzyLen]rune
+		r := text.ToRunes(k, kbuf[:0])
+		if len(r) < 6 || len(r) >= text.MaxFuzzyLen-1 {
+			return -1
+		}
+		found := ""
+		for _, byLen := range popularStreets() {
+			for n := len(r) - 1; n <= len(r)+1; n++ {
+				if n >= len(byLen) {
+					continue
+				}
+				for _, s := range byLen[n] {
+					if text.DistanceLimit(r, s.r, 1) <= 1 {
+						if found != "" && found != s.name {
+							return -1
+						}
+						found = s.name
+						votes += s.votes
+					}
+				}
+			}
+		}
+	}
 	if votes < 20 {
 		return -1
 	}

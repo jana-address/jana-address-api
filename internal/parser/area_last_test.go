@@ -38,3 +38,27 @@ func TestPopularTailAnywhere(t *testing.T) {
 		})
 	}
 }
+
+// TestPopularTailAnywhereFuzzy: after a microdistrict name, the street is one letter off a name the maps
+// know by many votes; a ЖК keeps such a word.
+func TestPopularTailAnywhereFuzzy(t *testing.T) {
+	recs, _, err := kato.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := dict.Current()
+	defer dict.SetCurrent(old)
+	UseKATO(recs)
+	for _, tc := range []struct{ raw, area, street string }{
+		{"мкр.дарабоз есенжвнова д5", "дарабоз", "есенжвнова"},
+		{"мкр дарабоз аузэова д13, 1 пәтер", "дарабоз", "аузэова"},
+		{"мкр. кунаева Есенжанова дом 8, 22кв под 4", "кунаева", "Есенжанова"},
+		{"мкр.ильинка аузэова д13, 1 пәтер", "ильинка", "аузэова"},
+		{"Костанай ЖК Бауырластар Тлендиевва 14", "", "Бауырластар Тлендиевва"},
+	} {
+		o := Parse(tc.raw)
+		if o.Values[LivingArea] != tc.area || o.Values[StreetName] != tc.street {
+			t.Errorf("%s: %q | %q, want %q | %q", tc.raw, o.Values[LivingArea], o.Values[StreetName], tc.area, tc.street)
+		}
+	}
+}
