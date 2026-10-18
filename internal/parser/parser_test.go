@@ -224,6 +224,9 @@ func TestParseExamples(t *testing.T) {
 		{"Костанай Костанай 5 мкр Абая 3", map[Field]string{LivingArea: "5", StreetName: "Абая", House: "3"}},
 		{"шымкнет «Мирас» жк Тауке хана 12", map[Field]string{City: "Шымкент", LivingArea: "Мирас", StreetName: "Тауке хана"}},
 		{"Сәтбаев көшесі 12 Алматы", map[Field]string{City: "Алматы", StreetType: "улица", StreetName: "Сәтбаев", House: "12"}},
+		{"мкр Жулдыз Сатпаева ул. д. 5", map[Field]string{City: "-", LivingArea: "Жулдыз", StreetType: "улица", StreetName: "Сатпаева", House: "5"}},
+		{"Сатпаева ул 12 кв 3", map[Field]string{City: "-", StreetName: "Сатпаева", House: "12", Apartment: "3"}},
+		{"Almaty ZhK Koktem Garden ul. Timiryazeva 40", map[Field]string{LivingArea: "Koktem Garden", StreetName: "Timiryazeva", House: "40"}},
 		// a number before the marker after a street is its house
 		{"ул Абая 10 мкр Самал 5", map[Field]string{StreetName: "Абая", House: "10", LivingArea: "Самал"}},
 		// a microdistrict or ЖК and a street read from the same words

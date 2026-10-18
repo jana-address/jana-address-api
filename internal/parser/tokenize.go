@@ -228,8 +228,8 @@ func splitWord(d *dict.Directory, r []rune, s, e int, afterCity bool) []token {
 	if e-s > maxGluedLen {
 		return []token{wordToken(r, s, e)}
 	}
-	// 1. a case change: "ТаукеХана", "АлматыАбая"
-	for i := s + 1; i < e; i++ {
+	// 1. a case change: "ТаукеХана", "АлматыАбая"; a marker stays whole: "ZhK"
+	for i := s + 1; i < e && dict.Markers[text.Fold(string(r[s:e]))] == nil; i++ {
 		lowerUpper := i-s >= 2 && unicode.IsLower(r[i-1]) && unicode.IsUpper(r[i])
 		acronym := i-s >= 2 && unicode.IsUpper(r[i-1]) && unicode.IsUpper(r[i]) && i+1 < e && unicode.IsLower(r[i+1]) // "ЖКХайвил"
 		if lowerUpper || acronym {

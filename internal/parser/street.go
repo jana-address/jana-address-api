@@ -386,6 +386,25 @@ func (st *state) opensName(i int) bool {
 	return j < len(st.toks) && st.toks[j].kind == tWord && st.toks[j].mk == nil && !st.toks[j].used
 }
 
+// typeAfterName reports whether the street type word at i surely types the name before it: a Kazakh one
+// ("Сәтбаев көшесі"), or one followed by the house ("Сатпаева ул. д. 12", "Сатпаева ул 12"), unlike "ул. 1 Мая".
+func (st *state) typeAfterName(i int) bool {
+	if !st.postfixStreetAt(i) {
+		return false
+	}
+	if kazakhStreetPostfix[st.toks[i].fold] {
+		return true
+	}
+	j := i + 1 + st.toks[i].tail
+	for st.isPunct(j, ".,") {
+		j++
+	}
+	if st.houseAt(j) {
+		return true
+	}
+	return j < len(st.toks) && st.toks[j].kind == tNum && !(j+1 < len(st.toks) && st.toks[j+1].kind == tWord && st.toks[j+1].mk == nil)
+}
+
 // postfixStreetAt reports whether a real street type word starts at i: "көшесі", "көш.", "ул.".
 func (st *state) postfixStreetAt(i int) bool {
 	if !(i < len(st.toks) && st.toks[i].kind == tWord && !st.toks[i].used && st.toks[i].mk != nil &&
