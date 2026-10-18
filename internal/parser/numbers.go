@@ -54,11 +54,14 @@ func (st *state) units() {
 	// "ахмирово, 49 кв 149")
 	houseOnLeft := func(l int) bool {
 		p := l - 1
-		for st.isPunct(p, ".,") {
+		for st.isPunct(p, ".,\"") {
 			p--
 		}
 		if st.isPunct(p, "-") && p == l-1 && glued(st.toks[p], st.toks[l]) && p > 0 && st.toks[p-1].kind == tWord {
 			return true // "Ақсай-1 үй 51б": 1 belongs to the name
+		}
+		if p < l-1 && st.areaNumber(p) {
+			return true // "мкр 5, 33 кв 109", "мкр Степной-1, 12 кв 61": the number after the comma is the house
 		}
 		if p < 0 || st.toks[p].kind != tWord {
 			return false
@@ -69,8 +72,13 @@ func (st *state) units() {
 		if st.toks[p].mk.Class == dict.Street && dict.NumberedAreaTypes[st.toks[p].mk.Canon] {
 			return true // "мкр.12 дом 117": 12 is the microdistrict
 		}
-		// a postfix street type after its name: "Естай көшесі 38 кв. 37"
-		return st.toks[p].mk.Class == dict.Street && p > 0 && st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil
+		// a postfix street type or ЖК after its name: "Естай көшесі 38 кв. 37", "Comfort City жк 47 кв 67",
+		// "«Esentai City» ТҮК 23 кв 3"
+		q := p - 1
+		if st.toks[p].mk.Class == dict.Living && st.isPunct(q, "\"") {
+			q--
+		}
+		return (st.toks[p].mk.Class == dict.Street || st.toks[p].mk.Class == dict.Living) && q >= 0 && st.toks[q].kind == tWord && st.toks[q].mk == nil
 	}
 	// attachedRight returns the number written right after the marker, also across a dot: "кв5", "кв.5"
 	attachedRight := func(m int) int {
@@ -165,6 +173,30 @@ func (st *state) units() {
 			}
 		}
 	}
+}
+
+// areaNumber reports whether the number at i is the own number of a microdistrict or quarter, not a house:
+// "мкр 5", "мкр.12", "Степной-1", "Самал-2".
+func (st *state) areaNumber(i int) bool {
+	if i < 1 || st.toks[i].kind != tNum {
+		return false
+	}
+	if st.isPunct(i-1, "-") && glued(st.toks[i-1], st.toks[i]) && i > 1 && st.toks[i-2].kind == tWord && glued(st.toks[i-2], st.toks[i-1]) {
+		return true
+	}
+	p := i - 1
+	for st.isPunct(p, ".") {
+		p--
+	}
+	if p < 0 || st.toks[p].kind != tWord {
+		return false
+	}
+	m := st.toks[p].mk
+	if m == nil || m.Class != dict.Street || !dict.NumberedAreaTypes[m.Canon] {
+		return false
+	}
+	// a postfix type after its name keeps the house after it: "Салтанат мкр. 49, 5 блок"
+	return !(p > 0 && st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil && !st.toks[p-1].used)
 }
 
 // houseAt reports whether a house marker or the bound house number starts at i: "д 10", "д72", "41үй".
