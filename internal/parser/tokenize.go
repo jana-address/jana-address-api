@@ -448,6 +448,9 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 			if !unique {
 				continue
 			}
+			if k := shortCityStreet(r, s, p, e, pl.Name); k > 0 && exactLen == 0 {
+				return split(p-k, pl.Name)
+			}
 			switch streetFirst(d, r, p, e, pl.Name) {
 			case 2:
 				return split(p, pl.Name)
@@ -495,6 +498,9 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 				return []token{wordToken(r, s, p), wordToken(r, p, e)}
 			} else if adj > 0 {
 				return []token{wordToken(r, s, p), wordToken(r, p, p+adj), wordToken(r, p+adj, e)}
+			}
+			if k := shortCityStreet(r, s, p, e, pl.Name); k > 0 {
+				return split(p-k, pl.Name)
 			}
 			return split(p, cityName(pl, left))
 		}
@@ -897,4 +903,27 @@ var shortKeys = sync.OnceValue(func() map[string]map[rune][][]rune {
 func cityArea(city, f string) bool {
 	a, ok := dict.OSM().Areas[city][f]
 	return ok && a.Share >= dict.MinStreetShare
+}
+
+// shortCityStreet: the city written short, the letters taken for its end starting a street the city knows:
+// "лисаковстроителй" is Лисаков(ск) and Строителй, not Лисаковст and Роителй. It gives how many letters go
+// to the street, 0 for none.
+func shortCityStreet(r []rune, s, p, e int, city string) int {
+	if city == "" {
+		return 0
+	}
+	known := func(f string) bool {
+		return gluedStreet(city, f) || streetLike(city, f) || gluedStreet("", f) || streetLike("", f)
+	}
+	if known(text.Fold(string(r[p:e]))) {
+		return 0
+	}
+	name := text.Fold(city)
+	for k := 1; k <= 2 && p-k-s >= 5; k++ {
+		left, rest := text.Fold(string(r[s:p-k])), text.Fold(string(r[p-k:e]))
+		if len(left) < len(name) && strings.HasPrefix(name, left) && known(rest) {
+			return k
+		}
+	}
+	return 0
 }
