@@ -936,8 +936,15 @@ func (b *builder) landmark() string {
 	return b.cs(s)
 }
 
-// typo makes one keyboard slip: drop, swap, neighbour key or double letter.
-func (b *builder) typo(s string) (string, bool) {
+// typo makes one keyboard slip: drop, swap, neighbour key or double letter. A name of four letters
+// keeps all of them: "асу" or "акс" is not readable as Аксу.
+func (b *builder) typo(s string) (string, bool) { return b.slip(s, false) }
+
+// typoInner is typo away from the first and the last letter, for a word glued to the next one: a slip
+// at the border of "алматыфтолеби" cannot be told to belong to the city or to the street.
+func (b *builder) typoInner(s string) (string, bool) { return b.slip(s, true) }
+
+func (b *builder) slip(s string, inner bool) (string, bool) {
 	rs := []rune(s)
 	var idx []int
 	for i, c := range rs {
@@ -948,17 +955,21 @@ func (b *builder) typo(s string) (string, bool) {
 	if len(idx) < 3 {
 		return s, false
 	}
+	last := idx[len(idx)-1]
+	if inner {
+		idx = idx[1 : len(idx)-1]
+	}
 	for range 8 {
 		i := idx[b.r.IntN(len(idx))]
 		out := slices.Clone(rs)
 		switch b.r.IntN(4) {
 		case 0:
-			if i == 0 {
+			if i == 0 || len(rs) <= 4 {
 				continue
 			}
 			out = slices.Delete(out, i, i+1)
 		case 1:
-			if i+1 >= len(rs) || !unicode.IsLetter(rs[i+1]) || rs[i] == rs[i+1] {
+			if i+1 >= len(rs) || !unicode.IsLetter(rs[i+1]) || rs[i] == rs[i+1] || inner && i+1 == last {
 				continue
 			}
 			out[i], out[i+1] = out[i+1], out[i]

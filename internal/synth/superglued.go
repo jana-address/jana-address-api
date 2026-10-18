@@ -119,7 +119,7 @@ func (b *builder) superglued() string {
 	}
 	city = strings.ToLower(strings.ReplaceAll(city, " ", ""))
 	if b.p(0.1) {
-		if t, ok := b.typo(city); ok {
+		if t, ok := b.typoInner(city); ok {
 			city = t
 			b.tag("typo")
 		}
@@ -181,7 +181,7 @@ func (b *builder) superglued() string {
 				t, ok = b.dropVowel(nm)
 			}
 			if !ok {
-				t, ok = b.typo(nm)
+				t, ok = b.typoInner(nm)
 			}
 			if ok {
 				nm = t
