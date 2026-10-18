@@ -25,6 +25,10 @@ func TestGluedCity(t *testing.T) {
 		// a word one letter from a city of the region written before it, also of four letters
 		{"Павлодарская область, Аксй, ул. Ленина 3", map[Field]string{City: "Аксу", StreetName: "Ленина", House: "3"}},
 		{"Жамбылская обл Тарз ул Абая 5", map[Field]string{City: "Тараз", StreetName: "Абая", House: "5"}},
+		// a mistyped city before a street the map knows that reads as an adjective, maybe after "ул"
+		{"жезказгнпромышленная 3", map[Field]string{City: "Жезказган", StreetName: "промышленная", House: "3"}},
+		{"жезказгнулпромышленная 3", map[Field]string{City: "Жезказган", StreetType: "улица", StreetName: "промышленная", House: "3"}},
+		{"Алматинская 5", map[Field]string{StreetName: "Алматинская", House: "5"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

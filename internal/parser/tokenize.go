@@ -473,7 +473,13 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	// name, before it: "лисаковмк…" is Лисаковск, not Лисаков
 	for p := top; p >= max(s+5, exactEnd+2) && city == ""; p-- {
 		rest := text.Fold(string(r[p:e]))
-		if !restOK(rest) || adjectiveWord(rest) && !startsWithCityWord(rest) {
+		adj := -1 // where a known street starts in an adjective rest
+		if adjectiveWord(rest) && !startsWithCityWord(rest) {
+			if adj = adjectiveStreet(rest); adj < 0 {
+				continue
+			}
+		}
+		if !restOK(rest) {
 			continue
 		}
 		if m := dict.Markers[rest]; m != nil && m.Class == dict.Landmark && len([]rune(rest)) <= 2 {
@@ -481,6 +487,11 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 		}
 		left, pl, _, near := prefix(p)
 		if near && (exactLen == 0 || len([]rune(left)) >= exactLen+2) {
+			if adj == 0 {
+				return []token{wordToken(r, s, p), wordToken(r, p, e)}
+			} else if adj > 0 {
+				return []token{wordToken(r, s, p), wordToken(r, p, p+adj), wordToken(r, p+adj, e)}
+			}
 			return split(p, cityName(pl, left))
 		}
 	}
@@ -535,6 +546,19 @@ func init() {
 	for _, w := range []string{"бульвары", "тұйығы", "тасжолы", "шоссе"} {
 		postfixGlued[text.Fold(w)] = true
 	}
+}
+
+// adjectiveStreet finds a street the map knows in an adjective rest after a mistyped city, maybe after
+// "ул": 0 for the whole rest, 2 after "ул", -1 for none. "жезказгнпромышленная" is Жезказган and
+// Промышленная, not an adjective of the city.
+func adjectiveStreet(rest string) int {
+	if dict.OSM().KnownAnywhere(rest) {
+		return 0
+	}
+	if r := []rune(rest); len(r) > 6 && string(r[:2]) == "ул" && dict.OSM().KnownAnywhere(string(r[2:])) {
+		return 2
+	}
+	return -1
 }
 
 // doubledEnd reports whether the folded left part is an exact city of n letters with its last letter typed
