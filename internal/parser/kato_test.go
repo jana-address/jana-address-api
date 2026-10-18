@@ -214,6 +214,9 @@ func TestAreaBeforeStreet(t *testing.T) {
 		{"Сарыкемер д 14 кв 2 Тараз", map[Field]string{City: "Тараз", StreetName: "Сарыкемер", House: "14"}},
 		{"Сарыкемер дом 14", map[Field]string{City: "-", StreetName: "Сарыкемер", House: "14"}},
 		{"Тараз қаласы Сарыкемер, дом 14", map[Field]string{City: "Тараз", StreetName: "Сарыкемер", House: "14", District: "-"}},
+		// a word one letter from a town before a postfix microdistrict is the microdistrict
+		{"шахтннск мкр. д. 7", map[Field]string{City: "-", StreetName: "шахтннск", House: "7"}},
+		{"шахтннск мкр Самал 7", map[Field]string{City: "Шахтинск"}},
 		// the city written two or three times, also in both languages
 		{"семей / семей семей абая 12", map[Field]string{City: "Семей", StreetName: "абая", House: "12"}},
 		{"п. Отеген батыр Отеген батыр Нурлы 3", map[Field]string{City: "Отеген батыр", StreetName: "Нурлы", House: "3"}},

@@ -206,8 +206,8 @@ func (st *state) admin() {
 				if !exact && !areaNext && !st.typoCityBefore(i) && !st.typoCityOpening(i) {
 					continue
 				}
-				if !exact && st.houseNext(i) && !st.typoCityOpening(i) {
-					continue // a town or village before the house is the street: "Сауран д 104 кв 12"
+				if !exact && (st.houseNext(i) && !st.typoCityOpening(i) || st.areaTypeBeforeHouse(i+1)) {
+					continue // a town or village before the house is the street: "Сауран д 104 кв 12", "Сайран мкр. д. 48"
 				}
 				if st.shortTypo(i) && (i > a && st.toks[i-1].kind == tWord && !st.toks[i-1].used && st.toks[i-1].mk == nil || st.exactCityElsewhere(i)) {
 					continue // "ул. Акын Сара" is a street, "Esim khana 72, Turkestan" names its city
@@ -258,6 +258,19 @@ func (st *state) houseNext(i int) bool {
 		return false
 	}
 	return j+1 >= len(st.toks) || st.toks[j+1].mk == nil || !dict.NumberedAreaTypes[st.toks[j+1].mk.Canon]
+}
+
+// areaTypeBeforeHouse reports whether token i is a microdistrict or ЖК type right before a house marker:
+// the word before it is the name of the area ("Сайран мкр. д. 48"), not a city.
+func (st *state) areaTypeBeforeHouse(i int) bool {
+	if i >= len(st.toks) || st.toks[i].kind != tWord || st.toks[i].mk == nil || !areaType[st.toks[i].mk.Canon] {
+		return false
+	}
+	j := i + 1 + st.toks[i].tail
+	for st.isPunct(j, ".,") {
+		j++
+	}
+	return st.houseAt(j) // a number after it is the number of the area: "Актау мкр 4"
 }
 
 // shortTypo reports whether token i is a word of four letters read as a large city only by its close
