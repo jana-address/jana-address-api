@@ -200,6 +200,9 @@ func TestAreaBeforeStreet(t *testing.T) {
 		// a street of two words after the area keeps its first word, even a mistyped one
 		{"Кокшетау, мкр Сарыарка Кенесары ханн 5", map[Field]string{LivingArea: "Сарыарка", StreetName: "Кенесары ханн"}},
 		{"Атырау мкр Балкышы Зейнола Кабдолова 7", map[Field]string{LivingArea: "Балкышы", StreetName: "Зейнола Кабдолова"}},
+		// a name and its title, also mistyped, close a microdistrict name: they are the street
+		{"мкр Нурсат Кабанбай ьатыра 9", map[Field]string{LivingArea: "Нурсат", StreetName: "Кабанбай ьатыра", House: "9"}},
+		{"Туркестан мкр Жулдыз Тауке ханаа 3", map[Field]string{LivingArea: "Жулдыз", StreetName: "Тауке ханаа", House: "3"}},
 		// a small "а." (ауылы) after the village is no part of the street; a capital "А." is an initial
 		{"Каскелен а. Тауелсиздик 14", map[Field]string{City: "Каскелен", StreetName: "Тауелсиздик", House: "14"}},
 		{"Алматы, А. Байтурсынова 12", map[Field]string{City: "Алматы", StreetName: "А. Байтурсынова"}},

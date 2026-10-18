@@ -238,10 +238,16 @@ func (st *state) areaThenStreet(c *cand) int {
 	city := st.vals[City]
 	ref := dict.OSM()
 	if city == "" && areaType[c.typ] && c.b > c.a {
-		return st.areaThenStreetSomewhere(c)
+		if j := st.areaThenStreetSomewhere(c); j > 0 {
+			return j
+		}
+		return st.titledTail(c)
 	}
-	if !areaType[c.typ] || c.b <= c.a || (ref.Streets[city] == nil && city != "Алматы") {
+	if !areaType[c.typ] || c.b <= c.a {
 		return -1
+	}
+	if ref.Streets[city] == nil && city != "Алматы" {
+		return st.titledTail(c)
 	}
 	key := func(a, b int) string { return lookupKey(st.text(a, b)) }
 	knownStreet := func(k string) bool { s, ok := ref.Street(city, k, dict.AnyType); return ok && s.Votes >= 3 }
@@ -293,7 +299,39 @@ func (st *state) areaThenStreet(c *cand) int {
 	if j := st.knownAreaHead(city, c, splits); j > 0 {
 		return j
 	}
-	return st.areaThenStreetSomewhere(c)
+	if j := st.areaThenStreetSomewhere(c); j > 0 {
+		return j
+	}
+	return st.titledTail(c)
+}
+
+// titledTail splits a microdistrict name of three words or more that ends in a name and its title, also
+// one letter off: "мкр Жулдыз Абылай хана 5", "мкр Нурсат Кабанбай ьатыра 9" are the area and the street.
+func (st *state) titledTail(c *cand) int {
+	j := c.b - 1
+	if c.isLiving || j <= c.a || st.toks[j].kind != tWord || st.toks[j-1].kind != tWord || st.toks[c.b].kind != tWord {
+		return -1
+	}
+	if w := st.toks[c.b].fold; streetTitles[w] || closeTitle(w) {
+		return j
+	}
+	return -1
+}
+
+// closeTitle reports whether a word of three letters or more is one letter from a street title of four or
+// more: "ъана" (folded "ана"), "юатыра".
+func closeTitle(w string) bool {
+	var buf, wbuf [text.MaxFuzzyLen]rune
+	r := text.ToRunes(w, wbuf[:0])
+	if len(r) < 3 || len(r) >= text.MaxFuzzyLen-1 {
+		return false
+	}
+	for t := range streetTitles {
+		if n := utf8.RuneCountInString(t); n >= 4 && text.DistanceLimit(r, text.ToRunes(t, buf[:0]), 1) <= 1 {
+			return true
+		}
+	}
+	return false
 }
 
 // withFirstName moves the start j of the street found by its surname one word back when the words before
@@ -387,7 +425,7 @@ func (st *state) streetAnywhere(c *cand) int {
 		head := lookupKey(st.text(c.a, j-1))
 		for city := range ref.Streets {
 			if (st.strongStreet(city, k) || bySurname(city, k)) && !st.strongStreet(city, head) {
-				return st.withFirstName(city, c, j)
+				return j
 			}
 		}
 	}
