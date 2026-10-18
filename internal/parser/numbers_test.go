@@ -40,3 +40,24 @@ func TestNumbersAfterArea(t *testing.T) {
 		checkFields(t, tc.raw, tc.want)
 	}
 }
+
+func TestNumbersAroundBlock(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want map[Field]string
+	}{
+		// the number after a block is taken by its own marker, so the block takes the one before it
+		{"Шымкент, Байтурсынова 14, 3 блок 2 подъезд, кв. 51", map[Field]string{House: "14", Entrance: "2", Apartment: "51"}},
+		{"Астана, Кенесары көшесі 40, 2 блок 7 қабат", map[Field]string{House: "40", Floor: "7"}},
+		{"Тараз Абая үй 21а 4 корпус 1 под. кв17", map[Field]string{House: "21а", Entrance: "1", Apartment: "17"}},
+		{"Кокшетау ул. Абая 12, 2 блок 45 кв подъезд3", map[Field]string{House: "12", Apartment: "45", Entrance: "3"}},
+		{"Актобе 11 мкр. 7 үй 2 корпус 15 офис", map[Field]string{House: "7", Apartment: "15"}},
+		{"Актобе 4 мкр 31, 2 блок 9 эт 140 кв.", map[Field]string{House: "31", Floor: "9", Apartment: "140"}},
+		// a block followed by its own number stays as it was
+		{"Абая 10 блок 2 кв 7", map[Field]string{House: "10", Apartment: "7"}},
+		{"Абая 10 корпус", map[Field]string{House: "10"}},
+	}
+	for _, tc := range cases {
+		checkFields(t, tc.raw, tc.want)
+	}
+}

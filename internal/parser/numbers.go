@@ -117,23 +117,45 @@ func (st *state) units() {
 		}
 	}
 	after, before = 0, 0 // "4подъезд 12этаж" says nothing about "25 кв 300"
-	// A block takes the number on its left only when none follows it and that number is not the house
-	// after a street: "206 дом 4 блок кв 48" is block 4, in "Абая 12 корпус" 12 stays the house.
-	neighbors := func(m int) (l, r int) {
-		l, r = -1, -1
+	// numAfter returns the free number right after the marker at m, also across ".", ":", "№": "кв. 5", "№ 3"
+	numAfter := func(m int) int {
 		i := m + 1
 		for i < len(st.toks) && st.isPunct(i, ".:№#") {
 			i++
 		}
 		if st.availNum(i) {
-			r = i
+			return i
 		}
-		i = m - 1
+		return -1
+	}
+	// closedRight: the number at n is taken by the unit marker written after it, which has no other number
+	// of its own: "4 подъезд,", "76 кв подъезд12", "19 эт 290 кв." (290 is the apartment, so 19 is the floor)
+	var closedRight func(n, depth int) bool
+	closedRight = func(n, depth int) bool {
+		k := n + 1
+		if depth > 4 || k >= len(st.toks) || bound[k] || !st.toks[k].mk.IsUnit() || st.toks[k].mk.Class == dict.Block || st.toks[k].used {
+			return false
+		}
+		next := numAfter(k)
+		return next < 0 || closedRight(next, depth+1)
+	}
+	// A block takes the number on its left only when none follows it, or the one that follows has its own
+	// marker after it, and that number is not the house after a street: "206 дом 4 блок кв 48" is block 4,
+	// so is "5 блок 4 подъезд"; in "Абая 12 корпус" 12 stays the house.
+	neighbors := func(m int) (l, r int) {
+		l, r = -1, numAfter(m)
+		i := m - 1
 		for i >= 0 && st.isPunct(i, ".:№#") {
 			i--
 		}
-		if st.availNum(i) && (st.toks[m].mk.Class != dict.Block || r < 0 && !houseOnLeft(i)) {
-			l = i
+		if !st.availNum(i) {
+			return
+		}
+		if st.toks[m].mk.Class != dict.Block {
+			return i, r
+		}
+		if (r < 0 || closedRight(r, 0)) && !houseOnLeft(i) {
+			return i, -1
 		}
 		return
 	}
@@ -195,8 +217,8 @@ func (st *state) areaNumber(i int) bool {
 	if m == nil || m.Class != dict.Street || !dict.NumberedAreaTypes[m.Canon] {
 		return false
 	}
-	// a postfix type after its name keeps the house after it: "Салтанат мкр. 49, 5 блок"
-	return !(p > 0 && st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil && !st.toks[p-1].used)
+	// a postfix type after its name keeps the house after it: "Салтанат мкр. 49, 5 блок", "5 мкр 50, 3 блок"
+	return !(p > 0 && (st.toks[p-1].kind == tWord && st.toks[p-1].mk == nil && !st.toks[p-1].used || st.availNum(p-1)))
 }
 
 // houseAt reports whether a house marker or the bound house number starts at i: "д 10", "д72", "41үй".
