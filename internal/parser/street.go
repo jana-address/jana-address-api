@@ -302,7 +302,54 @@ func (st *state) areaThenStreet(c *cand) int {
 	if j := st.areaThenStreetSomewhere(c); j > 0 {
 		return j
 	}
+	if j := st.areaOfSomeCity(c); j > 0 {
+		return j
+	}
 	return st.titledTail(c)
+}
+
+// areaNames keeps the living areas the map knows in any city, and the last words of its names of two
+// words or more.
+var areaNames = sync.OnceValue(func() [2]map[string]bool {
+	names, tails := map[string]bool{}, map[string]bool{}
+	for _, areas := range dict.OSM().Areas {
+		for name := range areas {
+			names[name] = true
+			if i := strings.LastIndexByte(name, ' '); i >= 0 {
+				tails[name[i+1:]] = true
+			}
+		}
+	}
+	return [2]map[string]bool{names, tails}
+})
+
+// areaOfSomeCity splits the last word off a microdistrict name right before the house number when the
+// words before it are a living area some city of the map knows and the last word is no area and ends no
+// area name there: "мкр Самал Жандосова 7" is the area Самал and the street Жандосова even where the map
+// lacks both. A ЖК keeps its words ("ЖК Северное сияние 5"), and a name some city knows whole and a
+// quoted name are never cut.
+func (st *state) areaOfSomeCity(c *cand) int {
+	j := c.b
+	if c.isLiving || j <= c.a || j+1 >= len(st.toks) || st.toks[j+1].kind != tNum || st.toks[j].kind != tWord {
+		return -1
+	}
+	for k := max(c.a-1, 0); k <= j+1; k++ {
+		if st.isPunct(k, "\"«»") || k >= c.a && k < j && st.toks[k].kind != tWord {
+			return -1
+		}
+	}
+	tail, head, whole := lookupKey(st.toks[j].text), lookupKey(st.text(c.a, j-1)), lookupKey(st.text(c.a, j))
+	names := areaNames()
+	if utf8.RuneCountInString(tail) < 4 || strings.ContainsAny(tail, "0123456789") || !names[0][head] ||
+		names[0][tail] || names[1][tail] || names[0][whole] {
+		return -1
+	}
+	for city := range dict.OSM().Streets {
+		if s, ok := dict.OSM().Street(city, whole, dict.AnyType); ok && s.Votes >= 3 {
+			return -1
+		}
+	}
+	return j
 }
 
 // titledTail splits a microdistrict name of three words or more that ends in a name and its title, also
