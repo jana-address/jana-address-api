@@ -220,6 +220,10 @@ func TestParseExamples(t *testing.T) {
 		{"Талдыкорган \"Жастар\" мкр Шевченко 4", map[Field]string{LivingArea: "Жастар", StreetName: "Шевченко", House: "4"}},
 		{"Тараз 7 шағын ауданы Толе би көшесі 15", map[Field]string{LivingArea: "7", StreetType: "улица", StreetName: "Толе би", House: "15"}},
 		{"Павлодар 3 мкр. Камзина переулок 12", map[Field]string{LivingArea: "3", StreetType: "переулок", StreetName: "Камзина", House: "12"}},
+		// the city written twice or with a typo before the area; a town name before көшесі is the street
+		{"Костанай Костанай 5 мкр Абая 3", map[Field]string{LivingArea: "5", StreetName: "Абая", House: "3"}},
+		{"шымкнет «Мирас» жк Тауке хана 12", map[Field]string{City: "Шымкент", LivingArea: "Мирас", StreetName: "Тауке хана"}},
+		{"Сәтбаев көшесі 12 Алматы", map[Field]string{City: "Алматы", StreetType: "улица", StreetName: "Сәтбаев", House: "12"}},
 		// a number before the marker after a street is its house
 		{"ул Абая 10 мкр Самал 5", map[Field]string{StreetName: "Абая", House: "10", LivingArea: "Самал"}},
 		// a microdistrict or ЖК and a street read from the same words

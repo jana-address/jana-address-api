@@ -203,12 +203,13 @@ func (st *state) admin() {
 				for st.isPunct(p, ".") {
 					p--
 				}
-				if p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.Class == dict.Street {
-					continue // "ул. Астана" is a street, not the city
+				if p >= 0 && st.toks[p].mk != nil && st.toks[p].mk.Class == dict.Street ||
+					i+1 < len(st.toks) && kazakhStreetPostfix[st.toks[i+1].fold] && st.postfixStreetAt(i+1) {
+					continue // "ул. Астана" and "Сәтбаев көшесі" are streets, not the city
 				}
 				if cur, set := st.vals[City]; set {
-					// the city written twice: "алматы алматы жандосова 58"
-					if pl, _ := st.d.LookupCity(t.fold); pl.Name == cur && i < b && st.toks[i+1].kind == tWord {
+					// the city written twice: "алматы алматы жандосова 58", "Актобе Актобе 5 мкр", "Шымкент Шымкент «Бахыт» жк"
+					if pl, _ := st.d.LookupCity(t.fold); pl.Name == cur && i < b && (st.toks[i+1].kind == tWord || areaNext || st.isPunct(i+1, "\"«»")) {
 						st.toks[i].used = true
 					}
 					break
@@ -310,8 +311,8 @@ func (st *state) townBefore(k string, i int) bool {
 // a number ("Сатпаева 22" and "Сатпаева, 22" are a street one letter from the town Сатпаев).
 func (st *state) typoCityBefore(i int) bool {
 	j := i + 1
-	for st.isPunct(j, ",;()/") {
-		j++ // a comma between two parts
+	for st.isPunct(j, ",;()/\"«»") {
+		j++ // a comma between two parts, a quoted name: "алматыы «Нурлы Тау» жк"
 	}
 	return j == len(st.toks) || st.toks[j].kind == tWord
 }
