@@ -1,7 +1,9 @@
 package parser
 
 import (
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/jana-address/jana-address-api/internal/parser/dict"
 	"github.com/jana-address/jana-address-api/internal/parser/text"
@@ -72,6 +74,9 @@ func streetAlias(ref *dict.OSMRef, city, key string) (string, bool) {
 	if bySurname(city, key) {
 		return surnames()[city][key][0], true
 	}
+	if k, ok := byFirstWord(ref, city, key); ok {
+		return k, true
+	}
 	i := strings.LastIndexByte(key, ' ')
 	if i < 0 {
 		return "", false
@@ -85,6 +90,49 @@ func streetAlias(ref *dict.OSMRef, city, key string) (string, bool) {
 	}
 	return "", false
 }
+
+// byFirstWord finds the street written by the first word of its map name: "мангилик" is Мангилик Ел.
+// Several map spellings ("мангилик ел", "мангилик ели") must all lie in one district; then the one with
+// the most segments and buildings is taken.
+func byFirstWord(ref *dict.OSMRef, city, key string) (string, bool) {
+	if len([]rune(key)) < 5 || strings.Contains(key, " ") {
+		return "", false
+	}
+	keys := firstWords()[city][key]
+	best, district := "", ""
+	for i, k := range keys {
+		s, _ := ref.Street(city, k, dict.AnyType)
+		if i > 0 && (s.District == "" || s.District != district) {
+			return "", false
+		}
+		district = s.District
+		if b, _ := ref.Street(city, best, dict.AnyType); best == "" || s.Votes > b.Votes || s.Votes == b.Votes && k < best {
+			best = k
+		}
+	}
+	return best, best != ""
+}
+
+// firstWords maps a city and the first word of its streets of two words or more, known well, to their keys.
+var firstWords = sync.OnceValue(func() map[string]map[string][]string {
+	out := map[string]map[string][]string{}
+	for city, streets := range dict.OSM().Streets {
+		m := map[string][]string{}
+		for key, s := range streets {
+			name, typ, _ := strings.Cut(key, "\x00")
+			i := strings.IndexByte(name, ' ')
+			if typ != dict.AnyType || s.Votes < 3 || i < 0 {
+				continue
+			}
+			m[name[:i]] = append(m[name[:i]], name)
+		}
+		for _, ks := range m {
+			sort.Strings(ks)
+		}
+		out[city] = m
+	}
+	return out
+})
 
 // districtFromStreets restores the district of a city address from the OSM directory: the building
 // when the street crosses a district border, else its neighbours on the same side of the street, else
