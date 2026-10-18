@@ -322,7 +322,7 @@ func (st *state) areaThenStreet(c *cand) int {
 // masculine form of its adjective, and no living area of the map is or ends in it: "ЖК Шахристан Турн
 // 108" is Туран, "мкр Ббереке Поьеды 60" is Победы. The name whole is not known (areaThenStreet checked).
 func (st *state) popularTail(city string, c *cand) int {
-	j, k := st.tailWord(city, c)
+	j, k := st.tailWord(city, c, false)
 	if j < 0 {
 		return -1
 	}
@@ -365,7 +365,7 @@ func (st *state) popularTail(city string, c *cand) int {
 
 // tailWord returns the last word of a name of two words or more right before the house number, and its
 // key, when it may be a street cut off the name: unquoted, no area of the map, no digits.
-func (st *state) tailWord(city string, c *cand) (int, string) {
+func (st *state) tailWord(city string, c *cand, adjArea bool) (int, string) {
 	j := c.b
 	if j <= c.a || j+1 >= len(st.toks) || st.toks[j].kind != tWord || st.toks[j-1].kind != tWord {
 		return -1, ""
@@ -380,8 +380,8 @@ func (st *state) tailWord(city string, c *cand) (int, string) {
 	}
 	k := lookupKey(st.toks[j].text)
 	names := areaNames()
-	if utf8.RuneCountInString(k) < 4 || strings.ContainsAny(k, "0123456789 ") || names[0][k] || names[1][k] ||
-		streetTitles[st.toks[j].fold] || city != "" && closeArea(city, k) {
+	if utf8.RuneCountInString(k) < 4 || strings.ContainsAny(k, "0123456789 ") || names[0][k] && !adjArea || names[1][k] ||
+		streetTitles[st.toks[j].fold] || city != "" && !adjArea && closeArea(city, k) {
 		return -1, ""
 	}
 	return j, k
@@ -392,11 +392,18 @@ func (st *state) tailWord(city string, c *cand) (int, string) {
 // or as the masculine form of its adjective, and the name whole is no street or area anywhere:
 // "мкр Кунаева Есенжанова 8", "ЖК Шахристан Ботанический 35".
 func (st *state) popularTailAnywhere(city string, c *cand) int {
-	j, k := st.tailWord(city, c)
+	j, k := st.tailWord(city, c, true)
 	if j < 0 {
 		return -1
 	}
 	ref := dict.OSM()
+	if areaNames()[0][k] { // an area of the map in the masculine, a street elsewhere in the feminine: Ботанический
+		base, ok := strings.CutSuffix(k, "ский")
+		if !ok || c.isLiving && city == "" {
+			return -1
+		}
+		k = base + "ская"
+	}
 	whole := lookupKey(st.text(c.a, c.b))
 	head := lookupKey(st.text(c.a, j-1))
 	base, adj := strings.CutSuffix(k, "ский")

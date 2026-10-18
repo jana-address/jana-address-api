@@ -22,6 +22,7 @@ func TestPopularTailAnywhere(t *testing.T) {
 		want map[Field]string
 	}{
 		{"мкр. дарабоз Есенжанова дом 3, кв 5", map[Field]string{LivingArea: "дарабоз", StreetName: "Есенжанова", House: "3"}},
+		{"астана мкр. меруерт ботанический 17 дом", map[Field]string{LivingArea: "меруерт", StreetName: "ботанический", House: "17"}},
 		{"Астана мкр дарабоз Есенжанова 4", map[Field]string{City: "Астана", LivingArea: "дарабоз", StreetName: "Есенжанова", House: "4"}},
 		// two-word ЖК names stay whole
 		{"Астана ЖК Северное сияние 7", map[Field]string{LivingArea: "", StreetName: "Северное сияние", House: "7"}},
