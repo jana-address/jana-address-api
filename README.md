@@ -26,14 +26,15 @@ docker compose up
 - UI: http://localhost:3000
 - API: http://localhost:8080
 - Health check: `curl http://localhost:8080/api/v1/health` returns
-  `{"status":"ok","version":"0.1.0","db":"ok","directory":{…KATO version…}}`.
+  `{"status":"ok","version":"0.1.0","db":"ok","directory":{…KATO version…},"streets":{…OSM directory…}}`.
 
 The frontend lives in the separate repository `jana-address-web` and is a submodule in
 `web/`. Clone with `--recurse-submodules`; the GitHub "Download ZIP" button does not work,
 because the archive does not include the submodule.
 
 A `.env` file is optional: every variable has a default. To change the ports:
-`WEB_PORT=3001 API_PORT=8081 docker compose up` (see `.env.example`).
+`WEB_PORT=3001 API_PORT=8081 docker compose up` (see `.env.example`). To run a second copy next to a
+running one, also set `COMPOSE_PROJECT_NAME=<other name>`.
 
 The network is needed only for the first image build (`docker compose build`). After
 that, `docker compose up` works offline.

@@ -2,6 +2,10 @@
 
 ## Running locally
 
+The compose `db` is not published on the host. For a local run start a separate PostgreSQL, for example
+`docker run --rm -d -p 5432:5432 -e POSTGRES_USER=jana -e POSTGRES_PASSWORD=jana_local_only -e POSTGRES_DB=jana postgres:18.6-alpine`.
+The API also starts without a database: parsing does not need it.
+
 ```bash
 # API locally (needs Go 1.26.9; an older Go downloads it by the toolchain directive)
 go test ./...
