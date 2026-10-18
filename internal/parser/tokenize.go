@@ -476,7 +476,11 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 		adj := -1 // where a known street starts in an adjective rest
 		if adjectiveWord(rest) && !startsWithCityWord(rest) {
 			if adj = adjectiveStreet(rest); adj < 0 {
-				continue
+				// an area of the one city close to the left part: "астагаботанический" is Астана and Ботанический
+				if _, pl, unique, near := prefix(p); !near || !unique || pl.Name == "" || !cityArea(pl.Name, rest) {
+					continue
+				}
+				adj = 0
 			}
 		}
 		if !restOK(rest) {
@@ -888,3 +892,9 @@ var shortKeys = sync.OnceValue(func() map[string]map[rune][][]rune {
 	}
 	return out
 })
+
+// cityArea reports whether the city's map has an area named by the folded word f, well voted.
+func cityArea(city, f string) bool {
+	a, ok := dict.OSM().Areas[city][f]
+	return ok && a.Share >= dict.MinStreetShare
+}
