@@ -7,7 +7,7 @@ import (
 	"github.com/jana-address/jana-address-api/internal/parser/dict"
 )
 
-// TestGluedLast: a mistyped or short city glued to an area or a street.
+// TestGluedLast: a mistyped, short or two-word city glued to an area or a street.
 func TestGluedLast(t *testing.T) {
 	recs, _, err := kato.Embedded()
 	if err != nil {
@@ -24,6 +24,9 @@ func TestGluedLast(t *testing.T) {
 		{"Астагаботанический 147 кв.19", map[Field]string{City: "Астана", StreetName: "ботанический", House: "147", Apartment: "19"}},
 		{"Алматинская 5", map[Field]string{StreetName: "Алматинская", House: "5"}},
 		// a city written short, the letters after it starting a street the map knows
+		// a city of two words written glued with one letter off
+		{"отегенбавтыржелтоксан 5", map[Field]string{City: "Отеген батыр", StreetName: "желтоксан", House: "5"}},
+		{"Отегенбавтыржелтоксан дом187кв.24эт3", map[Field]string{City: "Отеген батыр", StreetName: "желтоксан", House: "187", Apartment: "24"}},
 		{"астанаажол 8", map[Field]string{City: "Астана", StreetName: "ажол", House: "8"}},
 		{"лисаковстроителей 5", map[Field]string{City: "Лисаковск", StreetName: "строителей", House: "5"}},
 		{"лисаковстроителй үй73кв65", map[Field]string{City: "Лисаковск", StreetName: "строителй", House: "73", Apartment: "65"}},

@@ -393,6 +393,11 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 		if !l.done {
 			l.fold = text.Fold(string(r[s:p]))
 			l.place, l.unique, l.near = d.NearCities(l.fold)
+			if !l.near {
+				if pl, ok := spacedCity(d, l.fold); ok {
+					l.place, l.unique, l.near = pl, true, true
+				}
+			}
 			l.done = true
 		}
 		return l.fold, l.place, l.unique, l.near
@@ -926,4 +931,41 @@ func shortCityStreet(r []rune, s, p, e int, city string) int {
 		}
 	}
 	return 0
+}
+
+// spacedKeys are the folded names of the cities of two words or more written without spaces, per directory.
+var spacedKeys struct {
+	sync.Mutex
+	d    *dict.Directory
+	keys map[string]dict.Place
+}
+
+// spacedCity finds the one city of two words or more one letter from the folded word f written glued:
+// "отегенбавтыр" is Отеген батыр.
+func spacedCity(d *dict.Directory, f string) (dict.Place, bool) {
+	w := []rune(f)
+	if len(w) < 8 || strings.Contains(f, " ") {
+		return dict.Place{}, false
+	}
+	spacedKeys.Lock()
+	if spacedKeys.d != d {
+		spacedKeys.d, spacedKeys.keys = d, map[string]dict.Place{}
+		for k, pl := range d.Cities {
+			if strings.Contains(k, " ") {
+				spacedKeys.keys[strings.ReplaceAll(k, " ", "")] = pl
+			}
+		}
+	}
+	keys := spacedKeys.keys
+	spacedKeys.Unlock()
+	var found dict.Place
+	for k, pl := range keys {
+		if text.DistanceLimit(w, []rune(k), 1) <= 1 {
+			if found.Name != "" && found.Name != pl.Name {
+				return dict.Place{}, false
+			}
+			found = pl
+		}
+	}
+	return found, found.Name != ""
 }
