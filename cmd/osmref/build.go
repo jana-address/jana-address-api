@@ -203,7 +203,7 @@ func build(args []string) error {
 	var test []addr
 	var manifestDistricts []map[string]any
 	osmBase := ""
-	for _, d := range districts {
+	for _, d := range units() {
 		body, err := os.ReadFile(filepath.Join(*raw, fmt.Sprintf("%d.json", d.Rel)))
 		if err != nil && *partial && os.IsNotExist(err) {
 			continue
@@ -247,7 +247,7 @@ func build(args []string) error {
 					h := dict.HouseKey(a.number)
 					for _, n := range ns {
 						nd := b.data(n)
-						isTest := holdout(n, h)
+						isTest := d.District != "" && holdout(n, h) // a whole city has no district to check
 						nd.votes[d.District]++
 						if !isTest {
 							nd.held[d.District]++

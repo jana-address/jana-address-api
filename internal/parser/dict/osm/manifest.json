@@ -170,6 +170,402 @@
       "named_areas": 35,
       "named_ways": 897,
       "relation": 21588024
+    },
+    {
+      "addresses": 24080,
+      "city": "Актобе",
+      "district": "",
+      "elements": 26038,
+      "named_areas": 362,
+      "named_ways": 1720,
+      "relation": 14210662
+    },
+    {
+      "addresses": 2042,
+      "city": "Аркалык",
+      "district": "",
+      "elements": 2237,
+      "named_areas": 58,
+      "named_ways": 155,
+      "relation": 2068931
+    },
+    {
+      "addresses": 6913,
+      "city": "Арысь",
+      "district": "",
+      "elements": 7316,
+      "named_areas": 60,
+      "named_ways": 364,
+      "relation": 3407442
+    },
+    {
+      "addresses": 9599,
+      "city": "Аксу",
+      "district": "",
+      "elements": 10266,
+      "named_areas": 71,
+      "named_ways": 631,
+      "relation": 5501718
+    },
+    {
+      "addresses": 5816,
+      "city": "Аксай",
+      "district": "",
+      "elements": 6054,
+      "named_areas": 18,
+      "named_ways": 208,
+      "relation": 16686703
+    },
+    {
+      "addresses": 4044,
+      "city": "Актау",
+      "district": "",
+      "elements": 4416,
+      "named_areas": 100,
+      "named_ways": 244,
+      "relation": 5515125
+    },
+    {
+      "addresses": 42806,
+      "city": "Атырау",
+      "district": "",
+      "elements": 45703,
+      "named_areas": 237,
+      "named_ways": 2717,
+      "relation": 3389541
+    },
+    {
+      "addresses": 1223,
+      "city": "Абай",
+      "district": "",
+      "elements": 1361,
+      "named_areas": 7,
+      "named_ways": 130,
+      "relation": 5511640
+    },
+    {
+      "addresses": 1603,
+      "city": "Байконыр",
+      "district": "",
+      "elements": 1800,
+      "named_areas": 13,
+      "named_ways": 181,
+      "relation": 5295657
+    },
+    {
+      "addresses": 2045,
+      "city": "Балхаш",
+      "district": "",
+      "elements": 2311,
+      "named_areas": 33,
+      "named_ways": 240,
+      "relation": 5513067
+    },
+    {
+      "addresses": 14602,
+      "city": "Жанаозен",
+      "district": "",
+      "elements": 15009,
+      "named_areas": 49,
+      "named_ways": 368,
+      "relation": 5515236
+    },
+    {
+      "addresses": 4277,
+      "city": "Жезказган",
+      "district": "",
+      "elements": 4669,
+      "named_areas": 62,
+      "named_ways": 359,
+      "relation": 5513216
+    },
+    {
+      "addresses": 2124,
+      "city": "Житикара",
+      "district": "",
+      "elements": 2320,
+      "named_areas": 17,
+      "named_ways": 177,
+      "relation": 5524713
+    },
+    {
+      "addresses": 41,
+      "city": "Каражал",
+      "district": "",
+      "elements": 123,
+      "named_areas": 12,
+      "named_ways": 72,
+      "relation": 5512171
+    },
+    {
+      "addresses": 23870,
+      "city": "Караганда",
+      "district": "",
+      "elements": 25647,
+      "named_areas": 75,
+      "named_ways": 1721,
+      "relation": 3386005
+    },
+    {
+      "addresses": 7785,
+      "city": "Каскелен",
+      "district": "",
+      "elements": 8514,
+      "named_areas": 2,
+      "named_ways": 724,
+      "relation": 3390993
+    },
+    {
+      "addresses": 6757,
+      "city": "Кентау",
+      "district": "",
+      "elements": 7415,
+      "named_areas": 23,
+      "named_ways": 631,
+      "relation": 17322798
+    },
+    {
+      "addresses": 14379,
+      "city": "Кокшетау",
+      "district": "",
+      "elements": 15364,
+      "named_areas": 42,
+      "named_ways": 946,
+      "relation": 3388744
+    },
+    {
+      "addresses": 6997,
+      "city": "Конаев",
+      "district": "",
+      "elements": 7465,
+      "named_areas": 34,
+      "named_ways": 441,
+      "relation": 5518065
+    },
+    {
+      "addresses": 17689,
+      "city": "Костанай",
+      "district": "",
+      "elements": 18782,
+      "named_areas": 96,
+      "named_ways": 982,
+      "relation": 3338024
+    },
+    {
+      "addresses": 7572,
+      "city": "Кульсары",
+      "district": "",
+      "elements": 8289,
+      "named_areas": 55,
+      "named_ways": 680,
+      "relation": 16717004
+    },
+    {
+      "addresses": 168,
+      "city": "Курчатов",
+      "district": "",
+      "elements": 234,
+      "named_areas": 9,
+      "named_ways": 58,
+      "relation": 5499667
+    },
+    {
+      "addresses": 28476,
+      "city": "Кызылорда",
+      "district": "",
+      "elements": 30160,
+      "named_areas": 87,
+      "named_ways": 1626,
+      "relation": 3396852
+    },
+    {
+      "addresses": 409,
+      "city": "Лисаковск",
+      "district": "",
+      "elements": 557,
+      "named_areas": 19,
+      "named_ways": 131,
+      "relation": 2914970
+    },
+    {
+      "addresses": 49857,
+      "city": "Павлодар",
+      "district": "",
+      "elements": 51428,
+      "named_areas": 60,
+      "named_ways": 1537,
+      "relation": 5501700
+    },
+    {
+      "addresses": 30493,
+      "city": "Петропавловск",
+      "district": "",
+      "elements": 32196,
+      "named_areas": 22,
+      "named_ways": 1679,
+      "relation": 2313542
+    },
+    {
+      "addresses": 283,
+      "city": "Приозерск",
+      "district": "",
+      "elements": 350,
+      "named_areas": 0,
+      "named_ways": 67,
+      "relation": 2456975
+    },
+    {
+      "addresses": 2815,
+      "city": "Риддер",
+      "district": "",
+      "elements": 3296,
+      "named_areas": 46,
+      "named_ways": 435,
+      "relation": 3389550
+    },
+    {
+      "addresses": 6700,
+      "city": "Рудный",
+      "district": "",
+      "elements": 7208,
+      "named_areas": 17,
+      "named_ways": 417,
+      "relation": 2068946
+    },
+    {
+      "addresses": 1091,
+      "city": "Сарань",
+      "district": "",
+      "elements": 1337,
+      "named_areas": 20,
+      "named_ways": 228,
+      "relation": 5511047
+    },
+    {
+      "addresses": 2589,
+      "city": "Сатпаев",
+      "district": "",
+      "elements": 2756,
+      "named_areas": 0,
+      "named_ways": 171,
+      "relation": 5513234
+    },
+    {
+      "addresses": 42671,
+      "city": "Семей",
+      "district": "",
+      "elements": 44545,
+      "named_areas": 99,
+      "named_ways": 1805,
+      "relation": 17351528
+    },
+    {
+      "addresses": 1872,
+      "city": "Степногорск",
+      "district": "",
+      "elements": 2110,
+      "named_areas": 32,
+      "named_ways": 215,
+      "relation": 3404209
+    },
+    {
+      "addresses": 7992,
+      "city": "Талгар",
+      "district": "",
+      "elements": 8518,
+      "named_areas": 2,
+      "named_ways": 523,
+      "relation": 15405616
+    },
+    {
+      "addresses": 20007,
+      "city": "Талдыкорган",
+      "district": "",
+      "elements": 21179,
+      "named_areas": 65,
+      "named_ways": 1130,
+      "relation": 3392135
+    },
+    {
+      "addresses": 43915,
+      "city": "Тараз",
+      "district": "",
+      "elements": 46325,
+      "named_areas": 105,
+      "named_ways": 2343,
+      "relation": 3388834
+    },
+    {
+      "addresses": 4501,
+      "city": "Текели",
+      "district": "",
+      "elements": 4696,
+      "named_areas": 1,
+      "named_ways": 193,
+      "relation": 5518135
+    },
+    {
+      "addresses": 5072,
+      "city": "Темиртау",
+      "district": "",
+      "elements": 5543,
+      "named_areas": 15,
+      "named_ways": 447,
+      "relation": 5511190
+    },
+    {
+      "addresses": 43109,
+      "city": "Туркестан",
+      "district": "",
+      "elements": 44794,
+      "named_areas": 35,
+      "named_ways": 1660,
+      "relation": 5496366
+    },
+    {
+      "addresses": 30361,
+      "city": "Уральск",
+      "district": "",
+      "elements": 32492,
+      "named_areas": 209,
+      "named_ways": 1991,
+      "relation": 3767383
+    },
+    {
+      "addresses": 27616,
+      "city": "Усть-Каменогорск",
+      "district": "",
+      "elements": 29460,
+      "named_areas": 38,
+      "named_ways": 1804,
+      "relation": 3389569
+    },
+    {
+      "addresses": 729,
+      "city": "Шахтинск",
+      "district": "",
+      "elements": 1117,
+      "named_areas": 20,
+      "named_ways": 373,
+      "relation": 5511125
+    },
+    {
+      "addresses": 8559,
+      "city": "Щучинск",
+      "district": "",
+      "elements": 8888,
+      "named_areas": 5,
+      "named_ways": 317,
+      "relation": 21176885
+    },
+    {
+      "addresses": 10281,
+      "city": "Экибастуз",
+      "district": "",
+      "elements": 11029,
+      "named_areas": 59,
+      "named_ways": 716,
+      "relation": 5502043
     }
   ],
   "holdout": {
@@ -207,15 +603,15 @@
   "license": "ODbL 1.0, © OpenStreetMap contributors",
   "min_street_share": 0.75,
   "rows": {
-    "areas": 915,
+    "areas": 2687,
     "houses": 187739,
-    "streets": 17602
+    "streets": 55679
   },
   "sha256": {
-    "areas.tsv.gz": "f63a4f1537517eb327705a8e5de6a800d2c4710d465a3f28a277fb0bcc149cc9",
+    "areas.tsv.gz": "a071ea5e4d1741c22aa75cf3a624005498cfd9157cdfb0735bed939fa1cd5f0a",
     "houses.tsv.gz": "74d93508f3aa896e931c5e0c96ed73b1dc134df0e3b0448c14819a2cd9c15d82",
-    "streets.tsv.gz": "90016ea1af98cd7b0517a20e93db2eaba86f1b1d0347c270226470a7d499852c"
+    "streets.tsv.gz": "0799ddbb5232205e1b2579f9a064bd750b4e89c5b4ad999a0e1f8361df6bdcc4"
   },
   "source": "OpenStreetMap, Overpass API (https://overpass-api.de/api/interpreter)",
-  "timestamp_osm_base": "2026-10-17T22:08:20Z"
+  "timestamp_osm_base": "2026-10-17T23:46:51Z"
 }

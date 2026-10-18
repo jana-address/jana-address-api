@@ -10,14 +10,16 @@ import (
 	"sync"
 )
 
-// The street directory of the city districts of Алматы, Астана and Шымкент, built from OpenStreetMap
-// by cmd/osmref (manifest.json lists the source, the date and the checks).
+// The street directory built from OpenStreetMap by cmd/osmref (manifest.json lists the source, the
+// date, the areas and the checks): the city districts of Алматы, Астана and Шымкент, and every other
+// city with its own administration taken whole, with an empty district.
 //
 //go:embed osm/streets.tsv.gz osm/houses.tsv.gz osm/areas.tsv.gz osm/manifest.json
 var osmFiles embed.FS
 
 // StreetRef is where a street or a living area lies: the district of most of its segments and
-// buildings, their share there, the number of votes and the only street type the map gives it.
+// buildings ("" in a city taken whole), their share there, the number of votes and the only street
+// type the map gives it.
 type StreetRef struct {
 	District string
 	Share    float64

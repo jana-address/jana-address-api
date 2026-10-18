@@ -41,7 +41,7 @@ func fetch(args []string) error {
 		return err
 	}
 	client := &http.Client{Timeout: 15 * time.Minute}
-	for _, d := range districts {
+	for _, d := range units() {
 		path := filepath.Join(*raw, fmt.Sprintf("%d.json", d.Rel))
 		if _, err := os.Stat(path); err == nil {
 			fmt.Fprintf(os.Stderr, "%s %s: have %s\n", d.City, d.District, path)

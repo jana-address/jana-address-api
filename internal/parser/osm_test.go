@@ -11,7 +11,7 @@ import (
 // does not name it, and never replaces a written one.
 func TestOSMDistricts(t *testing.T) {
 	ref := dict.OSM()
-	for _, city := range []string{"Алматы", "Астана", "Шымкент"} {
+	for _, city := range []string{"Алматы", "Астана", "Шымкент", "Караганда", "Павлодар"} {
 		if len(ref.Streets[city]) < 500 {
 			t.Fatalf("%s: %d streets in the directory", city, len(ref.Streets[city]))
 		}
@@ -48,6 +48,9 @@ func TestOSMDistricts(t *testing.T) {
 		// known whole, or a number in the name: not split
 		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", LivingArea: "-"}, ""},
 		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{StreetName: "Аксай 3а", LivingArea: "-"}, ""},
+		// a city taken whole: its streets and living areas split the name, but give no district
+		{"Павлодар мкр Достык Академика Маргулана 47", map[Field]string{LivingArea: "Достык", StreetName: "Академика Маргулана", House: "47", District: "-"}, ""},
+		{"г. Кокшетау, мкрн Центральный Абылай хана, 32", map[Field]string{LivingArea: "Центральный", StreetName: "Абылай хана", District: "-"}, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
