@@ -30,6 +30,11 @@ func (st *state) restore() {
 	if _, ok := st.vals[StreetType]; !ok {
 		if name, ok := st.vals[StreetName]; ok {
 			k, _ := dict.StreetKey(name)
+			if _, ok := ref.Street(city, k, dict.AnyType); !ok {
+				if alias, ok := streetAlias(ref, city, k); ok {
+					k = alias
+				}
+			}
 			if s, ok := ref.Street(city, k, dict.AnyType); ok && s.Type != "" {
 				st.setDir(StreetType, s.Type, LevelStreet) // every street of that name has this type
 			}
