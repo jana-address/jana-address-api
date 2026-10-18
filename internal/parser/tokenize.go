@@ -207,8 +207,8 @@ func splitGlued(d *dict.Directory, r []rune, toks []token) []token {
 	return out
 }
 
-// typeBeforeStreet splits a short street type glued to a street the city's map knows, in a word of its own
-// after the city: "алматы улпушкина", "актау пр-ттуран". A word the map knows whole, or one letter from a
+// typeBeforeStreet splits a short street type glued to a street the city's map knows, also one letter off,
+// in a word of its own after the city: "алматы улпушкина", "актау пр-ттуран", "павлодар улторайгыфрова". A word the map knows whole, or one letter from a
 // street it knows well, keeps its letters: "пригородный", "пермтина".
 func typeBeforeStreet(r []rune, s, e int, city string, words []token) []token {
 	whole := lookupKey(string(r[s:e]))
@@ -220,7 +220,8 @@ func typeBeforeStreet(r []rune, s, e int, city string, words []token) []token {
 		if m := dict.Markers[left]; m == nil || m.Class != dict.Street {
 			continue
 		}
-		if gluedStreet(city, text.Fold(rest)) || bySurname(city, lookupKey(rest)) {
+		// a street one letter off only after "ул": "пр" opens many words ("привокзальный")
+		if gluedStreet(city, text.Fold(rest)) || bySurname(city, lookupKey(rest)) || left == text.Fold("ул") && closeStreet(city, lookupKey(rest)) {
 			return []token{wordToken(r, s, p), wordToken(r, p, e)}
 		}
 	}
