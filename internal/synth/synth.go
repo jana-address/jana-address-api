@@ -111,6 +111,18 @@ func (b *builder) pf(fast, careful float64) bool {
 
 func (b *builder) pick(xs []string) string { return xs[b.r.IntN(len(xs))] }
 
+// areaZhK leaves out the ЖК names that end in a street type word for a ЖК written before its street:
+// "жк экспо бульвар валиханова" reads as ЖК Экспо Бульвар on Валиханова and as ЖК Экспо on бульвар Валиханова.
+func areaZhK(names []string) []string {
+	var out []string
+	for _, n := range names {
+		if !strings.HasSuffix(strings.ToLower(n), " бульвар") {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
 func (b *builder) tag(ts ...string) {
 	for _, t := range ts {
 		b.tags[t] = true
@@ -297,7 +309,7 @@ func (b *builder) record() string {
 		var typ string
 		var n Name
 		if len(c.ZhK) > 0 && (len(c.Mkr) == 0 || b.p(0.35)) {
-			typ, n = zhkType, Name{Ru: b.pick(c.ZhK)}
+			typ, n = zhkType, Name{Ru: b.pick(areaZhK(c.ZhK))}
 			b.tag("zhk")
 		} else {
 			typ, n = mkrType, c.Mkr[b.r.IntN(len(c.Mkr))]
