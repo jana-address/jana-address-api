@@ -49,6 +49,7 @@ func TestGluedBorders(t *testing.T) {
 		// a street glued to the second word of a city of two words
 		{"отеген батырсадовая 5", map[Field]string{City: "Отеген батыр", StreetName: "садовая", House: "5"}},
 		{"отеген батыравезова 8", map[Field]string{City: "Отеген батыр", StreetName: "авезова", House: "8"}},
+		{"отегин батырсадовая 5", map[Field]string{City: "Отеген батыр", StreetName: "садовая", House: "5"}},
 		// a city glued to a street of it one letter off: a short city name, an adjective-like street
 		{"оралдостыкк 5", map[Field]string{City: "Уральск", StreetName: "достыкк", House: "5"}},
 		{"петропавлинтернационалная 3", map[Field]string{City: "Петропавловск", StreetName: "интернационалная", House: "3"}},

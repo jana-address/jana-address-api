@@ -694,12 +694,18 @@ func sStreet(city, rest string) bool {
 	return gluedStreet(city, "с"+rest) && !gluedStreet(city, rest) || streetLike(city, "с"+rest) && !streetLike(city, rest)
 }
 
-// cityPairs maps, per directory, the first word of the cities of two words to their second words.
-var cityPairs sync.Map // *dict.Directory -> map[string][]string
+// cityPairs maps, per directory, the first word of the cities of two words to their second words, and
+// the first letter to the first words of five letters or more.
+var cityPairs sync.Map // *dict.Directory -> *pairIndex
 
-func pairsOf(d *dict.Directory) map[string][]string {
+type pairIndex struct {
+	seconds map[string][]string
+	firsts  map[rune][]string
+}
+
+func pairsOf(d *dict.Directory) *pairIndex {
 	if m, ok := cityPairs.Load(d); ok {
-		return m.(map[string][]string)
+		return m.(*pairIndex)
 	}
 	m := map[string][]string{}
 	add := func(k string) {
@@ -716,18 +722,41 @@ func pairsOf(d *dict.Directory) map[string][]string {
 			add(k)
 		}
 	}
-	cityPairs.Store(d, m)
-	return m
+	idx := &pairIndex{seconds: m, firsts: map[rune][]string{}}
+	for first := range m {
+		if r := []rune(first); len(r) >= 5 {
+			idx.firsts[r[0]] = append(idx.firsts[r[0]], first)
+		}
+	}
+	cityPairs.Store(d, idx)
+	return idx
 }
 
 // secondCityWord returns where the second word of a city of two words ends when the street is glued to it:
-// "отеген батырмира" is Отеген батыр and Мира, also with a letter off in a long word ("баьыр"); s when not.
+// "отеген батырмира" is Отеген батыр and Мира, also with a letter off in a long word ("баьыр", or "отенен"
+// before the word as written); s when not.
 func secondCityWord(d *dict.Directory, prev string, r []rune, s, e int) int {
-	seconds := pairsOf(d)[prev]
+	idx := pairsOf(d)
+	seconds, maxLim := idx.seconds[prev], 1
+	if len(seconds) == 0 {
+		// a first word one letter off takes the second word as written: "отенен батырсадовый"
+		var pbuf [text.MaxFuzzyLen]rune
+		pr := text.ToRunes(prev, pbuf[:0])
+		if len(pr) < 5 || len(pr) >= text.MaxFuzzyLen {
+			return s
+		}
+		for _, first := range idx.firsts[pr[0]] {
+			var fbuf [text.MaxFuzzyLen]rune
+			if text.DistanceLimit(pr, text.ToRunes(first, fbuf[:0]), 1) <= 1 {
+				seconds = append(seconds, idx.seconds[first]...)
+			}
+		}
+		maxLim = 0
+	}
 	if len(seconds) == 0 {
 		return s
 	}
-	for lim := 0; lim <= 1; lim++ { // the exact word first: "батырмира" is not "баты" and "рмира"
+	for lim := 0; lim <= maxLim; lim++ { // the exact word first: "батырмира" is not "баты" and "рмира"
 		for _, sw := range seconds {
 			w := []rune(sw)
 			if lim > 0 && len(w) < 5 {
