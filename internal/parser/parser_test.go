@@ -212,6 +212,24 @@ func TestParseExamples(t *testing.T) {
 		// a glued "д" after a fraction is the house marker, as after a whole number
 		{"шымкенттауке хана12/3д45кв", map[Field]string{StreetName: "тауке хана", House: "12/3", Apartment: "45"}},
 		{"Тауке хана д 12/3д", map[Field]string{House: "12/3д"}},
+		// the name of a microdistrict or ЖК before its marker, the street after it
+		{"Караганда, Жастар мкр Ерубаева 12 кв 4", map[Field]string{LivingArea: "Жастар", StreetName: "Ерубаева", House: "12", Apartment: "4"}},
+		{"Шымкент, Нурсат шағын ауданы Байтурсынова 7", map[Field]string{LivingArea: "Нурсат", StreetName: "Байтурсынова", House: "7"}},
+		{"Астана Хайвил жк Сыганак 18 кв 3", map[Field]string{LivingArea: "Хайвил", StreetName: "Сыганак", House: "18"}},
+		{"Алматы Esentai City ТҮК Розыбакиева 40", map[Field]string{LivingArea: "Esentai City", StreetName: "Розыбакиева", House: "40"}},
+		{"Талдыкорган \"Жастар\" мкр Шевченко 4", map[Field]string{LivingArea: "Жастар", StreetName: "Шевченко", House: "4"}},
+		{"Тараз 7 шағын ауданы Толе би көшесі 15", map[Field]string{LivingArea: "7", StreetType: "улица", StreetName: "Толе би", House: "15"}},
+		{"Павлодар 3 мкр. Камзина переулок 12", map[Field]string{LivingArea: "3", StreetType: "переулок", StreetName: "Камзина", House: "12"}},
+		// a number before the marker after a street is its house
+		{"ул Абая 10 мкр Самал 5", map[Field]string{StreetName: "Абая", House: "10", LivingArea: "Самал"}},
+		// a microdistrict or ЖК and a street read from the same words
+		{"Тараз мкр Карасу Толе би улица 50", map[Field]string{LivingArea: "Карасу", StreetType: "улица", StreetName: "Толе би", House: "50"}},
+		{"Кокшетау мкр Васильковский Ауельбекова ул 9", map[Field]string{LivingArea: "Васильковский", StreetName: "Ауельбекова", House: "9"}},
+		{"Шымкент ЖК «Нұрлы жол» Тауке хана даңғылы 12", map[Field]string{LivingArea: "Нұрлы жол", StreetType: "проспект", StreetName: "Тауке хана"}},
+		{"ЖК Grand Park Абылай хана ул 5", map[Field]string{LivingArea: "Grand Park", StreetName: "Абылай хана", House: "5"}},
+		{"Шымкент жк Мирас Сайрам көш. д 4", map[Field]string{LivingArea: "Мирас", StreetType: "улица", StreetName: "Сайрам", House: "4"}},
+		{"Усть-Каменогорск ул Протозанова Ахмирово мкр д 5", map[Field]string{StreetName: "Протозанова", LivingArea: "Ахмирово", House: "5"}},
+		{"Актау, д 12, ул Бостандык 9 мкр", map[Field]string{StreetName: "Бостандык", LivingArea: "9", House: "12"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

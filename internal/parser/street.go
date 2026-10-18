@@ -26,6 +26,10 @@ func (st *state) laterNumberExists(i int) bool {
 	return false
 }
 
+// kazakhStreetPostfix are Kazakh street type words, written only after the street name: never a part of a ЖК name.
+var kazakhStreetPostfix = map[string]bool{text.Fold("көшесі"): true, text.Fold("көш"): true, text.Fold("даңғылы"): true,
+	text.Fold("даңғ"): true, text.Fold("даң"): true, text.Fold("тұйығы"): true, text.Fold("бульвары"): true, text.Fold("желекжолы"): true}
+
 // collectForward reads a street name after a type marker: "ул. Курильская", "Мкр Аксай 3а".
 func (st *state) collectForward(m int, typ string) (int, int) {
 	j := m + 1 + st.toks[m].tail
@@ -40,8 +44,9 @@ func (st *state) collectForward(m int, typ string) (int, int) {
 		}
 		switch t.kind {
 		case tWord:
-			if t.mk != nil && typ == "жилой комплекс" && a >= 0 && t.mk.Class == dict.Street && !st.opensName(k) {
-				break // a type word inside the name: "ЖК Green Quarter"; "ЖК Нурлы Тау ул. Толе би" ends before "ул."
+			if t.mk != nil && typ == "жилой комплекс" && a >= 0 && t.mk.Class == dict.Street && !st.opensName(k) &&
+				t.mk.Canon != "улица" && !kazakhStreetPostfix[t.fold] {
+				break // a type word inside the name: "ЖК Экспо Бульвар"; "ЖК Нурлы Тау ул. Толе би" ends before "ул."
 			}
 			if t.mk != nil {
 				return a, b
@@ -120,6 +125,81 @@ func (st *state) collectBackward(m int, typ string) (int, int) {
 	return a, b
 }
 
+// postfixAreaMarkers follow the name they type: "Самал шағын ауданы", "Хайвил ТҮК", "Мирас тұрғын үй кешені".
+var postfixAreaMarkers = map[string]bool{text.Fold("шағын"): true, text.Fold("ықшам"): true, text.Fold("шағынаудан"): true,
+	text.Fold("ықшамаудан"): true, text.Fold("түк"): true, text.Fold("тұрғын"): true}
+
+// nameBefore reports whether the microdistrict or ЖК marker at i types the name before it (ba..bb) rather
+// than the words after it (fa..fb, -1 when none): after a Kazakh postfix marker ("Самал шағын ауданы"), a
+// number before the marker and after it ("6 шағын ауданы 10": 10 is the house), or when the words after the
+// marker are the street: they run into a postfix street type ("32 мкр Абылай хан көшесі 48") or end at the
+// house ("Баганашыл мкр. Сейфуллина 44", "Магнолия жк Бухар жырау д 33"). A word and a number before the
+// marker are a street and its house ("Абая 10 мкр Самал"), and words after the marker that the city knows
+// as its living area and not as a street, unlike the words before, stay the area.
+func (st *state) nameBefore(i int, typ string, fa, fb, ba, bb int) bool {
+	if ba < 0 {
+		return false
+	}
+	if fa < 0 || postfixAreaMarkers[st.toks[i].fold] {
+		return true
+	}
+	if st.toks[bb].kind == tNum {
+		if ba < bb && !(st.isPunct(bb-1, "-") && glued(st.toks[bb-1], st.toks[bb])) {
+			return false // "Абая 10 мкр Самал 5"; "Самал-2 мкр" is a name
+		}
+		if ba == bb && ba > 0 && st.toks[ba-1].kind == tWord && !st.toks[ba-1].used {
+			return false // "ул Абая 10 мкр Самал": the number is the house of the street before
+		}
+	}
+	if fa == fb && st.toks[fa].kind == tNum {
+		return dict.NumberedAreaTypes[typ] && st.availNum(i-1)
+	}
+	next := fb + 1
+	if next < len(st.toks) && st.toks[next].kind == tWord && st.toks[next].mk == nil && !st.toks[next].used {
+		next++ // collectForward leaves the last word to a postfix street type: "мкр думан жибек жолы даң."
+	}
+	if st.postfixStreetAt(next) {
+		return true
+	}
+	h := fb + 1
+	for st.isPunct(h, ".,") {
+		h++
+	}
+	if !(st.availNum(h) || st.houseAt(h)) {
+		return false
+	}
+	if st.toks[ba].kind == tNum {
+		return true // "5 мкр Айтеке би 43"
+	}
+	city := st.vals[City]
+	return !st.knownArea(city, fa, fb) || st.knownArea(city, ba, bb) || st.streetVotes(city, fa, fb) >= 3
+}
+
+// knownArea reports whether the words a..b name a living area of the city in the map or the hand tables.
+func (st *state) knownArea(city string, a, b int) bool {
+	if city == "" {
+		return false
+	}
+	k, _ := dict.StreetKey(st.text(a, b))
+	if _, ok := dict.OSM().Areas[city][k]; ok {
+		return true
+	}
+	for _, ar := range st.d.Areas[text.Key(st.text(a, b))] {
+		if ar.City == city {
+			return true
+		}
+	}
+	if _, ok := dict.AlmatyAreas[st.toks[a].fold]; !ok || city != "Алматы" {
+		return false
+	}
+	for k := a + 1; k <= b; k++ {
+		if st.toks[k].kind == tWord {
+			return false
+		}
+	}
+	return true // "Самал", "Мамыр-5"
+}
+
 // areaThenStreet splits a microdistrict or ЖК name that runs into an untyped street, by the directory
 // of the city: "мкр жагалау кабанбай батыра 37" is the area "жагалау" and the street "кабанбай батыра"
 // when the city knows both. It returns the first token of the street, or -1. A name the directory
@@ -132,18 +212,7 @@ func (st *state) areaThenStreet(c *cand) int {
 	}
 	key := func(a, b int) string { k, _ := dict.StreetKey(st.text(a, b)); return k }
 	knownStreet := func(k string) bool { s, ok := ref.Street(city, k, dict.AnyType); return ok && s.Votes >= 3 }
-	knownArea := func(a, b int) bool {
-		if _, ok := ref.Areas[city][key(a, b)]; ok {
-			return true
-		}
-		for _, ar := range st.d.Areas[text.Key(st.text(a, b))] {
-			if ar.City == city {
-				return true
-			}
-		}
-		_, ok := dict.AlmatyAreas[st.toks[a].fold]
-		return city == "Алматы" && a == b && ok
-	}
+	knownArea := func(a, b int) bool { return st.knownArea(city, a, b) }
 	if knownStreet(key(c.a, c.b)) || knownArea(c.a, c.b) {
 		return -1
 	}
@@ -161,6 +230,136 @@ func (st *state) areaThenStreet(c *cand) int {
 		}
 	}
 	return -1
+}
+
+// splitShared sets the border between a microdistrict or ЖК and a street that both read the same words:
+// the area forward and the street backward from its postfix type ("мкр Коктем Кабанбай батыра улица 53"),
+// or the street forward and the area backward ("ул. Абая Самал мкр 5", "ул Жастар 4 мкрн").
+func (st *state) splitShared(cands []cand) {
+	for k := 1; k < len(cands); k++ {
+		p, s := &cands[k-1], &cands[k]
+		if !(p.a > p.mk && s.b < s.mk && s.a <= p.b) {
+			continue // no shared words, or not the first read forward and the second backward
+		}
+		areaFirst := !dict.RealStreetTypes[p.typ] && dict.RealStreetTypes[s.typ]
+		if !areaFirst && !(dict.RealStreetTypes[p.typ] && !dict.RealStreetTypes[s.typ]) {
+			continue
+		}
+		if !areaFirst && s.b > p.b {
+			s.a = p.b + 1 // "ул Жастар 4 мкрн": the street ends before the number, the rest is the area
+			continue
+		}
+		a, b, living := min(p.a, s.a), s.b, s.isLiving
+		if areaFirst {
+			a, b, living = p.a, max(p.b, s.b), p.isLiving
+		}
+		if j := st.areaStreetBorder(a, b, areaFirst, living); j > a {
+			p.b, s.a = st.beforeQuotes(j-1), j
+		}
+	}
+}
+
+// areaStreetBorder returns the first token of the second name in the words a..b that hold an area and a
+// street (the area first when areaFirst; living: the area is a ЖК), or -1. A quoted name is never cut. The
+// longest half the city knows as a street sets the border, then the longest one it knows as an area.
+// Otherwise a microdistrict is one word ("мкр Строитель Темира Масина ул."), and the street is one word
+// before a ЖК ("ЖК Arai City Жансугурова ул."), the first word before an area ("ул. Кирова Шмелев Лог
+// мкр"), or two with a title ("Кабанбай батыра", "Толе би").
+func (st *state) areaStreetBorder(a, b int, areaFirst, living bool) int {
+	quoted := false
+	for j := a; j <= b; j++ {
+		quoted = quoted || st.isPunct(j, "\"«»")
+	}
+	var splits []int // words after a word or, in a quoted name, after its quote: "ЖК «Мирас» Капал батыра ул."
+	for j := a + 1; j <= b; j++ {
+		if st.toks[j].kind == tWord && st.toks[st.beforeQuotes(j-1)].kind == tWord && (!quoted || st.isPunct(j-1, "\"«»")) {
+			splits = append(splits, j)
+		}
+	}
+	if len(splits) == 0 {
+		return -1
+	}
+	city := st.vals[City]
+	streetOf := func(j int) (int, int) {
+		if areaFirst {
+			return j, b
+		}
+		return a, st.beforeQuotes(j - 1)
+	}
+	areaOf := func(j int) (int, int) {
+		if areaFirst {
+			return a, st.beforeQuotes(j - 1)
+		}
+		return j, b
+	}
+	streetAt := func(j, votes int) bool { sa, sb := streetOf(j); return st.streetVotes(city, sa, sb) >= votes }
+	areaAt := func(j int) bool { aa, ab := areaOf(j); return st.knownArea(city, aa, ab) }
+	byStreet := make([]int, len(splits)) // from the longest street half to the shortest
+	for n := range splits {
+		byStreet[n] = splits[n]
+		if !areaFirst {
+			byStreet[n] = splits[len(splits)-1-n]
+		}
+	}
+	for _, j := range byStreet {
+		if streetAt(j, 1) && areaAt(j) {
+			return j
+		}
+	}
+	for _, j := range byStreet {
+		if streetAt(j, 3) {
+			return j
+		}
+	}
+	for n := len(byStreet) - 1; n >= 0; n-- {
+		if areaAt(byStreet[n]) {
+			return byStreet[n]
+		}
+	}
+	for _, j := range byStreet {
+		if streetAt(j, 1) {
+			return j
+		}
+	}
+	last := len(splits) - 1
+	switch {
+	case areaFirst && !living:
+		return splits[0]
+	case areaFirst:
+		if last > 0 && streetTitles[st.toks[splits[last]].fold] {
+			return splits[last-1]
+		}
+		return splits[last]
+	case last > 0 && streetTitles[st.toks[splits[0]].fold]:
+		return splits[1]
+	}
+	return splits[0]
+}
+
+// streetTitles follow a name in a street name: "Кабанбай батыра", "Абылай хана", "Толе би", "Жибек жолы".
+var streetTitles = map[string]bool{}
+
+func init() {
+	for _, w := range []string{"батыр", "батыра", "би", "бия", "хан", "хана", "жырау", "сері", "ақын", "датқа", "жолы"} {
+		streetTitles[text.Fold(w)] = true
+	}
+}
+
+// beforeQuotes returns the last token at or before i that is not a quote.
+func (st *state) beforeQuotes(i int) int {
+	for i > 0 && st.isPunct(i, "\"«»") {
+		i--
+	}
+	return i
+}
+
+// streetVotes returns the number of map segments and buildings of the street a..b in the city, 0 when unknown.
+func (st *state) streetVotes(city string, a, b int) int {
+	k, _ := dict.StreetKey(st.text(a, b))
+	if s, ok := dict.OSM().Street(city, k, dict.AnyType); ok && k != "" {
+		return s.Votes
+	}
+	return 0
 }
 
 // opensName reports whether the marker word at i, after its dots, is followed by a plain word that it
@@ -192,8 +391,10 @@ func (st *state) street() {
 		typ := t.mk.Canon
 		c := cand{typ: typ, mk: i, isLiving: t.mk.Class == dict.Living}
 		c.a, c.b = st.collectForward(i, typ)
-		if dict.NumberedAreaTypes[typ] && st.availNum(i-1) && c.a >= 0 && c.a == c.b && st.toks[c.a].kind == tNum {
-			c.a = -1 // "6 шағын ауданы 10": 6 is the area, 10 the house
+		if !dict.RealStreetTypes[typ] {
+			if ba, bb := st.collectBackward(i, typ); ba > covered && st.nameBefore(i, typ, c.a, c.b, ba, bb) {
+				c.a, c.b = ba, bb
+			}
 		}
 		if c.a < 0 {
 			c.a, c.b = st.collectBackward(i, typ)
@@ -204,6 +405,7 @@ func (st *state) street() {
 		covered = max(covered, c.b)
 		cands = append(cands, c)
 	}
+	st.splitShared(cands)
 
 	var street, living *cand
 	for i := range cands {
