@@ -224,8 +224,10 @@ func (st *state) admin() {
 				}
 				if cur, set := st.vals[City]; set {
 					// the city written twice: "алматы алматы жандосова 58", "Актобе Актобе 5 мкр", "Шымкент Шымкент «Бахыт» жк"
+					// and three times: "туркестан / түркістан туркестан кожанова 180"
 					if pl, _ := st.d.LookupCity(t.fold); pl.Name == cur && i < b && (st.toks[i+1].kind == tWord || areaNext || st.isPunct(i+1, "\"«»")) {
 						st.toks[i].used = true
+						continue
 					}
 					break
 				}
@@ -319,13 +321,15 @@ func (st *state) cityPairAtEnd() {
 // A close spelling counts only at the start of the line ("отеген баатыр"), and the name written twice
 // is read once ("Отеген батыр Отеген батыр …").
 func (st *state) cityPair(a, b int) {
-	if st.vals[City] != "" || a+2 > b || !st.typoCityBefore(a+1) || st.postfixStreetAt(a+2) {
-		return // "Өтеген батыр көшесі 25" is a street
-	}
-	for i := a; i <= a+1; i++ {
-		if t := st.toks[i]; t.kind != tWord || t.used || t.mk != nil {
-			return
+	if cur := st.vals[City]; cur != "" {
+		// the city of two words written again: "с. Отеген батыр, Отеген батыр Жибек жолы 51"
+		if a+2 <= b && st.plainWords(a, a+1) && st.toks[a+2].kind == tWord && st.d.Cities[st.keyOf(a, a+1)].Name == cur {
+			st.markUsed(a, a+1)
 		}
+		return
+	}
+	if a+2 > b || !st.typoCityBefore(a+1) || st.postfixStreetAt(a+2) || !st.plainWords(a, a+1) {
+		return // "Өтеген батыр көшесі 25" is a street
 	}
 	k := st.keyOf(a, a+1)
 	if st.d.Cities[k] == (dict.Place{}) {
@@ -338,6 +342,16 @@ func (st *state) cityPair(a, b int) {
 	if a+3 <= b && st.toks[a+2].kind == tWord && st.toks[a+3].kind == tWord && st.keyOf(a+2, a+3) == k {
 		st.markUsed(a+2, a+3)
 	}
+}
+
+// plainWords reports whether the tokens a..b are unused words without a marker.
+func (st *state) plainWords(a, b int) bool {
+	for i := a; i <= b; i++ {
+		if t := st.toks[i]; t.kind != tWord || t.used || t.mk != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // livingArea stores a part of the line that is a known living area of one city consistent with the
