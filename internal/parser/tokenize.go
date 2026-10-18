@@ -178,16 +178,53 @@ func wordToken(r []rune, s, e int) token {
 	return token{kind: tWord, text: txt, fold: text.Fold(txt), s: s, e: e}
 }
 
+// splitGlued splits the glued words; a word after a city and its type words is split as glued to that
+// city: "алматы улпушкина", "астанақаласы улжансугурова".
 func splitGlued(d *dict.Directory, r []rune, toks []token) []token {
 	out := make([]token, 0, len(toks))
+	city := ""
 	for _, t := range toks {
 		if t.kind != tWord {
 			out = append(out, t)
+			if t.kind == tNum {
+				city = ""
+			}
 			continue
 		}
-		out = append(out, splitWord(d, r, t.s, t.e, "")...)
+		words := splitWord(d, r, t.s, t.e, "")
+		if len(words) == 1 && city != "" {
+			words = typeBeforeStreet(r, t.s, t.e, city, words)
+		}
+		out = append(out, words...)
+		for _, w := range words {
+			if p, ok := d.LookupCity(w.fold); ok {
+				city = p.Name
+			} else if m := dict.Markers[w.fold]; m == nil || m.Class != dict.City && m.Class != dict.Settlement {
+				city = ""
+			}
+		}
 	}
 	return out
+}
+
+// typeBeforeStreet splits a short street type glued to a street the city's map knows, in a word of its own
+// after the city: "алматы улпушкина", "актау пр-ттуран". A word the map knows whole, or one letter from a
+// street it knows well, keeps its letters: "пригородный", "пермтина".
+func typeBeforeStreet(r []rune, s, e int, city string, words []token) []token {
+	whole := lookupKey(string(r[s:e]))
+	if gluedStreet(city, text.Fold(string(r[s:e]))) || bySurname(city, whole) || closeStreet(city, whole) {
+		return words
+	}
+	for p := s + 2; p <= min(s+4, e-4); p++ {
+		left, rest := text.Fold(string(r[s:p])), string(r[p:e])
+		if m := dict.Markers[left]; m == nil || m.Class != dict.Street {
+			continue
+		}
+		if gluedStreet(city, text.Fold(rest)) || bySurname(city, lookupKey(rest)) {
+			return []token{wordToken(r, s, p), wordToken(r, p, e)}
+		}
+	}
+	return words
 }
 
 // adjectiveEnd marks a word that is an adjective made from a city name: "Алматинская", "Таразский".

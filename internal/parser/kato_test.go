@@ -210,3 +210,35 @@ func TestAreaBeforeStreet(t *testing.T) {
 		})
 	}
 }
+
+// TestTypeGluedAfterCity: a street type glued to a street in a word of its own after the city is split off
+// when the city's map knows the street; other words keep their letters.
+func TestTypeGluedAfterCity(t *testing.T) {
+	recs, _, err := kato.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := dict.Current()
+	defer dict.SetCurrent(old)
+	UseKATO(recs)
+	cases := []struct {
+		raw  string
+		want map[Field]string
+	}{
+		{"караганда улбукетова 12 кв 4", map[Field]string{StreetType: "улица", StreetName: "букетова", House: "12"}},
+		{"павлодар пр-тназарбаева 15", map[Field]string{StreetType: "проспект", StreetName: "назарбаева"}},
+		{"алматы улжибек жолы 20", map[Field]string{StreetName: "жибек жолы", House: "20"}},
+		{"астана улытау 5", map[Field]string{StreetName: "улытау"}},
+		{"Алматы пригородный 5", map[Field]string{StreetName: "пригородный"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.raw, func(t *testing.T) {
+			o := Parse(tc.raw)
+			for f, want := range tc.want {
+				if got := o.Values[f]; got != want {
+					t.Errorf("%s = %q, want %q (all: %v)", f, got, want, o.Values)
+				}
+			}
+		})
+	}
+}
