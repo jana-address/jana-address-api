@@ -85,7 +85,7 @@ For a whole file: `curl -s -XPOST http://localhost:8080/api/v1/parse/batch --dat
 
 The team labelled the manual sets, and the synthetic set uses the same lexicon as the
 parser, so these numbers are an upper bound; the hidden jury set will be stricter.
-Speed: 100 000 records in one request ≈ 0.5 s, 1 000 000 ≈ 5 s on a 32-thread machine; one address takes about 45 µs on one core (the case limit is 5 minutes per 1000).
+Speed: 100 000 records in one request ≈ 0.6 s end to end with curl, 1 000 000 ≈ 5 s on a 32-thread machine; one address takes about 45 µs on one core (the case limit is 5 minutes per 1000).
 Method and commands: [docs/quality.md](docs/quality.md).
 
 ## Documentation

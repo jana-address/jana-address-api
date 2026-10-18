@@ -34,7 +34,7 @@ parser. So these numbers are an upper bound; the hidden jury set will be stricte
 restoration of the district from the reference data is checked separately, on OSM houses
 held out from the build (see [reference-data.md](reference-data.md#holdout-check)).
 
-Speed: 100 000 records in one request ≈ 0.5 s, 1 000 000 ≈ 5 s on a 32-thread machine; one address takes about 45 µs on one core (the case limit is 5 minutes per 1000).
+Speed: 100 000 records in one request ≈ 0.6 s end to end with curl, 1 000 000 ≈ 5 s on a 32-thread machine; one address takes about 45 µs on one core (the case limit is 5 minutes per 1000).
 
 ## Running the evaluation
 
