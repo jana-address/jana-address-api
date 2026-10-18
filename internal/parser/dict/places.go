@@ -10,6 +10,7 @@ type Place struct {
 	Province string
 	District string // known rayon for small settlements
 	Town     bool   // a town ("г."), not a village
+	Center   bool   // Алматы, Астана, Шымкент or the centre of a region: a typo as close to a smaller town means it
 }
 
 // DistrictInfo is a city district or a rural rayon.
@@ -108,7 +109,7 @@ func initPlaces() {
 	addCity("Кокшетау", akm, "көкшетау", "кокчетав")
 	addCity("Степногорск", akm)
 	addCity("Актобе", akt, "ақтөбе", "актюбинск")
-	addCity("Конаев", alm, "қонаев", "капшагай", "қапшағай")
+	addCity("Конаев", alm, "қонаев", "капшагай", "капчагай", "қапшағай")
 	addCity("Талгар", alm)
 	addCity("Каскелен", alm, "қаскелең")
 	addCity("Есик", alm, "есік", "esik", "issyk", "yesik", "иссык")
@@ -122,7 +123,7 @@ func initPlaces() {
 	addCity("Иргели", alm, "іргелі", "irgeli")
 	addCity("Узынагаш", alm, "ұзынағаш", "uzynagash")
 	addCity("Отеген батыр", alm, "өтеген батыр", "otegen batyr")
-	addCity("Кордай", zhm, "қордай", "korday")
+	addCity("Кордай", zhm, "қордай", "korday", "георгиевка") // Георгиевка until 1993; villages so called elsewhere need their region
 	addCity("Аксукент", trk, "ақсукент", "aksukent")
 	baseCities[text.Key("Боралдай")] = Place{Name: "Боралдай", Province: alm, District: "Илийский"}
 	baseCities[text.Key("Бурундай")] = baseCities[text.Key("Боралдай")]
@@ -141,7 +142,7 @@ func initPlaces() {
 	addCity("Сарань", krg)
 	addCity("Костанай", kst, "қостанай", "кустанай")
 	addCity("Рудный", kst)
-	addCity("Кызылорда", kzo, "қызылорда")
+	addCity("Кызылорда", kzo, "қызылорда", "кзыл-орда")
 	addCity("Актау", mng, "ақтау") // not the old name "Шевченко": one of the most common street names
 	addCity("Жанаозен", mng, "жаңаөзен", "новый узень")
 	addCity("Павлодар", pvl)
@@ -151,8 +152,18 @@ func initPlaces() {
 	addCity("Кентау", trk)
 	addCity("Семей", aba, "семипалатинск")
 	addCity("Талдыкорган", zht, "талдықорған", "талды-курган")
-	addCity("Жезказган", ult, "жезқазған")
+	addCity("Жезказган", ult, "жезқазған", "джезказган")
 	addCity("Сатпаев", ult, "сәтбаев")
+
+	for k, p := range baseCities {
+		switch p.Name {
+		case "Алматы", "Астана", "Шымкент", "Кокшетау", "Актобе", "Конаев", "Атырау", "Усть-Каменогорск", "Тараз",
+			"Уральск", "Караганда", "Костанай", "Кызылорда", "Актау", "Павлодар", "Петропавловск", "Туркестан",
+			"Семей", "Талдыкорган", "Жезказган":
+			p.Center = true
+			baseCities[k] = p
+		}
+	}
 
 	// Latin and colloquial spellings
 	for name, aliases := range map[string][]string{

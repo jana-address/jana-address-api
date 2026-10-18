@@ -278,6 +278,11 @@ func TestParseExamples(t *testing.T) {
 		{"алматжандосова 21", map[Field]string{City: "Алматы", StreetName: "жандосова", House: "21"}},
 		{"Таразская 5", map[Field]string{City: "-", StreetName: "Таразская"}},
 		{"оралхана бокея 12", map[Field]string{City: "-", StreetName: "оралхана бокея"}},
+		// a typo as close to a regional centre as to a smaller town is the centre; old names of towns
+		{"акту 12 мкр, 7", map[Field]string{City: "Актау", Province: "Мангистауская область", StreetName: "12", House: "7"}},
+		{"с. Георгиевка, ул. Абая 3", map[Field]string{City: "Кордай", Province: "Жамбылская область"}},
+		{"Восточно-Казахстанская область, с. Георгиевка, ул. Абая 3", map[Field]string{City: "Георгиевка", Province: "Восточно-Казахстанская область"}},
+		{"Капчагай, ул. Абая 5", map[Field]string{City: "Конаев"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

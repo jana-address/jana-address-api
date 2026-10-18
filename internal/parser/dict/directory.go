@@ -146,13 +146,7 @@ func (d *Directory) NearCities(k string) (p Place, unique, near bool) {
 			continue
 		}
 		for _, c := range d.cityByLen[n] {
-			dist := text.DistanceLimit(r, c.r, 1)
-			switch {
-			case dist < bestD:
-				p, bestD, ambiguous = c.p, dist, false
-			case dist == bestD && c.p.Name != p.Name:
-				ambiguous = true
-			}
+			p, bestD, ambiguous = closer(c.p, text.DistanceLimit(r, c.r, 1), p, bestD, ambiguous)
 		}
 	}
 	if bestD > 1 {
@@ -190,18 +184,29 @@ func (d *Directory) lookupCityWithin(k string, maxTypos int) (Place, bool) {
 		}
 		for _, c := range d.cityByLen[n] {
 			dist := text.DistanceLimit(r, c.r, limit)
-			switch {
-			case dist < bestD:
-				best, bestD, ambiguous = c.p, dist, false
-			case dist == bestD && c.p.Name != best.Name:
-				ambiguous = true
-			}
+			best, bestD, ambiguous = closer(c.p, dist, best, bestD, ambiguous)
 		}
 	}
 	if bestD <= limit && !ambiguous {
 		return best, true
 	}
 	return Place{}, false
+}
+
+// closer keeps the closest city seen so far. Of two cities as close the centre of a region wins over a
+// smaller town ("акту" is Актау, not Аксу); two centres or two towns as close are ambiguous.
+func closer(p Place, dist int, best Place, bestD int, ambiguous bool) (Place, int, bool) {
+	switch {
+	case dist < bestD:
+		return p, dist, false
+	case dist > bestD || p.Name == best.Name:
+		return best, bestD, ambiguous
+	case p.Center && !best.Center:
+		return p, dist, false // a town already as close is ranked below the centre
+	case best.Center && !p.Center:
+		return best, bestD, ambiguous
+	}
+	return best, bestD, true
 }
 
 // knownName reports whether k is a name of its own: a settlement of the classifier, a region, a district,
