@@ -49,6 +49,9 @@ func TestOSMDistricts(t *testing.T) {
 		{"Павлодар мкр Усолка Абая 15", map[Field]string{LivingArea: "Усолка", StreetName: "Абая", House: "15"}, ""},
 		{"Тараз мкр. Карасу Абая 101", map[Field]string{LivingArea: "Карасу", StreetName: "Абая", House: "101"}, ""},
 		{"Талдыкорган мкр Мушелтой Тауелсиздик 12", map[Field]string{LivingArea: "Мушелтой", StreetName: "Тауелсиздик", House: "12"}, ""},
+		// a street one letter from the only close one the city has
+		{"Тараз мкр Аса Рыскуловаа 15", map[Field]string{LivingArea: "Аса", StreetName: "Рыскуловаа", House: "15"}, ""},
+		{"Павлодар мкр Усолка Торайгырва 7", map[Field]string{LivingArea: "Усолка", StreetName: "Торайгырва", House: "7"}, ""},
 		// known whole, or a number in the name: not split
 		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", LivingArea: "-"}, ""},
 		{"город Алматы/Алматы қаласы, Мкр Аксай 3а, 59, кв 70", map[Field]string{StreetName: "Аксай 3а", LivingArea: "-"}, ""},
