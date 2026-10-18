@@ -18,7 +18,9 @@ import (
 	"github.com/jana-address/jana-address-api/internal/parser"
 )
 
-const maxBody = 64 << 20
+// maxBody bounds a batch body: a million real addresses take about 110 MiB. A variable, so the test can
+// shorten it.
+var maxBody int64 = 128 << 20
 
 type inItem struct {
 	ID  json.RawMessage `json:"id"`
@@ -28,7 +30,7 @@ type inItem struct {
 // parseBatch is the jury endpoint: JSON array in, JSON array out, same order, one result per record.
 // It is stateless: every record is parsed from its text, nothing is looked up by id or by the whole string.
 func (a *api) parseBatch(w http.ResponseWriter, r *http.Request) {
-	// a few batches at a time: each can hold a 64 MiB body and its results in memory
+	// a few batches at a time: each can hold a 128 MiB body and its results in memory
 	select {
 	case a.batches <- struct{}{}:
 		defer func() { <-a.batches }()
@@ -41,7 +43,11 @@ func (a *api) parseBatch(w http.ResponseWriter, r *http.Request) {
 
 	body, err := readBody(w, r)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		code := http.StatusBadRequest
+		if errors.Is(err, errTooLarge) {
+			code = http.StatusRequestEntityTooLarge
+		}
+		writeJSON(w, code, map[string]string{"error": err.Error()})
 		return
 	}
 	items, err := decodeItems(body)
@@ -129,7 +135,8 @@ const maxBatches = 4
 
 // A batch body must keep coming: the read deadline is bodyGrace plus one second for every
 // bodyMinRate bytes received, at most bodyMaxTime from the start. A client that drips a byte now
-// and then is cut off after about 30 s, while 64 MiB on a 1 Mbit/s line still gets through.
+// and then is cut off after about 30 s, while 64 MiB on a 1 Mbit/s line and the full 128 MiB on 2 Mbit/s
+// still get through.
 var (
 	bodyGrace   = 30 * time.Second // variables, so the test can shorten them
 	bodyMaxTime = 10 * time.Minute
@@ -227,6 +234,9 @@ func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
 		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 		f, _, err := r.FormFile("file")
+		if tooLarge(err) {
+			return nil, errTooLarge
+		}
 		if err != nil {
 			return nil, errors.New("multipart: expected a \"file\" field")
 		}
@@ -234,13 +244,23 @@ func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 		return io.ReadAll(f)
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBody))
+	if tooLarge(err) {
+		return nil, errTooLarge
+	}
 	if err != nil {
-		return nil, errors.New("request body is too large or unreadable")
+		return nil, errors.New("request body is unreadable")
 	}
 	return body, nil
 }
 
-// maxRecords bounds one batch. A 64 MiB body of real addresses holds about 600 000 records,
+var errTooLarge = fmt.Errorf("request body is larger than %d MiB", maxBody>>20)
+
+func tooLarge(err error) bool {
+	var e *http.MaxBytesError
+	return errors.As(err, &e)
+}
+
+// maxRecords bounds one batch. A 128 MiB body of real addresses holds about 1 200 000 records,
 // while "[{},{},…]" would expand to tens of millions of null results.
 const maxRecords = 1_000_000
 

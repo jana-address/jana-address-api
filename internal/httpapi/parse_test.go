@@ -123,6 +123,13 @@ func TestParseBatchInputErrors(t *testing.T) {
 	if rec := post("[" + strings.Repeat("{},", maxRecords) + "{}]"); rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("too many records: code = %d", rec.Code)
 	}
+	// a body over the limit is 413 too, not 400
+	old := maxBody
+	maxBody = 1 << 10
+	defer func() { maxBody = old }()
+	if rec := post("[" + strings.Repeat(" ", 2<<10) + "]"); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("body over the limit: code = %d", rec.Code)
+	}
 }
 
 // Many chunks through a few workers that wait for the writer: every record comes back, in input order.

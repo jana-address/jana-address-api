@@ -41,7 +41,7 @@ curl -s -XPOST http://localhost:8080/api/v1/parse/batch \
 ```
 
 - **Вход:** JSON-массив `[{"id": "...", "raw_address": "..."}]`, как `sample_input.json`.
-  Принимаются также NDJSON и `multipart/form-data` с полем `file`. Тело не больше 64 МиБ и
+  Принимаются также NDJSON и `multipart/form-data` с полем `file`. Тело не больше 128 МиБ и
   1 000 000 записей, сломанный JSON получает 400.
 - **Выход:** массив той же длины и в том же порядке. В каждой записи ровно 14 ключей в
   порядке ТЗ (`id`, `raw_address`, `province`, `city`, `district`, `living_area`,
