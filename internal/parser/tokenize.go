@@ -2,6 +2,7 @@ package parser
 
 import (
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/jana-address/jana-address-api/internal/parser/dict"
@@ -279,6 +280,9 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	for i := s + 1; i < e; i++ {
 		lowerUpper := i-s >= 2 && unicode.IsLower(r[i-1]) && unicode.IsUpper(r[i])
 		acronym := i-s >= 2 && unicode.IsUpper(r[i-1]) && unicode.IsUpper(r[i]) && i+1 < e && unicode.IsLower(r[i+1]) // "ЖКХайвил"
+		if acronym && capsWord(d, r, s, i, e) {
+			i++ // a word in capitals keeps its last letter: "КАРАГАНДАпичугина", "БАТЫРшкольная"
+		}
 		if (lowerUpper || acronym) && dict.Markers[text.Fold(string(r[s:e]))] == nil {
 			left := splitWord(d, r, s, i, city)
 			next := ""
@@ -319,6 +323,18 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	for p := top; p >= s+4 && exactEnd == s; p-- {
 		if f := text.Fold(string(r[s:p])); d.Cities[f] != (dict.Place{}) {
 			exactEnd, exactLen = p, len([]rune(f))
+		}
+	}
+	// a city with a stray letter or a typo right before its type word: "уральскккаласы", "костанайцқала",
+	// "усть-каменогорсқала" (not "усть-каменогорсқ" and "ала")
+	if city == "" {
+		for p := min(e-3, top); p >= s+5; p-- {
+			if !startsWithTypeWord(text.Fold(string(r[p:e]))) {
+				continue
+			}
+			if left, pl, unique, _ := prefix(p); unique {
+				return split(p, cityName(pl, left))
+			}
 		}
 	}
 	// 2. a city at the start whose rest begins with a street the map knows there: "Аксукамзина" is Аксу
@@ -372,13 +388,25 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	// 5. a type word at the start: "каласыабая", "мкрдом", after a city also "ул", "пр-т", "горд"
 	for p := e - 1; p >= s+1; p-- {
 		left, rest := text.Fold(string(r[s:p])), text.Fold(string(r[p:e]))
-		if (dict.GlueMarkers[left] && p-s >= 3 || city != "" && dict.AfterCityMarkers[left]) && restOK(rest) {
-			next := ""
-			if dict.GlueMarkers[left] || dict.AfterCityMarkers[left] {
-				next = city
-			}
-			return split(p, next)
+		short := city != "" && dict.AfterCityMarkers[left]
+		if !(dict.GlueMarkers[left] && p-s >= 3 || short) {
+			continue
 		}
+		if !restOK(rest) && !(len([]rune(left)) >= 5 && left != kalas && len([]rune(rest)) == 3 && !adjectiveRest(rest)) {
+			continue // "каласыабя", "улицааай": the longest type word goes, a short street stays ("қаласаин" is қала Саина)
+		}
+		if short && p-s <= 3 && startsLikeStreet(city, w.fold, left) {
+			break // "протзанова", "кошкаррбаева", "улдала": a street of the city that starts with a type word
+		}
+		if left == kalas && p+1 < e && city != "" && sStreet(city, rest) {
+			p-- // "қаласейфуллн" is қала and Сейфуллина
+			left = text.Fold(string(r[s:p]))
+		}
+		next := ""
+		if dict.GlueMarkers[left] || dict.AfterCityMarkers[left] {
+			next = city
+		}
+		return split(p, next)
 	}
 	// 6. a type word at the end: "абайкошеси", "самалмкр", "қабанбайбатыркөш"
 	for p := s + 3; p <= e-2; p++ {
@@ -442,3 +470,125 @@ func streetFirst(d *dict.Directory, r []rune, s, e int, city string) bool {
 
 // gluedStreet reports whether the city has a street written as the word f.
 func gluedStreet(city, f string) bool { return dict.OSM().GluedStreet(city, f) }
+
+var kalas = text.Fold("қалас")
+
+// typeWordStarts are the type words after a city that a stray letter may separate from it.
+var typeWordStarts = []string{"кала", "город", "горд", "ауыл", "мкр"}
+
+// startsWithTypeWord reports whether the folded rest of a glued word opens with a city type word or "мкр".
+func startsWithTypeWord(f string) bool {
+	for _, w := range typeWordStarts {
+		if strings.HasPrefix(f, w) {
+			return true
+		}
+	}
+	return false
+}
+
+// capsWord reports whether r[s:i+1] is a word in capitals of five letters or more that a lowercase word
+// follows, and not a city or a type word with the first letter of a capitalized name: "КАРАГАНДАпичугина"
+// against "АЛМАТЫАбая", "МКРСамал" and a known street after it: "СМЕЙШакарима".
+func capsWord(d *dict.Directory, r []rune, s, i, e int) bool {
+	if i+1-s < 5 {
+		return false
+	}
+	for _, c := range r[s : i+1] {
+		if !unicode.IsUpper(c) {
+			return false
+		}
+	}
+	f := text.Fold(string(r[s:i]))
+	_, city := d.Cities[f]
+	return !city && dict.Markers[f] == nil && !gluedStreet("", text.Fold(string(r[i:e])))
+}
+
+// gluedKeys holds, per city ("" for all cities), the street keys of the map without spaces, and the last
+// words of the streets of two words, by their first letter: the streets that a short type word glued before
+// them may hide ("улы дала", "протозанова", "кошкарбаева").
+var gluedKeys = sync.OnceValue(func() map[string]map[rune][][]rune {
+	out := map[string]map[rune][][]rune{"": {}}
+	for city, streets := range dict.OSM().Streets {
+		m := map[rune][][]rune{}
+		add := func(name string) {
+			k := []rune(strings.ReplaceAll(name, " ", ""))
+			if len(k) >= 5 && len(k) < text.MaxFuzzyLen {
+				m[k[0]] = append(m[k[0]], k)
+				out[""][k[0]] = append(out[""][k[0]], k)
+			}
+		}
+		for key := range streets {
+			name, typ, _ := strings.Cut(key, "\x00")
+			if typ != dict.AnyType {
+				continue
+			}
+			if first, _, _ := strings.Cut(name, " "); dict.Markers[first] != nil {
+				continue // "ул кунаева" is a type word written into the name
+			}
+			add(name)
+			if i := strings.LastIndexByte(name, ' '); i > 0 {
+				add(name[i+1:])
+			}
+		}
+		out[city] = m
+	}
+	return out
+})
+
+// cityGlued returns the glued street keys of the city that start with the letter of f.
+func cityGlued(city string, f []rune) [][]rune {
+	if len(f) < 2 {
+		return nil
+	}
+	m, ok := gluedKeys()[city]
+	if !ok {
+		m = gluedKeys()[""]
+	}
+	return m[f[0]]
+}
+
+// startsLikeStreet reports whether the folded word f is a street of the city whose name opens with the type
+// word left, alone or before a type word, also one letter off (two in a long name): "протзанова",
+// "улыдаадангылы", "улдала".
+func startsLikeStreet(city, f, left string) bool {
+	w := []rune(f)
+	for _, k := range cityGlued(city, w) {
+		if !strings.HasPrefix(string(k), left) {
+			continue
+		}
+		lim := 0
+		if len(k) >= 9 {
+			lim = 2
+		} else if len(k) >= 6 {
+			lim = 1
+		}
+		for n := len(k) - lim; n <= len(k)+lim && n <= len(w); n++ {
+			rest := string(w[n:])
+			if (rest == "" || dict.Markers[rest] != nil || postfixGlued[rest]) && text.DistanceLimit(w[:n], k, lim) <= lim {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// streetLike reports whether the folded word f is a street of the city written without spaces, also one
+// letter off: "сейфуллн" for Сейфуллина, "смагулова".
+func streetLike(city, f string) bool {
+	w := []rune(f)
+	if len(w) < 5 || len(w) >= text.MaxFuzzyLen {
+		return false
+	}
+	for _, k := range cityGlued(city, w) {
+		if text.DistanceLimit(w, k, 1) <= 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// sStreet reports whether the rest after "қалас" reads better with that "с": "қаласейфуллн" is қала
+// Сейфуллина, "қаласатпаева" қала Сатпаева.
+func sStreet(city, rest string) bool {
+	return gluedStreet(city, "с"+rest) && !gluedStreet(city, rest) || streetLike(city, "с"+rest) && !streetLike(city, rest)
+}
