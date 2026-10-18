@@ -54,6 +54,7 @@ func TestGluedBorders(t *testing.T) {
 		{"оралдостыкк 5", map[Field]string{City: "Уральск", StreetName: "достыкк", House: "5"}},
 		{"петропавлинтернационалная 3", map[Field]string{City: "Петропавловск", StreetName: "интернационалная", House: "3"}},
 		{"кокшетуабылайхна 9", map[Field]string{City: "Кокшетау", StreetName: "абылайхна", House: "9"}},
+		{"павлдараба 5", map[Field]string{City: "Павлодар", StreetName: "аба", House: "5"}},
 		// a short city before қала
 		{"семеқала абая 4", map[Field]string{City: "Семей", StreetName: "абая", House: "4"}},
 		// a short street after "ауыл", a street that reads as an adjective after "ул", a mistyped street

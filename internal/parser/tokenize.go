@@ -551,7 +551,7 @@ func streetFirst(d *dict.Directory, r []rune, s, e int, city string) int {
 		switch {
 		case n >= 4 && gluedStreet(city, t.fold):
 			return 2
-		case n >= 6 && streetLike(city, t.fold):
+		case n >= 6 && streetLike(city, t.fold), n == 3 && shortStreetLike(city, t.fold):
 			return 1
 		}
 		return 0
@@ -797,3 +797,36 @@ func typeEnd(r []rune, s, e int) int {
 }
 
 var kosh = text.Fold("көш")
+
+// shortStreetLike reports whether a word of three letters is one letter from a street of four letters of the
+// city: "аба" and "абй" for Абая or Абай.
+func shortStreetLike(city, f string) bool {
+	m, ok := shortKeys()[city]
+	if !ok {
+		return false
+	}
+	var buf [4]rune
+	w := text.ToRunes(f, buf[:0])
+	for _, k := range m[w[0]] {
+		if text.DistanceLimit(w, k, 1) <= 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// shortKeys holds, per city, its streets of four letters that the map knows well by their first letter.
+var shortKeys = sync.OnceValue(func() map[string]map[rune][][]rune {
+	out := map[string]map[rune][][]rune{}
+	for city, streets := range dict.OSM().Streets {
+		m := map[rune][][]rune{}
+		for key, ref := range streets {
+			name, typ, _ := strings.Cut(key, "\x00")
+			if k := []rune(name); typ == dict.AnyType && len(k) == 4 && ref.Votes >= 3 {
+				m[k[0]] = append(m[k[0]], k)
+			}
+		}
+		out[city] = m
+	}
+	return out
+})
