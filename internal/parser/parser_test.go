@@ -270,6 +270,14 @@ func TestParseExamples(t *testing.T) {
 		{"дом 5, ул. Акын Сара", map[Field]string{City: "-", StreetName: "Акын Сара", House: "5"}},
 		{"Esim khana 7, Taraz", map[Field]string{City: "Тараз", StreetName: "Esim khana", House: "7"}},
 		{"Лисаков, 3 мкр, 12", map[Field]string{City: "Лисаковск", StreetName: "3", House: "12"}},
+		// a city glued to a street the map knows there: a short city, a type word that starts the street name,
+		// a rest that starts like an adjective, a close spelling of the city
+		{"Аксупролетарская 11", map[Field]string{City: "Аксу", StreetName: "пролетарская", House: "11"}},
+		{"Актобепрохорова 14 кв 3", map[Field]string{City: "Актобе", StreetName: "прохорова", House: "14", Apartment: "3"}},
+		{"Алматыевропейская 9", map[Field]string{City: "Алматы", StreetName: "европейская", House: "9"}},
+		{"алматжандосова 21", map[Field]string{City: "Алматы", StreetName: "жандосова", House: "21"}},
+		{"Таразская 5", map[Field]string{City: "-", StreetName: "Таразская"}},
+		{"оралхана бокея 12", map[Field]string{City: "-", StreetName: "оралхана бокея"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

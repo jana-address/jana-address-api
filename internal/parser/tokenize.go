@@ -185,7 +185,7 @@ func splitGlued(d *dict.Directory, r []rune, toks []token) []token {
 			out = append(out, t)
 			continue
 		}
-		out = append(out, splitWord(d, r, t.s, t.e, false)...)
+		out = append(out, splitWord(d, r, t.s, t.e, "")...)
 	}
 	return out
 }
@@ -231,8 +231,9 @@ func restOK(f string) bool {
 // Real glued words are under 40 letters: "Алматықаласыабаякөшесі".
 const maxGluedLen = 64
 
-// splitWord splits one glued word; afterCity allows short type words right after a city name.
-func splitWord(d *dict.Directory, r []rune, s, e int, afterCity bool) []token {
+// splitWord splits one glued word; city is the city named right before it ("" for none), which allows short
+// type words after it and keeps a street of that city whole.
+func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	if e-s > maxGluedLen {
 		return []token{wordToken(r, s, e)}
 	}
@@ -241,60 +242,148 @@ func splitWord(d *dict.Directory, r []rune, s, e int, afterCity bool) []token {
 		lowerUpper := i-s >= 2 && unicode.IsLower(r[i-1]) && unicode.IsUpper(r[i])
 		acronym := i-s >= 2 && unicode.IsUpper(r[i-1]) && unicode.IsUpper(r[i]) && i+1 < e && unicode.IsLower(r[i+1]) // "ЖКХайвил"
 		if (lowerUpper || acronym) && dict.Markers[text.Fold(string(r[s:e]))] == nil {
-			left := splitWord(d, r, s, i, afterCity)
-			_, city := d.LookupCity(left[len(left)-1].fold)
-			return append(left, splitWord(d, r, i, e, city)...)
+			left := splitWord(d, r, s, i, city)
+			next := ""
+			if p, ok := d.LookupCity(left[len(left)-1].fold); ok {
+				next = p.Name
+			}
+			return append(left, splitWord(d, r, i, e, next)...)
 		}
 	}
 	w := wordToken(r, s, e)
 	if e-s < 3 || d.KnownWord(w.fold) {
 		return []token{w}
 	}
-	split := func(p int, leftIsCity bool) []token {
-		return append([]token{wordToken(r, s, p)}, splitWord(d, r, p, e, leftIsCity)...)
+	if city != "" && gluedStreet(city, w.fold) {
+		return []token{w} // "протозанова" after Усть-Каменогорск keeps its "пр"
 	}
-	// 2. a city at the start, the longest first: "алматыабая", "шымкентабй", "оралқала…"
-	exactCity := false
-	for p := e - 1; p >= s+4; p-- {
-		left, rest := text.Fold(string(r[s:p])), text.Fold(string(r[p:e]))
-		_, city := d.Cities[left]
-		if !city {
-			continue
+	split := func(p int, leftCity string) []token {
+		return append([]token{wordToken(r, s, p)}, splitWord(d, r, p, e, leftCity)...)
+	}
+	// prefixes that may be a city: the folded left part and the cities one letter from it, found once per word
+	top := min(e-1, s+d.LongestCity+1+softSigns(r, s, e))
+	var lefts [maxGluedLen + 1]struct {
+		fold         string
+		near, unique bool
+		place        dict.Place
+		done         bool
+	}
+	prefix := func(p int) (string, dict.Place, bool, bool) {
+		l := &lefts[p-s]
+		if !l.done {
+			l.fold = text.Fold(string(r[s:p]))
+			l.place, l.unique, l.near = d.NearCities(l.fold)
+			l.done = true
 		}
-		exactCity = true
-		if (p-s >= 5 || startsWithCityWord(rest)) && (restOK(rest) || len([]rune(rest)) == 3 && !adjectiveRest(rest)) {
-			return split(p, true)
+		return l.fold, l.place, l.unique, l.near
+	}
+	exactEnd, exactLen := s, 0 // the end and the folded length of the longest exact city at the start
+	for p := top; p >= s+4 && exactEnd == s; p-- {
+		if f := text.Fold(string(r[s:p])); d.Cities[f] != (dict.Place{}) {
+			exactEnd, exactLen = p, len([]rune(f))
+		}
+	}
+	// 2. a city at the start whose rest begins with a street the map knows there: "Аксукамзина" is Аксу
+	// and Камзина, "уральскевразия" Уральск and Евразия, "алматдостык" Алматы and Достык. An exact city
+	// goes first, then a close spelling, the longest first.
+	if city == "" && !dict.OSM().KnownAnywhere(w.fold) {
+		for p := min(e-3, exactEnd); p >= s+4; p-- {
+			if pl, ok := d.Cities[text.Fold(string(r[s:p]))]; ok && streetFirst(d, r, p, e, pl.Name) {
+				return split(p, pl.Name)
+			}
+		}
+		// a letter more than an exact city goes with the street: "шымкентджангельдина" is Джангельдина and
+		// "алматыддостык" keeps its typo, but a longer name may be mistyped: "лисаковмк…" is Лисаковск
+		for p := min(e-3, top); p >= s+4; p-- {
+			left, pl, unique, _ := prefix(p)
+			if _, ok := d.Cities[left]; ok || exactLen > 0 && len([]rune(left)) < exactLen+2 {
+				continue
+			}
+			if unique && streetFirst(d, r, p, e, pl.Name) {
+				return split(p, pl.Name)
+			}
 		}
 	}
 	// 3. a city with one typo at the start: "асстанаакжол", "шпмалғанул"; not for adjectives like "Алматинская"
-	// and not before a preposition: "Ермекво" is a name, not "Ермак во"
-	for p := e - 1; p >= s+5 && !exactCity && !afterCity; p-- {
-		left, rest := text.Fold(string(r[s:p])), text.Fold(string(r[p:e]))
-		var buf [text.MaxFuzzyLen]rune
-		lr := text.ToRunes(left, buf[:0])
-		if len(lr) >= text.MaxFuzzyLen || !restOK(rest) || adjectiveWord(rest) && !startsWithCityWord(rest) {
+	// and not before a preposition: "Ермекво" is a name, not "Ермак во". Next to an exact city only a longer
+	// name, before it: "лисаковмк…" is Лисаковск, not Лисаков
+	for p := top; p >= max(s+5, exactEnd+2) && city == ""; p-- {
+		rest := text.Fold(string(r[p:e]))
+		if !restOK(rest) || adjectiveWord(rest) && !startsWithCityWord(rest) {
 			continue
 		}
 		if m := dict.Markers[rest]; m != nil && m.Class == dict.Landmark && len([]rune(rest)) <= 2 {
 			continue
 		}
-		if d.NearCity(lr) {
-			return split(p, true)
+		left, pl, _, near := prefix(p)
+		if near && (exactLen == 0 || len([]rune(left)) >= exactLen+2) {
+			return split(p, cityName(pl, left))
 		}
 	}
-	// 4. a type word at the start: "каласыабая", "мкрдом", after a city also "ул", "пр-т", "горд"
+	// 4. a city at the start, the longest first: "алматыабая", "шымкентабй", "оралқала…"
+	for p := exactEnd; p >= s+4; p-- {
+		left, rest := text.Fold(string(r[s:p])), text.Fold(string(r[p:e]))
+		pl, ok := d.Cities[left]
+		if !ok {
+			continue
+		}
+		if (p-s >= 5 || startsWithCityWord(rest)) && (restOK(rest) || len([]rune(rest)) == 3 && !adjectiveRest(rest)) {
+			return split(p, pl.Name)
+		}
+	}
+	// 5. a type word at the start: "каласыабая", "мкрдом", after a city also "ул", "пр-т", "горд"
 	for p := e - 1; p >= s+1; p-- {
 		left, rest := text.Fold(string(r[s:p])), text.Fold(string(r[p:e]))
-		if (dict.GlueMarkers[left] && p-s >= 3 || afterCity && dict.AfterCityMarkers[left]) && restOK(rest) {
-			return split(p, afterCity && (dict.GlueMarkers[left] || dict.AfterCityMarkers[left]))
+		if (dict.GlueMarkers[left] && p-s >= 3 || city != "" && dict.AfterCityMarkers[left]) && restOK(rest) {
+			next := ""
+			if dict.GlueMarkers[left] || dict.AfterCityMarkers[left] {
+				next = city
+			}
+			return split(p, next)
 		}
 	}
-	// 5. a type word at the end: "абайкошеси", "самалмкр", "қабанбайбатыркөш"
+	// 6. a type word at the end: "абайкошеси", "самалмкр", "қабанбайбатыркөш"
 	for p := s + 3; p <= e-2; p++ {
 		right := text.Fold(string(r[p:e]))
 		if dict.GlueMarkers[right] || right == text.Fold("көш") {
-			return append(splitWord(d, r, s, p, afterCity), wordToken(r, p, e))
+			return append(splitWord(d, r, s, p, city), wordToken(r, p, e))
 		}
 	}
 	return []token{w}
 }
+
+// softSigns counts the letters of r[s:e] that the folded key drops ("ь", "ъ"), so a bound on a key length
+// becomes one on the written word.
+func softSigns(r []rune, s, e int) int {
+	n := 0
+	for _, c := range r[s:e] {
+		if strings.ContainsRune("ьъЬЪ", c) {
+			n++
+		}
+	}
+	return n
+}
+
+// cityName is the name of a city found by a close spelling, or the spelling itself when several cities are
+// as close: the words after it are still read as glued to a city.
+func cityName(p dict.Place, left string) string {
+	if p.Name != "" {
+		return p.Name
+	}
+	return left
+}
+
+// streetFirst reports whether the glued rest r[s:e] after a city starts with a street of that city, after
+// the type words: "камзина", "улстроителей", "қаласыабая".
+func streetFirst(d *dict.Directory, r []rune, s, e int, city string) bool {
+	for _, t := range splitWord(d, r, s, e, city) {
+		if dict.Markers[t.fold] != nil {
+			continue
+		}
+		return len([]rune(t.fold)) >= 4 && gluedStreet(city, t.fold)
+	}
+	return false
+}
+
+// gluedStreet reports whether the city has a street written as the word f.
+func gluedStreet(city, f string) bool { return dict.OSM().GluedStreet(city, f) }

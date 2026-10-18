@@ -20,6 +20,9 @@ type Directory struct {
 	// Areas: living areas by name; one name may be an area of several cities
 	Areas     map[string][]Area
 	cityByLen [text.MaxFuzzyLen][]cityEntry // city keys bucketed by length in runes, for typo search
+	// LongestCity is the length in runes of the longest city key, which bounds the search for a city
+	// glued to the next word
+	LongestCity int
 }
 
 // current is set by init right after initPlaces fills the base tables.
@@ -88,6 +91,7 @@ func newDirectory(extend func(d *Directory)) *Directory {
 	for k, p := range d.Cities {
 		if r := []rune(k); len(r) < text.MaxFuzzyLen {
 			d.cityByLen[len(r)] = append(d.cityByLen[len(r)], cityEntry{r, p})
+			d.LongestCity = max(d.LongestCity, len(r))
 		}
 	}
 	return d
@@ -128,6 +132,42 @@ func fuzzyLimit(n int) int {
 // LookupCity finds a settlement by its exact key or, failing that, by a unique close spelling ("алматыы").
 func (d *Directory) LookupCity(k string) (Place, bool) { return d.lookupCityWithin(k, 2) }
 
+// NearCities looks for cities one letter from k in one pass: the city when it is the only one and k may be
+// read as it (as by LookupCity with one typo), and whether any city, whichever, is that close.
+func (d *Directory) NearCities(k string) (p Place, unique, near bool) {
+	var buf [text.MaxFuzzyLen]rune
+	r := text.ToRunes(k, buf[:0])
+	if len(r) >= text.MaxFuzzyLen {
+		return Place{}, false, false
+	}
+	bestD, ambiguous := 2, false
+	for n := len(r) - 1; n <= len(r)+1; n++ {
+		if n < 0 || n >= text.MaxFuzzyLen {
+			continue
+		}
+		for _, c := range d.cityByLen[n] {
+			dist := text.DistanceLimit(r, c.r, 1)
+			switch {
+			case dist < bestD:
+				p, bestD, ambiguous = c.p, dist, false
+			case dist == bestD && c.p.Name != p.Name:
+				ambiguous = true
+			}
+		}
+	}
+	if bestD > 1 {
+		return Place{}, false, false
+	}
+	if _, exact := d.Cities[k]; exact {
+		return d.Cities[k], true, true
+	}
+	unique = !ambiguous && (len(r) >= 5 || len(r) == 4 && !d.knownName(k))
+	if !unique {
+		p = Place{}
+	}
+	return p, unique, true
+}
+
 // lookupCityWithin is LookupCity with at most maxTypos edits.
 func (d *Directory) lookupCityWithin(k string, maxTypos int) (Place, bool) {
 	if p, ok := d.Cities[k]; ok {
@@ -167,28 +207,13 @@ func (d *Directory) lookupCityWithin(k string, maxTypos int) (Place, bool) {
 // knownName reports whether k is a name of its own: a settlement of the classifier, a region, a district,
 // a marker or a street the map knows in some city. Such a short word is not read as a mistyped city.
 func (d *Directory) knownName(k string) bool {
-	if len(d.Settlements[k]) > 0 || d.Regions[k] != "" || Markers[k] != nil || FuzzyMarker(k) != nil {
+	if len(d.Settlements[k]) > 0 || d.Regions[k] != "" || Markers[k] != nil || OSM().KnownAnywhere(k) {
 		return true
 	}
 	if _, ok := d.Districts[k]; ok {
 		return true
 	}
-	return OSM().KnownAnywhere(k)
-}
-
-// NearCity reports whether r is at most one edit from some city name, whichever and however many.
-func (d *Directory) NearCity(r []rune) bool {
-	for n := len(r) - 1; n <= len(r)+1; n++ {
-		if n < 0 || n >= text.MaxFuzzyLen {
-			continue
-		}
-		for _, c := range d.cityByLen[n] {
-			if text.DistanceLimit(r, c.r, 1) <= 1 {
-				return true
-			}
-		}
-	}
-	return false
+	return FuzzyMarker(k) != nil
 }
 
 // AdminKnown reports whether k names a known region, district or (also by a close spelling) city.

@@ -38,7 +38,8 @@ type OSMRef struct {
 	Numbers map[string]map[string][]Numbered // key + "\x00" + type -> the same buildings by number
 
 	anyOnce sync.Once
-	any     map[string]struct{} // street keys of all cities
+	any     map[string]struct{}            // street keys of all cities
+	glued   map[string]map[string]struct{} // city ("" for all) -> street keys without spaces
 }
 
 // Street finds a street by its key and type ("улица", "проспект" or AnyType).
@@ -65,22 +66,39 @@ func (r *OSMRef) Neighbors(city, key, typ, house string) (string, bool) {
 
 // KnownAnywhere reports whether some city of the map has a street with the key.
 func (r *OSMRef) KnownAnywhere(key string) bool {
-	_, ok := r.anywhere()[key]
+	r.anyOnce.Do(r.buildAny)
+	_, ok := r.any[key]
 	return ok
 }
 
-func (r *OSMRef) anywhere() map[string]struct{} {
-	r.anyOnce.Do(func() {
-		r.any = map[string]struct{}{}
-		for _, streets := range r.Streets {
-			for k := range streets {
-				if name, typ, _ := strings.Cut(k, "\x00"); typ == AnyType {
-					r.any[name] = struct{}{}
-				}
+// GluedStreet reports whether the city has a street written as the one word w, its key without spaces:
+// "толеби" for Толе би. For a city the map does not cover, the streets of all cities count.
+func (r *OSMRef) GluedStreet(city, w string) bool {
+	r.anyOnce.Do(r.buildAny)
+	w = strings.ReplaceAll(w, "-", "")
+	if m, ok := r.glued[city]; ok {
+		_, known := m[w]
+		return known
+	}
+	_, known := r.glued[""][w]
+	return known
+}
+
+func (r *OSMRef) buildAny() {
+	r.any = map[string]struct{}{}
+	r.glued = map[string]map[string]struct{}{"": {}}
+	for city, streets := range r.Streets {
+		g := map[string]struct{}{}
+		for k := range streets {
+			if name, typ, _ := strings.Cut(k, "\x00"); typ == AnyType {
+				r.any[name] = struct{}{}
+				sq := strings.ReplaceAll(name, " ", "")
+				g[sq] = struct{}{}
+				r.glued[""][sq] = struct{}{}
 			}
 		}
-	})
-	return r.any
+		r.glued[city] = g
+	}
 }
 
 // OSM returns the embedded street directory; it is read once, on first use.
