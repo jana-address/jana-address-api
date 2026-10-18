@@ -22,6 +22,9 @@ func TestGluedCity(t *testing.T) {
 	}{
 		// a street one letter off that starts with the city's last letter: Есик and Кунаева
 		{"есиккнаева 12", map[Field]string{City: "Есик", StreetName: "кнаева", House: "12"}},
+		// a word one letter from a city of the region written before it, also of four letters
+		{"Павлодарская область, Аксй, ул. Ленина 3", map[Field]string{City: "Аксу", StreetName: "Ленина", House: "3"}},
+		{"Жамбылская обл Тарз ул Абая 5", map[Field]string{City: "Тараз", StreetName: "Абая", House: "5"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {

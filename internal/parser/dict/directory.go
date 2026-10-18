@@ -180,6 +180,28 @@ func (d *Directory) NearCities(k string) (p Place, unique, near bool) {
 	return p, unique, true
 }
 
+// NearCityIn finds the one city of the province one letter from k, a centre before a town as close.
+func (d *Directory) NearCityIn(k, province string) (Place, bool) {
+	var buf [text.MaxFuzzyLen]rune
+	r := text.ToRunes(k, buf[:0])
+	if province == "" || len(r) >= text.MaxFuzzyLen {
+		return Place{}, false
+	}
+	var p Place
+	bestD, ambiguous := 2, false
+	for n := len(r) - 1; n <= len(r)+1; n++ {
+		if n < 0 || n >= text.MaxFuzzyLen {
+			continue
+		}
+		for _, c := range d.cityByLen[n] {
+			if c.p.Province == province {
+				p, bestD, ambiguous = closer(c.p, text.DistanceLimit(r, c.r, 1), p, bestD, ambiguous)
+			}
+		}
+	}
+	return p, bestD <= 1 && !ambiguous
+}
+
 // lookupCityWithin is LookupCity with at most maxTypos edits.
 func (d *Directory) lookupCityWithin(k string, maxTypos int) (Place, bool) {
 	if p, ok := d.Cities[k]; ok {

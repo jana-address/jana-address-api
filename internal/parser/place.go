@@ -198,7 +198,17 @@ func (st *state) admin() {
 			st.cityPair(a, b)
 			for i := a; i <= b; i++ {
 				t := st.toks[i]
-				if t.kind != tWord || t.used || t.mk != nil || (!st.d.AdminKnown(dict.City, t.fold) && i != 0) {
+				if t.kind != tWord || t.used || t.mk != nil {
+					continue
+				}
+				if p, ok := st.regionTypoCity(i); ok {
+					st.set(City, p.Name, SourceString, i, i)
+					st.setDir(Province, p.Province, LevelSettlement)
+					st.setDir(District, p.District, LevelSettlement)
+					st.toks[i].used = true
+					continue
+				}
+				if !st.d.AdminKnown(dict.City, t.fold) && i != 0 {
 					continue
 				}
 				areaNext := i+2 <= b && st.toks[i+1].kind == tNum && st.toks[i+2].mk != nil && dict.NumberedAreaTypes[st.toks[i+2].mk.Canon]
@@ -237,6 +247,26 @@ func (st *state) admin() {
 		}
 	}
 	st.cityPairAtEnd()
+}
+
+// regionTypoCity finds the city of the written region that a word one letter from it names, the word
+// right after the region before more words: "Павлодарская обл. Аксй, ул. Абая 5". A word of four letters
+// too, which is close to too many cities elsewhere; never a village, a street of the map or a second city.
+func (st *state) regionTypoCity(i int) (dict.Place, bool) {
+	t := st.toks[i]
+	prov := st.writtenValue(Province)
+	if prov == "" || st.vals[City] != "" || len([]rune(t.fold)) < 4 || !st.opensLine(i) || !st.typoCityBefore(i) ||
+		len(st.d.Settlements[t.fold]) > 0 || dict.OSM().KnownAnywhere(t.fold) || dict.OSM().KnownAnywhere(lookupKey(t.text)) {
+		return dict.Place{}, false
+	}
+	if _, exact := st.d.Cities[t.fold]; exact {
+		return dict.Place{}, false
+	}
+	p, ok := st.d.NearCityIn(t.fold, prov)
+	if hand, known := st.d.Cities[text.Fold(p.Name)]; ok && known {
+		p = hand
+	}
+	return p, ok
 }
 
 // houseNext reports whether the house follows token i, maybe after a comma: a house number that does not
