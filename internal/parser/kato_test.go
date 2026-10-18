@@ -235,6 +235,9 @@ func TestTypeGluedAfterCity(t *testing.T) {
 		{"алматы абаятұйығы 4", map[Field]string{StreetType: "переулок", StreetName: "абая"}},
 		// the last letter of a glued city typed twice stays with the city
 		{"алматыыгагарина 15", map[Field]string{City: "Алматы", StreetName: "гагарина", House: "15"}},
+		// a boulevard or a highway type glued after the city
+		{"астанаб-ркабанбайбатыра 3", map[Field]string{City: "Астана", StreetType: "бульвар"}},
+		{"астанашоссекоргалжынское 20", map[Field]string{City: "Астана", StreetType: "шоссе", StreetName: "коргалжынское"}},
 		{"шымкенттбайтурсынова 7", map[Field]string{City: "Шымкент", StreetName: "байтурсынова", House: "7"}},
 		// a street known by its surname keeps a first syllable that reads as a type: "кош" in Кошкарбаева
 		{"астанакошкарбаева 40", map[Field]string{StreetName: "кошкарбаева", House: "40"}},
