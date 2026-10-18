@@ -332,7 +332,7 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 		if acronym && capsWord(d, r, s, i, e) {
 			i++ // a word in capitals keeps its last letter: "КАРАГАНДАпичугина", "БАТЫРшкольная"
 		}
-		if (lowerUpper || acronym) && dict.Markers[text.Fold(string(r[s:e]))] == nil {
+		if (lowerUpper || acronym) && dict.Markers[text.Fold(string(r[s:e]))] == nil && !caseTypoCity(d, r, s, e) {
 			left := splitWord(d, r, s, i, city)
 			next := ""
 			if p, ok := d.LookupCity(left[len(left)-1].fold); ok {
@@ -377,7 +377,7 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 	// a city with a stray letter or a typo right before its type word: "уральскккаласы", "костанайцқала",
 	// "усть-каменогорсқала" (not "усть-каменогорсқ" and "ала")
 	if city == "" {
-		for p := min(e-3, top); p >= s+5; p-- {
+		for p := min(e-3, top); p >= s+4; p-- {
 			if !startsWithTypeWord(r[p:e]) {
 				continue
 			}
@@ -466,11 +466,13 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 		if !(dict.GlueMarkers[left] && p-s >= 3 || short) {
 			continue
 		}
-		if !restOK(rest) && !(len([]rune(left)) >= 5 && left != kalas && len([]rune(rest)) == 3 && !adjectiveRest(rest)) {
-			continue // "каласыабя", "улицааай": the longest type word goes, a short street stays ("қаласаин" is қала Саина)
+		if !restOK(rest) && !(len([]rune(left)) >= 4 && left != kalas && len([]rune(rest)) == 3 && !adjectiveRest(rest)) &&
+			!(short && (gluedStreet(city, rest) || streetLike(city, rest))) {
+			continue // "каласыабя", "улицааай", "ауылаба": the longest type word goes, a short street stays ("қаласаин"
+			// is қала Саина); "улинтернациональная" after a city is ул Интернациональная
 		}
-		if short && p-s <= 3 && startsLikeStreet(city, w.fold, left) {
-			break // "протзанова", "кошкаррбаева", "улдала": a street of the city that starts with a type word
+		if short && p-s <= 3 && (startsLikeStreet(city, w.fold, left) || streetLike(city, w.fold)) {
+			break // "протзанова", "кошкаррбаева", "улдала", "прмитина": a street of the city that starts with a type word
 		}
 		if left == kalas && p+1 < e && city != "" && sStreet(city, rest) {
 			p-- // "қаласейфуллн" is қала and Сейфуллина
@@ -731,4 +733,15 @@ func secondCityWord(d *dict.Directory, prev string, r []rune, s, e int) int {
 		}
 	}
 	return s
+}
+
+// caseTypoCity reports whether a word with a case change inside is a city with letters swapped:
+// "Усть-аКменогорск".
+func caseTypoCity(d *dict.Directory, r []rune, s, e int) bool {
+	f := text.Fold(string(r[s:e]))
+	if len([]rune(f)) < 8 {
+		return false
+	}
+	_, ok := d.LookupCity(f)
+	return ok
 }

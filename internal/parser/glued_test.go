@@ -49,6 +49,13 @@ func TestGluedBorders(t *testing.T) {
 		{"оралдостыкк 5", map[Field]string{City: "Уральск", StreetName: "достыкк", House: "5"}},
 		{"петропавлинтернационалная 3", map[Field]string{City: "Петропавловск", StreetName: "интернационалная", House: "3"}},
 		{"кокшетуабылайхна 9", map[Field]string{City: "Кокшетау", StreetName: "абылайхна", House: "9"}},
+		// a short city before қала
+		{"семеқала абая 4", map[Field]string{City: "Семей", StreetName: "абая", House: "4"}},
+		// a short street after "ауыл", a street that reads as an adjective after "ул", a mistyped street
+		// that starts with "пр"
+		{"Талгарауылабй 3", map[Field]string{City: "Талгар", StreetName: "абй", House: "3"}},
+		{"петропавловскулинтернациональная 7", map[Field]string{City: "Петропавловск", StreetType: "улица", StreetName: "интернациональная", House: "7"}},
+		{"усть-каменогорскпрмитина 5", map[Field]string{City: "Усть-Каменогорск", StreetName: "прмитина", House: "5"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.raw, func(t *testing.T) {
