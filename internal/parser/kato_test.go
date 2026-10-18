@@ -196,6 +196,7 @@ func TestAreaBeforeStreet(t *testing.T) {
 		// an area the city knows, then a street its map lacks or a mistyped one
 		{"Астана ЖК Арнау Шокпаровская 12", map[Field]string{LivingArea: "Арнау", StreetName: "Шокпаровская", House: "12"}},
 		{"Туркестан мкр Бекзат Тауасарова 7", map[Field]string{LivingArea: "Бекзат", StreetName: "Тауасарова", House: "7"}},
+		{"Тараз мкр Аса Абйа 12", map[Field]string{LivingArea: "Аса", StreetName: "Абйа", House: "12"}},
 		{`Астана ЖК "Арнау Шокпаровская" 12`, map[Field]string{LivingArea: "-", StreetName: "Арнау Шокпаровская"}},
 		// a street of two words after the area keeps its first word, even a mistyped one
 		{"Кокшетау, мкр Сарыарка Кенесары ханн 5", map[Field]string{LivingArea: "Сарыарка", StreetName: "Кенесары ханн"}},

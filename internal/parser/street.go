@@ -361,8 +361,11 @@ func (st *state) knownAreaHead(city string, c *cand, splits []int) int {
 	for _, j := range splits {
 		k := lookupKey(st.text(j, c.b))
 		last := k[strings.LastIndexByte(k, ' ')+1:]
+		// a short street of one word only after a microdistrict known as written: "мкр Аса Абая 5"
+		n := utf8.RuneCountInString(last)
+		short := n < 5 && (c.isLiving || last == k) // "мкр Сарыарка Абылай хна" is no short street
 		if strings.ContainsAny(k, "0123456789") || streetTitles[st.toks[j].fold] ||
-			utf8.RuneCountInString(last) < 5 && (c.isLiving || last == k) { // "мкр Сарыарка Абылай хна"
+			short && (c.isLiving || n < 4 || !st.knownArea(city, c.a, j-1)) {
 			continue
 		}
 		head := lookupKey(st.text(c.a, j-1))
