@@ -123,7 +123,7 @@ func initPlaces() {
 	addCity("Иргели", alm, "іргелі", "irgeli")
 	addCity("Узынагаш", alm, "ұзынағаш", "uzynagash")
 	addCity("Отеген батыр", alm, "өтеген батыр", "otegen batyr")
-	addCity("Кордай", zhm, "қордай", "korday", "георгиевка") // Георгиевка until 1993; villages so called elsewhere need their region
+	addCity("Кордай", zhm, "қордай", "korday") // not by its old name Георгиевка: villages of that name live in several regions
 	addCity("Аксукент", trk, "ақсукент", "aksukent")
 	baseCities[text.Key("Боралдай")] = Place{Name: "Боралдай", Province: alm, District: "Илийский"}
 	baseCities[text.Key("Бурундай")] = baseCities[text.Key("Боралдай")]

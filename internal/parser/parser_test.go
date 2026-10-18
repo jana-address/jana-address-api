@@ -280,7 +280,7 @@ func TestParseExamples(t *testing.T) {
 		{"оралхана бокея 12", map[Field]string{City: "-", StreetName: "оралхана бокея"}},
 		// a typo as close to a regional centre as to a smaller town is the centre; old names of towns
 		{"акту 12 мкр, 7", map[Field]string{City: "Актау", Province: "Мангистауская область", StreetName: "12", House: "7"}},
-		{"с. Георгиевка, ул. Абая 3", map[Field]string{City: "Кордай", Province: "Жамбылская область"}},
+		{"с. Георгиевка, ул. Абая 3", map[Field]string{City: "Георгиевка"}}, // not Кордай: villages so called live in several regions
 		{"Восточно-Казахстанская область, с. Георгиевка, ул. Абая 3", map[Field]string{City: "Георгиевка", Province: "Восточно-Казахстанская область"}},
 		{"Капчагай, ул. Абая 5", map[Field]string{City: "Конаев"}},
 	}

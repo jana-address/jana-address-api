@@ -382,7 +382,7 @@ func (st *state) setCity(k, name string, a, b int, village bool) {
 		return
 	}
 	if len(ps) == 0 || !village {
-		if p, ok := st.d.LookupCity(k); ok && consistent(p) { // "ВКО, с. Георгиевка" is not Кордай, once Георгиевка
+		if p, ok := st.d.LookupCity(k); ok && consistent(p) { // a close spelling must fit the written region
 			use(p)
 			return
 		}
