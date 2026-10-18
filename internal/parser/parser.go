@@ -110,10 +110,11 @@ func UseKATO(recs []kato.Record) KATOStats { return dict.UseKATO(recs) }
 func Parse(raw string) Output {
 	c := text.Clean(raw)
 	d := dict.Current()
-	st := &state{d: d, c: c, toks: splitGlued(d, c.Runes, tokenize(c.Runes)), vals: map[Field]string{}, src: map[Field]string{}, written: map[Field]string{}, lvl: map[Field]string{}, streetE: -1}
+	st := &state{d: d, c: c, toks: splitGlued(d, c.Runes, tokenize(c.Runes)), vals: map[Field]string{}, src: map[Field]string{}, written: map[Field]string{}, lvl: map[Field]string{}, streetE: -1, landmarkNum: map[int]bool{}}
 	st.classify()
 	st.segment()
 	st.admin()
+	st.landmarkNumbers()
 	st.units()
 	st.landmarks()
 	st.street()

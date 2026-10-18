@@ -21,6 +21,8 @@ type state struct {
 	conflict bool
 	streetE  int      // token index after the street name, -1 if none
 	segs     [][2]int // first and last token of each segment
+
+	landmarkNum map[int]bool // numbers of a school or kindergarten before a postfix landmark, see landmarkNumbers
 }
 
 // ---------- helpers ----------

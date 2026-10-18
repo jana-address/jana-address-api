@@ -61,3 +61,27 @@ func TestNumbersAroundBlock(t *testing.T) {
 		checkFields(t, tc.raw, tc.want)
 	}
 }
+
+func TestLandmarkNumbers(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want map[Field]string
+	}{
+		// the number of a school before a Kazakh postfix landmark is not a unit number
+		{"Астана, Сарайшык көшесі 9 үй 15 мектептің жанында", map[Field]string{House: "9", Landmark: "15 мектептің жанында"}},
+		{"Шымкент Абая 30, 12 пәтер 7 балабақшаның жанында", map[Field]string{House: "30", Apartment: "12", Landmark: "7 балабақшаның жанында"}},
+		{"Тараз мкр Жайлау 14, 3 мектептің жанында", map[Field]string{StreetName: "Жайлау", House: "14", Landmark: "3 мектептің жанында"}},
+		// with no other house number, or taken by a marker before it, the number stays a unit number
+		{"Абай көшесі 64 мектептің жанында", map[Field]string{House: "64", Landmark: "мектептің жанында"}},
+		{"Абая 5 кв 12 мектептің жанында", map[Field]string{House: "5", Apartment: "12", Landmark: "мектептің жанында"}},
+		{"Сатпаева д 30 эт 2 кв 88 емхананың қасында", map[Field]string{House: "30", Floor: "2", Apartment: "88"}},
+		{"Конаев мкрн. 2 үй 19 мектептің қасында", map[Field]string{StreetName: "2", House: "19"}},
+		// a school number after "№" or before a bracket belongs to the landmark
+		{"Караганда мкр. Голубые пруды 17 кв 4 напротив школы №35", map[Field]string{
+			StreetName: "Голубые пруды", House: "17", Apartment: "4", Landmark: "напротив школы №35"}},
+		{"Тараз мкрн. Карасу 21 кв 6 (возле школы 14)", map[Field]string{StreetName: "Карасу", House: "21", Landmark: "возле школы 14"}},
+	}
+	for _, tc := range cases {
+		checkFields(t, tc.raw, tc.want)
+	}
+}
