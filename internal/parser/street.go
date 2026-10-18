@@ -226,8 +226,8 @@ func (st *state) knownArea(city string, a, b int) bool {
 
 // areaThenStreet splits a microdistrict or ЖК name that runs into an untyped street, by the directory
 // of the city: "мкр жагалау кабанбай батыра 37" is the area "жагалау" and the street "кабанбай батыра"
-// when the city knows both. It returns the first token of the street, or -1. A name the directory
-// knows whole is never split.
+// when the city knows both, or knows the street well. It returns the first token of the street, or -1.
+// A name the directory knows whole is never split.
 func (st *state) areaThenStreet(c *cand) int {
 	city := st.vals[City]
 	ref := dict.OSM()
@@ -247,8 +247,8 @@ func (st *state) areaThenStreet(c *cand) int {
 		}
 	}
 	for _, j := range splits {
-		// both halves must be known: map names are noisy ("Алтын" is an area, "Тау" a street), and
-		// "ЖК Алтын Булак" or "ЖК Асыл Тау" must stay whole
+		// both halves known first: map names are noisy ("Алтын" is an area, "Тау" a street), and
+		// "ЖК Алтын Булак" or "ЖК Асыл Тау" stay whole, as the map knows Булак and Тау too little
 		if k := key(j, c.b); (st.strongStreet(city, k) || bySurname(city, k)) && knownArea(c.a, j-1) && !strings.ContainsAny(k, "0123456789") {
 			return j
 		}
@@ -260,6 +260,17 @@ func (st *state) areaThenStreet(c *cand) int {
 	}
 	for _, j := range splits { // an area mistyped by one letter: "мкр Сампл Шевченко 50"
 		if k := key(j, c.b); st.strongStreet(city, k) && !strings.ContainsAny(k, "0123456789") && closeArea(city, key(c.a, j-1)) {
+			return j
+		}
+	}
+	// an area the map does not know, before a street it knows well: "мкр Мерей Айтеке би 31". A name one
+	// letter from a known area is that area mistyped, even when its last word is also a street:
+	// "ЖК Туа Самал" is Тау Самал, not the street Самал
+	if closeArea(city, key(c.a, c.b)) {
+		return -1
+	}
+	for _, j := range splits {
+		if k := key(j, c.b); st.strongStreet(city, k) && !strings.ContainsAny(k, "0123456789") {
 			return j
 		}
 	}
