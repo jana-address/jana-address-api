@@ -178,7 +178,7 @@ func (st *state) admin() {
 			st.writtenRegion(st.d.Regions[k], k, st.text(a, b), "")
 			st.markUsed(a, b)
 		case clean && st.vals[City] == "" && len(st.d.Settlements[k]) > 0 &&
-			(st.writtenValue(Province) != "" || st.writtenValue(District) != ""):
+			(st.writtenValue(Province) != "" || st.writtenValue(District) != "") && !st.houseNext(b):
 			st.setCity(k, st.text(a, b), a, b, true)
 			st.markUsed(a, b)
 		// a rayon adjective after a city with rayons of its own is one of them; another one is a street:
@@ -202,8 +202,12 @@ func (st *state) admin() {
 					continue
 				}
 				areaNext := i+2 <= b && st.toks[i+1].kind == tNum && st.toks[i+2].mk != nil && dict.NumberedAreaTypes[st.toks[i+2].mk.Canon]
-				if _, exact := st.d.Cities[t.fold]; !exact && !areaNext && !st.typoCityBefore(i) && !st.typoCityOpening(i) {
+				_, exact := st.d.Cities[t.fold]
+				if !exact && !areaNext && !st.typoCityBefore(i) && !st.typoCityOpening(i) {
 					continue
+				}
+				if !exact && st.houseNext(i) && !st.typoCityOpening(i) {
+					continue // a town or village before the house is the street: "Сауран д 104 кв 12"
 				}
 				if st.shortTypo(i) && (i > a && st.toks[i-1].kind == tWord && !st.toks[i-1].used && st.toks[i-1].mk == nil || st.exactCityElsewhere(i)) {
 					continue // "ул. Акын Сара" is a street, "Esim khana 72, Turkestan" names its city
@@ -231,6 +235,27 @@ func (st *state) admin() {
 		}
 	}
 	st.cityPairAtEnd()
+}
+
+// houseNext reports whether the house follows token i, maybe after a comma: a house number that does not
+// start a numbered area, or a house marker. A town or village so placed is the street named after it:
+// "Сауран д 104", "Торайгырова, 29/11".
+func (st *state) houseNext(i int) bool {
+	j := i + 1
+	for st.isPunct(j, ",.") {
+		j++
+	}
+	if j >= len(st.toks) {
+		return false
+	}
+	t := st.toks[j]
+	if t.kind == tWord {
+		return t.mk != nil && t.mk.Class == dict.House
+	}
+	if t.kind != tNum || t.ignore {
+		return false
+	}
+	return j+1 >= len(st.toks) || st.toks[j+1].mk == nil || !dict.NumberedAreaTypes[st.toks[j+1].mk.Canon]
 }
 
 // shortTypo reports whether token i is a word of four letters read as a large city only by its close
