@@ -432,6 +432,12 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 			return split(typoP, typoCity)
 		}
 	}
+	// a street the map knows before a type word at the end is not a city: "кунаевакөш" is not Конаев,
+	// "сатпаевакөш" not Сатпаев
+	te := typeEnd(r, s, e)
+	if te > s && gluedStreet("", text.Fold(string(r[s:te]))) {
+		return []token{wordToken(r, s, te), wordToken(r, te, e)}
+	}
 	// 3. a city with one typo at the start: "асстанаакжол", "шпмалғанул"; not for adjectives like "Алматинская"
 	// and not before a preposition: "Ермекво" is a name, not "Ермак во". Next to an exact city only a longer
 	// name, before it: "лисаковмк…" is Лисаковск, not Лисаков
@@ -485,11 +491,8 @@ func splitWord(d *dict.Directory, r []rune, s, e int, city string) []token {
 		return split(p, next)
 	}
 	// 6. a type word at the end: "абайкошеси", "самалмкр", "қабанбайбатыркөш"
-	for p := s + 3; p <= e-2; p++ {
-		right := text.Fold(string(r[p:e]))
-		if dict.GlueMarkers[right] || right == text.Fold("көш") || postfixGlued[right] {
-			return append(splitWord(d, r, s, p, city), wordToken(r, p, e))
-		}
+	if te > s {
+		return append(splitWord(d, r, s, te, city), wordToken(r, te, e))
 	}
 	return []token{w}
 }
@@ -680,8 +683,11 @@ func streetLike(city, f string) bool {
 }
 
 // sStreet reports whether the rest after "қалас" reads better with that "с": "қаласейфуллн" is қала
-// Сейфуллина, "қаласатпаева" қала Сатпаева.
+// Сейфуллина, "қаласатпаева" қала Сатпаева, "қаласмагуловакөш" қала Смагулова.
 func sStreet(city, rest string) bool {
+	if r := []rune(rest); typeEnd(r, 0, len(r)) > 0 {
+		rest = string(r[:typeEnd(r, 0, len(r))])
+	}
 	return gluedStreet(city, "с"+rest) && !gluedStreet(city, rest) || streetLike(city, "с"+rest) && !streetLike(city, rest)
 }
 
@@ -745,3 +751,17 @@ func caseTypoCity(d *dict.Directory, r []rune, s, e int) bool {
 	_, ok := d.LookupCity(f)
 	return ok
 }
+
+// typeEnd returns where a street type glued at the end of r[s:e] starts, the longest first: "абайкошеси",
+// "самалмкр" (s when there is none).
+func typeEnd(r []rune, s, e int) int {
+	for p := s + 3; p <= e-2; p++ {
+		right := text.Fold(string(r[p:e]))
+		if dict.GlueMarkers[right] || right == kosh || postfixGlued[right] {
+			return p
+		}
+	}
+	return s
+}
+
+var kosh = text.Fold("көш")

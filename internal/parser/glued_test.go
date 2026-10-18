@@ -29,6 +29,9 @@ func TestGluedBorders(t *testing.T) {
 		// the longest type word goes, a short street stays; "қаласатпаева" is қала and Сатпаева
 		{"павлодарулицаабй 5", map[Field]string{City: "Павлодар", StreetType: "улица", StreetName: "абй", House: "5"}},
 		{"алматықаласатпаева 10", map[Field]string{City: "Алматы", StreetName: "сатпаева", House: "10"}},
+		{"алматықаласатпаевакөш 10", map[Field]string{City: "Алматы", StreetName: "сатпаева", House: "10"}},
+		// a known street before a glued type word is not a mistyped city: Конаев
+		{"алматы конаевакөш 12", map[Field]string{City: "Алматы", StreetName: "конаева", House: "12"}},
 		// a street of the city that starts with a type word keeps it, also mistyped
 		{"астанаулыдалла 3", map[Field]string{City: "Астана", StreetName: "улыдалла", House: "3"}},
 		{"астанақаласыкошкарбайева 9", map[Field]string{City: "Астана", StreetName: "кошкарбайева", House: "9"}},
