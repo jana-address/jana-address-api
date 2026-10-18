@@ -305,8 +305,97 @@ func (st *state) areaThenStreet(c *cand) int {
 	if j := st.areaOfSomeCity(c); j > 0 {
 		return j
 	}
+	if j := st.popularTail(city, c); j > 0 {
+		return j
+	}
 	return st.titledTail(c)
 }
+
+// popularTail splits the last word off a name of two words or more right before the house number when
+// that word is a street the city's map knows by many votes, as written, one letter off, or as the
+// masculine form of its adjective, and no living area of the map is or ends in it: "ЖК Шахристан Турн
+// 108" is Туран, "мкр Ббереке Поьеды 60" is Победы. The name whole is not known (areaThenStreet checked).
+func (st *state) popularTail(city string, c *cand) int {
+	j := c.b
+	if j <= c.a || j+1 >= len(st.toks) || st.toks[j].kind != tWord || st.toks[j-1].kind != tWord {
+		return -1
+	}
+	if n := st.toks[j+1]; n.kind != tNum && !(n.kind == tWord && n.mk != nil && n.mk.Class == dict.House) {
+		return -1 // "Поьеды 60", "Поьеды д.60"
+	}
+	for k := max(c.a-1, 0); k <= j+1; k++ {
+		if st.isPunct(k, "\"«»") {
+			return -1
+		}
+	}
+	k := lookupKey(st.toks[j].text)
+	names := areaNames()
+	if utf8.RuneCountInString(k) < 4 || strings.ContainsAny(k, "0123456789 ") || names[0][k] || names[1][k] ||
+		streetTitles[st.toks[j].fold] || closeArea(city, k) {
+		return -1
+	}
+	if s, ok := dict.OSM().Street(city, k, dict.AnyType); ok {
+		if s.Votes >= 20 {
+			return j
+		}
+		return -1
+	}
+	if base, ok := strings.CutSuffix(k, "ский"); ok {
+		if s, ok := dict.OSM().Street(city, base+"ская", dict.AnyType); ok && s.Votes >= 20 {
+			return j
+		}
+	}
+	var kbuf [text.MaxFuzzyLen]rune
+	r := text.ToRunes(k, kbuf[:0])
+	if len(r) >= text.MaxFuzzyLen-1 {
+		return -1
+	}
+	byLen := popularStreets()[city]
+	found, votes := "", 0
+	for n := len(r) - 1; n <= len(r)+1; n++ {
+		if n < 4 || n >= len(byLen) {
+			continue
+		}
+		for _, s := range byLen[n] {
+			if text.DistanceLimit(r, s.r, 1) <= 1 {
+				if found != "" && found != s.name {
+					return -1 // two streets as close: no guess
+				}
+				found, votes = s.name, s.votes
+			}
+		}
+	}
+	if found == "" || votes < 20 {
+		return -1
+	}
+	return j
+}
+
+type votedStreet struct {
+	name  string
+	r     []rune
+	votes int
+}
+
+// popularStreets keeps, per city, the one-word streets of the map with three votes or more bucketed by
+// length in runes, for popularTail.
+var popularStreets = sync.OnceValue(func() map[string][][]votedStreet {
+	out := map[string][][]votedStreet{}
+	for city, streets := range dict.OSM().Streets {
+		byLen := make([][]votedStreet, text.MaxFuzzyLen)
+		for key, s := range streets {
+			name, typ, _ := strings.Cut(key, "\x00")
+			if typ != dict.AnyType || s.Votes < 3 || strings.ContainsAny(name, " 0123456789") {
+				continue
+			}
+			if n := utf8.RuneCountInString(name); n >= 3 && n < text.MaxFuzzyLen {
+				byLen[n] = append(byLen[n], votedStreet{name, []rune(name), s.Votes})
+			}
+		}
+		out[city] = byLen
+	}
+	return out
+})
 
 // areaNames keeps the living areas the map knows in any city, and the last words of its names of two
 // words or more.
