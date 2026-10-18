@@ -49,6 +49,12 @@ func tokenize(r []rune) []token {
 			i++
 			continue
 		}
+		if newPostcodeAt(r, i) {
+			txt := string(r[i : i+7])
+			toks = append(toks, token{kind: tNum, text: txt, fold: text.Fold(txt), s: i, e: i + 7, ignore: true})
+			i += 7
+			continue
+		}
 		j := i + 1
 		k := tPunct
 		switch {
@@ -109,6 +115,26 @@ func tokenize(r []rune) []token {
 		i = j
 	}
 	return toks
+}
+
+// newPostcodeAt reports whether r[i:] opens a postcode of the new format: the Latin letter of the region
+// and six signs, letters and digits by turn ("X09F4F0", "A15E3C4"). 2GIS writes it after the old one,
+// "160011/X09F4F0"; it is neither a street nor a house.
+func newPostcodeAt(r []rune, i int) bool {
+	const shape = "LDDLDLD"
+	if i+len(shape) > len(r) || i > 0 && (isLetter(r[i-1]) || isDigit(r[i-1])) {
+		return false
+	}
+	if e := i + len(shape); e < len(r) && (isLetter(r[e]) || isDigit(r[e])) {
+		return false
+	}
+	for k, c := range r[i : i+len(shape)] {
+		latin := c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+		if shape[k] == 'L' && !latin || shape[k] == 'D' && (c < '0' || c > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // afterHouseMarker reports whether the number starting at r[i] follows "д", "дом", "үй" or "d".

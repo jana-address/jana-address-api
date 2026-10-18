@@ -62,6 +62,10 @@ func TestParseExamples(t *testing.T) {
 		{"КАРАГАНДЫ К. Мұстафин үй 20", map[Field]string{City: "Караганда", StreetName: "Мұстафин", House: "20"}},
 		{"160000, г. Шымкент, ул. Байтурсынова 12", map[Field]string{City: "Шымкент", House: "12", Apartment: "-"}},
 		{"050000 Алматы ул Абая 10", map[Field]string{City: "Алматы", Province: "Алматы", StreetName: "Абая", House: "10"}},
+		// the new postcode after the old one, as 2GIS writes it
+		{"Шымкент, улица Тауке хана, 12, 160011/X09F4F0", map[Field]string{City: "Шымкент", StreetName: "Тауке хана", House: "12"}},
+		{"X09F4F0 Шымкент Тауке хана 12 кв 5", map[Field]string{City: "Шымкент", StreetName: "Тауке хана", House: "12", Apartment: "5"}},
+		{"Шымкент, Абайский район, Шымкент городская администрация160011/X09F4F0", map[Field]string{City: "Шымкент", District: "Абайский", StreetName: "-", House: "-"}},
 		{"Алматы, мкр Самал-2, д. 33, кв. 7", map[Field]string{StreetName: "Самал-2", House: "33", Apartment: "7", District: "Медеуский"}},
 		{"Алматы, мкр Самал-2", map[Field]string{StreetName: "Самал-2", House: "-"}},
 		// fast typing: typos in markers, no commas
