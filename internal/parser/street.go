@@ -280,20 +280,33 @@ func (st *state) areaThenStreet(c *cand) int {
 	}
 	for _, j := range splits {
 		if k := key(j, c.b); st.strongStreet(city, k) && !strings.ContainsAny(k, "0123456789") {
-			return j
+			return st.withFirstName(city, c, j)
 		}
 	}
 	// then a street of the city by its surname alone or one letter off a street it knows well, after an
 	// area it does not know: "мкр Тельман Шакарима 54", "мкр Кайтпас Рыскулоова 9"
 	for _, j := range splits {
 		if k := key(j, c.b); !strings.ContainsAny(k, "0123456789") && (bySurname(city, k) || closeStreet(city, k)) {
-			return j
+			return st.withFirstName(city, c, j)
 		}
 	}
 	if j := st.knownAreaHead(city, c, splits); j > 0 {
 		return j
 	}
 	return st.areaThenStreetSomewhere(c)
+}
+
+// withFirstName moves the start j of the street found by its surname one word back when the words before
+// that word, not before j, name a microdistrict of the city, also one letter off: in "мкр Достык Акдемика
+// Маргулана" the mistyped title belongs to the street. A ЖК keeps its two words: "ЖК Алтын Булак Абая 5".
+func (st *state) withFirstName(city string, c *cand, j int) int {
+	if c.isLiving || j-1 <= c.a || st.toks[j-1].kind != tWord || st.toks[j-2].kind != tWord || st.knownArea(city, c.a, j-1) {
+		return j
+	}
+	if st.knownArea(city, c.a, j-2) || closeArea(city, lookupKey(st.text(c.a, j-2))) {
+		return j - 1
+	}
+	return j
 }
 
 // knownAreaHead splits a name that starts with a living area of the city and goes on with words the map
@@ -310,7 +323,8 @@ func (st *state) knownAreaHead(city string, c *cand, splits []int) int {
 	for _, j := range splits {
 		k := lookupKey(st.text(j, c.b))
 		last := k[strings.LastIndexByte(k, ' ')+1:]
-		if strings.ContainsAny(k, "0123456789") || utf8.RuneCountInString(last) < 5 || streetTitles[st.toks[j].fold] {
+		if strings.ContainsAny(k, "0123456789") || streetTitles[st.toks[j].fold] ||
+			utf8.RuneCountInString(last) < 5 && (c.isLiving || last == k) { // "мкр Сарыарка Абылай хна"
 			continue
 		}
 		head := lookupKey(st.text(c.a, j-1))
@@ -373,7 +387,7 @@ func (st *state) streetAnywhere(c *cand) int {
 		head := lookupKey(st.text(c.a, j-1))
 		for city := range ref.Streets {
 			if (st.strongStreet(city, k) || bySurname(city, k)) && !st.strongStreet(city, head) {
-				return j
+				return st.withFirstName(city, c, j)
 			}
 		}
 	}
