@@ -2,6 +2,7 @@ package parser
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/jana-address/jana-address-api/internal/parser/dict"
 	"github.com/jana-address/jana-address-api/internal/parser/text"
@@ -95,7 +96,7 @@ func (st *state) classify() {
 		if t.fold == "с" && (st.isPunct(i+1, ".") || st.knownPlaceAt(i+1) || st.opensLine(i) && st.closePairAt(i+1)) {
 			t.mk = &dict.Marker{Class: dict.Settlement}
 		}
-		if t.fold == "кала" && t.mk != nil && !(i > 0 && st.toks[i-1].kind == tWord && st.d.KnownCityWord(st.toks[i-1].fold)) {
+		if t.fold == "кала" && t.mk != nil && !(i > 0 && st.toks[i-1].kind == tWord && st.cityBeforeKala(st.toks[i-1], *t)) {
 			t.mk = nil // "Жана кала" is a name
 		}
 		// Latin "of." or "of 12" is an office, unlike the "of" in "Republic of Kazakhstan"
@@ -207,4 +208,17 @@ func (st *state) segRange(seg int) (int, int) {
 		return -1, -1
 	}
 	return st.segs[seg][0], st.segs[seg][1]
+}
+
+// cityBeforeKala reports whether the word before "қала" is a city: a known one, or one with typos that was
+// glued to it: "шымекнтқала", "караганыдқала".
+func (st *state) cityBeforeKala(prev, t token) bool {
+	if st.d.KnownCityWord(prev.fold) {
+		return true
+	}
+	if !glued(prev, t) || !unicode.IsLower([]rune(t.text)[0]) {
+		return false
+	}
+	_, ok := st.d.LookupCity(prev.fold)
+	return ok
 }
