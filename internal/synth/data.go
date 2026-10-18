@@ -450,7 +450,7 @@ var cities = []City{
 		Old: list("Боровое"), Post: "0217", Village: true, Districts: []District{{"Бурабайский", "Бурабай"}},
 		Streets: villageStreets},
 	{Name: "Кордай", Province: "Жамбылская область", Weight: 0.35, Kaz: "Қордай", Latin: list("Korday", "Qorday"),
-		Old: list("Георгиевка"), Post: "0806", Village: true, Districts: []District{{"Кордайский", "Қордай"}},
+		Post: "0806", Village: true, Districts: []District{{"Кордайский", "Қордай"}}, // not the old name Георгиевка: villages of that name live in other regions
 		Streets: villageStreets},
 	{Name: "Шамалган", Province: "Алматинская область", Weight: 0.4, Kaz: "Шамалған", Latin: list("Shamalgan"),
 		Post: "0409", Village: true, Districts: []District{{"Карасайский", "Қарасай"}}, Streets: villageStreets},
